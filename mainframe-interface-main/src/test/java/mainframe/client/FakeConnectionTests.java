@@ -1,0 +1,117 @@
+package mainframe.client;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.util.Map;
+
+// AI-assisted: tests for FakeConnection drafted with Claude Code, reviewed by Yu.
+public class FakeConnectionTests {
+    @Test
+    void repliesWithScriptedListResponse() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("constantCategory.list", FakeConnection.list("LoanRateType", "LoanStatus"));
+
+        // Act
+        var message = new mainframe.client.messages.constantCategory.List(1, 20);
+        Status status = message.send(connection);
+
+        // Assert
+        var items = message.getItems();
+        Assertions.assertAll(
+                () -> Assertions.assertTrue(status.getWasSuccessful()),
+                () -> Assertions.assertEquals(2, message.getTotal()),
+                () -> Assertions.assertEquals("LoanRateType", items[0].getName()),
+                () -> Assertions.assertEquals(1, items[0].getId()),
+                () -> Assertions.assertEquals("LoanStatus", items[1].getName()),
+                () -> Assertions.assertEquals(2, items[1].getId())
+        );
+    }
+
+    @Test
+    void choosesResponseByRequestValues() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("constantItem.list", Map.of("category", "7"), FakeConnection.list("Fixed", "Floating"));
+        connection.whenRequested("constantItem.list", Map.of("category", "9"), FakeConnection.list("Weekly"));
+
+        // Act
+        var rateTypes = new mainframe.client.messages.constantItem.List(7, 1, 20);
+        rateTypes.send(connection);
+        var frequencies = new mainframe.client.messages.constantItem.List(9, 1, 20);
+        frequencies.send(connection);
+
+        // Assert
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(2, rateTypes.getItems().length),
+                () -> Assertions.assertEquals("Fixed", rateTypes.getItems()[0].getName()),
+                () -> Assertions.assertEquals(1, rateTypes.getItems()[0].getOrder()),
+                () -> Assertions.assertEquals(1, frequencies.getItems().length),
+                () -> Assertions.assertEquals("Weekly", frequencies.getItems()[0].getName())
+        );
+    }
+
+    @Test
+    void recordsSentRequests() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("constantCategory.list", FakeConnection.list(3, 1));
+
+        // Act
+        new mainframe.client.messages.constantCategory.List(2, 20).send(connection);
+
+        // Assert
+        var sent = connection.getSentRequests();
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(1, sent.size()),
+                () -> Assertions.assertEquals("constantCategory.list", sent.get(0).getRequestType()),
+                () -> Assertions.assertEquals("2", sent.get(0).getValue("page"))
+        );
+    }
+
+    @Test
+    void returnsRejection() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("constantCategory.list", FakeConnection.rejected("Invalid page"));
+
+        // Act
+        Status status = new mainframe.client.messages.constantCategory.List(1, 20).send(connection);
+
+        // Assert
+        Assertions.assertAll(
+                () -> Assertions.assertFalse(status.getWasSuccessful()),
+                () -> Assertions.assertEquals(StatusMessage.SERVER_FAILURE.getCode(), status.getErrorCode()),
+                () -> Assertions.assertEquals("Invalid page", status.getErrorMessage())
+        );
+    }
+
+    @Test
+    void returnsNetworkFailure() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("constantCategory.list", FakeConnection.networkDown());
+
+        // Act
+        Status status = new mainframe.client.messages.constantCategory.List(1, 20).send(connection);
+
+        // Assert
+        Assertions.assertAll(
+                () -> Assertions.assertFalse(status.getWasSuccessful()),
+                () -> Assertions.assertEquals(StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode(), status.getErrorCode())
+        );
+    }
+
+    @Test
+    void failsLoudlyWhenNothingIsScripted() {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+
+        // Act and Assert
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> new mainframe.client.messages.constantCategory.List(1, 20).send(connection));
+    }
+}
