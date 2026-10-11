@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-// AI-assisted: scriptable test Connection drafted with Claude Code, reviewed by Yu.
 // A test Connection that replies based on what is asked. Unlike StubConnection,
 // it can return different responses for different requests, simulate rejections
 // and network failures, and records every request it receives.

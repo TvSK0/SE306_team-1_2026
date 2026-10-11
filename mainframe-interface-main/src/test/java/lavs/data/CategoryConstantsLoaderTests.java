@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
-// AI-assisted: tests drafted with Claude Code, reviewed by Yu.
 // TEMPORARY: once the loader uses Scott's gateway, swap FakeConnection here for
 // whatever fake the gateway takes (or keep FakeConnection under a real gateway).
 public class CategoryConstantsLoaderTests {

@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.Map;
 
-// AI-assisted: tests for FakeConnection drafted with Claude Code, reviewed by Yu.
 public class FakeConnectionTests {
     @Test
     void repliesWithScriptedListResponse() throws IOException {
