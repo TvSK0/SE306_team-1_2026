@@ -15,7 +15,7 @@ import java.util.Map;
 
 // Loads every category constant from the mainframe: constantCategory.list for the
 // categories, then constantItem.list for each category's values, page by page.
-public class CategoryConstantsLoader {
+public class CategoryConstantsLoader implements ConstantsSource {
     public static final long DEFAULT_PAGE_SIZE = 100;
 
     // TEMPORARY: swap this Connection for Scott's gateway once it exists, so only
@@ -34,6 +34,7 @@ public class CategoryConstantsLoader {
 
     // Returns every category name mapped to its values, sorted by order.
     // All or nothing: if any request fails, no values are returned.
+    @Override
     public ConstantsLoadResult load() {
         try {
             Map<String, List<String>> values = new HashMap<>();
