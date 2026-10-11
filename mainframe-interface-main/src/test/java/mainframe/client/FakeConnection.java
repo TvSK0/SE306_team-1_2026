@@ -68,16 +68,17 @@ public class FakeConnection implements Connection {
         // Don't do anything
     }
 
-    // a successful list response; items get ids firstId, firstId + 1, ... and orders 1, 2, ...
+    // a successful list response; items get ids and orders firstId, firstId + 1, ...
+    // so a later page continues the numbering of the page before it
     public static MessageResponse list(long total, long firstId, String... names) {
         HashMap<String, String> values = new HashMap<>();
-        values.put("page", "1");
         values.put("total", Long.toString(total));
         values.put("items", Integer.toString(names.length));
         for (int i = 1; i <= names.length; i++) {
-            values.put(i + ":id", Long.toString(firstId + i - 1));
+            String number = Long.toString(firstId + i - 1);
+            values.put(i + ":id", number);
             values.put(i + ":name", names[i - 1]);
-            values.put(i + ":order", Integer.toString(i));
+            values.put(i + ":order", number);
         }
         return success(values);
     }
