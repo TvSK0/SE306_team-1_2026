@@ -13,6 +13,11 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <JUnit.version>5.10.1</JUnit.version>
+        <!-- AI-assisted: pinned for the build/test/coverage setup -->
+        <mockito.version>5.11.0</mockito.version>
+        <jacoco.version>0.8.12</jacoco.version>
+        <!-- CI fails the build when logic (branch) coverage drops below this -->
+        <coverage.minimum>0.95</coverage.minimum>
     </properties>
 
     <dependencyManagement>
@@ -43,6 +48,111 @@
             <artifactId>json-simple</artifactId>
             <version>1.1.1</version>
         </dependency>
+        <!-- AI-assisted: added for the build/test/coverage setup -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- AI-assisted: runs tests. By default we skip the starter tests that call
+                 the live shared mainframe HTTP server (mainframe.client.messages.* and
+                 HttpConnectionTests) so `mvn verify` is deterministic without network
+                 access to that server - see README. Run `./mvnw verify -Pfull` to run
+                 everything, including those, when you do have access to it. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <excludes>
+                        <exclude>mainframe/client/HttpConnectionTests.java</exclude>
+                        <exclude>mainframe/client/messages/*.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <!-- AI-assisted: instruments tests, writes target/site/jacoco report,
+                 and fails `mvn verify` when branch (logic) coverage drops below
+                 ${coverage.minimum}. The provided mainframe.client scaffolding
+                 (data-only message classes exercised by the live-server tests
+                 above) is excluded from the ratio - the gate applies to the
+                 team's own logic code. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>mainframe/client/**</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.minimum}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- AI-assisted: `./mvnw verify -Pfull` runs the starter tests against the
+             real mainframe server too (needs network access to it). -->
+        <profile>
+            <id>full</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override"/>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>
