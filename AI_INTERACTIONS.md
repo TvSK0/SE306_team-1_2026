@@ -8,6 +8,23 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-15 - Aum, Claude (Opus 5.5)
+
+**Prompt (summarised):** generate unit tests for the Phase 1 model classes
+in `lavs.model`.
+
+**What it produced** on `feature/model-classes`:
+
+- Unit tests for `Customer`, `Address`, `PhoneNumber`, `Email`, `Employer`,
+  `Loan` and `LoanCoborrower` (`src/test/java/lavs/model`).
+
+**Not AI-generated:** the model classes themselves were written by hand.
+
+**Marking:** each test file carries a `// AI-assisted` comment. Generating
+these tests was agreed by the team as an exception to the hand-written rule.
+
+---
+
 ## 2026-10-11 - Gabeliu, Claude Code (Sonnet 5)
 
 **Prompt (summarised):** work through the sprint backlog (build/test/CI
