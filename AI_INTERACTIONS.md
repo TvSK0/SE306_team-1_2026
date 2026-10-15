@@ -18,8 +18,6 @@ in `lavs.model`.
 - Unit tests for `Customer`, `Address`, `PhoneNumber`, `Email`, `Employer`,
   `Loan` and `LoanCoborrower` (`src/test/java/lavs/model`).
 
-**Not AI-generated:** the model classes themselves were written by hand.
-
 **Marking:** each test file carries a `// AI-assisted` comment. Generating
 these tests was agreed by the team as an exception to the hand-written rule.
 
