@@ -1,0 +1,45 @@
+#!/bin/sh
+# AI-assisted: minimal Maven wrapper for macOS/Linux/Git Bash.
+# Downloads and caches the Maven version pinned in .mvn/wrapper/maven-wrapper.properties,
+# then runs it with the given arguments. Lets a fresh clone build without Maven pre-installed.
+
+set -e
+
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+PROPS_FILE="$SCRIPT_DIR/.mvn/wrapper/maven-wrapper.properties"
+CACHE_DIR="$HOME/.m2/wrapper/dists"
+
+if [ ! -f "$PROPS_FILE" ]; then
+  echo "Could not find $PROPS_FILE" >&2
+  exit 1
+fi
+
+DIST_URL=$(grep '^distributionUrl=' "$PROPS_FILE" | cut -d'=' -f2-)
+
+if [ -z "$DIST_URL" ]; then
+  echo "distributionUrl not set in $PROPS_FILE" >&2
+  exit 1
+fi
+
+DIST_ZIP_NAME=$(basename "$DIST_URL")
+DIST_DIR_NAME=$(echo "$DIST_ZIP_NAME" | sed 's/-bin\.zip$//')
+MAVEN_HOME="$CACHE_DIR/$DIST_DIR_NAME"
+
+if [ ! -x "$MAVEN_HOME/bin/mvn" ]; then
+  mkdir -p "$CACHE_DIR"
+  ZIP_PATH="$CACHE_DIR/$DIST_ZIP_NAME"
+  echo "Downloading $DIST_URL ..."
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL -o "$ZIP_PATH" "$DIST_URL"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -O "$ZIP_PATH" "$DIST_URL"
+  else
+    echo "Need curl or wget to download the Maven distribution" >&2
+    exit 1
+  fi
+  unzip -q -o "$ZIP_PATH" -d "$CACHE_DIR"
+  rm -f "$ZIP_PATH"
+  chmod +x "$MAVEN_HOME/bin/mvn"
+fi
+
+exec "$MAVEN_HOME/bin/mvn" "$@"

@@ -1,0 +1,46 @@
+# AI-assisted: CI for pull requests into main.
+# Builds the app, runs the test suite and enforces the 95% logic (branch)
+# coverage gate configured in mainframe-interface-main/pom.xml. Pair this
+# workflow with a branch protection rule on `main` that requires this job
+# ("build-and-test") to pass plus one approving review before merging
+# (Settings > Branches > Branch protection rules - needs repo admin access).
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build, test and check coverage
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: mainframe-interface-main
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+          cache-dependency-path: mainframe-interface-main/pom.xml
+
+      - name: Build, test and check coverage
+        run: ./mvnw.cmd -B clean verify
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage-report
+          path: mainframe-interface-main/target/site/jacoco/
+          if-no-files-found: ignore

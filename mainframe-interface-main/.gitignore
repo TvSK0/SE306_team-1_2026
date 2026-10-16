@@ -1,2 +1,7 @@
 **/*.class
 **/*.java.bak
+
+# AI-assisted: build output and the Maven wrapper's downloaded distribution cache
+target/
+*.iml
+
