@@ -8,6 +8,32 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-18 - Aum, Claude (Opus 5.5)
+
+**Prompt (summarised):** assist with Phase 2 local store and sync — result
+types, the background service, and tests.
+
+**What it produced** on `feature/local-store-sync`:
+
+- `lavs.data`: `SendResult`, `DuplicateCheckResult`, `UploadGateway` (the
+  interface Scott's gateway will implement, marked TEMPORARY).
+- `lavs.logic.SyncService` - single background sync thread; queuing,
+  draining, future completion and listener notification.
+- Unit tests for all of the above, plus tests for the data store and the
+  sync processor that Aum wrote: `LocalDatabaseTests`,
+  `SqlitePendingChangeStoreTests`, `CategoryConstantStoreTests`,
+  `ResultTypesTests`, `InMemoryChangeQueue` (test helper),
+  `FakeUploadGateway` (scripted test helper), `SyncProcessorTests`,
+  `SyncServiceTests`, `TemporaryNumbersTests`, `PendingChangeTests`.
+- `sqlite-jdbc` dependency added to `pom.xml`.
+
+**Marking:** each file that carries a `// AI-assisted` comment. Generating
+these tests was agreed by the team as an exception to the hand-written rule.
+
+---
+
+---
+
 ## 2026-10-15 - Aum, Claude (Opus 5.5)
 
 **Prompt (summarised):** generate unit tests for the Phase 1 model classes
