@@ -51,28 +51,55 @@ public class LoanService {
     }
 
     // Checks every field and returns one FieldError per bad field, named with the
-    // LoanDetailsInput constants.
+    // LoanDetailsInput constants. Each field's checks run in order and stop at the
+    // first problem, so a field never reports two errors at once.
     public ValidationResult validate(LoanDetailsInput input) {
         ValidationResult result = new ValidationResult();
-        result.addIfPresent(firstOf(
-                Validators.required(LoanDetailsInput.PRINCIPAL, input.principal()),
-                Validators.currency(LoanDetailsInput.PRINCIPAL, input.principal()),
-                moreThanZero(LoanDetailsInput.PRINCIPAL, input.principal())));
-        result.addIfPresent(Validators.required(LoanDetailsInput.RATE_TYPE, input.rateType()));
-        result.addIfPresent(firstOf(
-                Validators.required(LoanDetailsInput.RATE_AMOUNT, input.rateAmount()),
-                rate(LoanDetailsInput.RATE_AMOUNT, input.rateAmount())));
-        result.addIfPresent(Validators.required(LoanDetailsInput.RATE_FREQUENCY, input.rateFrequency()));
-        result.addIfPresent(firstOf(
-                Validators.required(LoanDetailsInput.PAYMENT_AMOUNT, input.paymentAmount()),
-                Validators.currency(LoanDetailsInput.PAYMENT_AMOUNT, input.paymentAmount())));
-        result.addIfPresent(Validators.required(LoanDetailsInput.PAYMENT_FREQUENCY, input.paymentFrequency()));
-        result.addIfPresent(firstOf(
-                Validators.required(LoanDetailsInput.START_DATE, input.startDate()),
-                Validators.date(LoanDetailsInput.START_DATE, input.startDate())));
-        result.addIfPresent(firstOf(
-                Validators.date(LoanDetailsInput.RENEWAL_DATE, input.renewalDate()),
-                renewalNotBeforeStart(input.startDate(), input.renewalDate())));
+
+        // principal: filled in, a money amount, and more than 0
+        Optional<FieldError> principalError = Validators.required(LoanDetailsInput.PRINCIPAL, input.getPrincipal());
+        if (principalError.isEmpty()) {
+            principalError = Validators.currency(LoanDetailsInput.PRINCIPAL, input.getPrincipal());
+        }
+        if (principalError.isEmpty()) {
+            principalError = moreThanZero(LoanDetailsInput.PRINCIPAL, input.getPrincipal());
+        }
+        result.addIfPresent(principalError);
+
+        result.addIfPresent(Validators.required(LoanDetailsInput.RATE_TYPE, input.getRateType()));
+
+        // rate amount: filled in and a number
+        Optional<FieldError> rateError = Validators.required(LoanDetailsInput.RATE_AMOUNT, input.getRateAmount());
+        if (rateError.isEmpty()) {
+            rateError = rate(LoanDetailsInput.RATE_AMOUNT, input.getRateAmount());
+        }
+        result.addIfPresent(rateError);
+
+        result.addIfPresent(Validators.required(LoanDetailsInput.RATE_FREQUENCY, input.getRateFrequency()));
+
+        // payment amount: filled in and a money amount
+        Optional<FieldError> paymentError = Validators.required(LoanDetailsInput.PAYMENT_AMOUNT, input.getPaymentAmount());
+        if (paymentError.isEmpty()) {
+            paymentError = Validators.currency(LoanDetailsInput.PAYMENT_AMOUNT, input.getPaymentAmount());
+        }
+        result.addIfPresent(paymentError);
+
+        result.addIfPresent(Validators.required(LoanDetailsInput.PAYMENT_FREQUENCY, input.getPaymentFrequency()));
+
+        // start date: filled in and a real date
+        Optional<FieldError> startError = Validators.required(LoanDetailsInput.START_DATE, input.getStartDate());
+        if (startError.isEmpty()) {
+            startError = Validators.date(LoanDetailsInput.START_DATE, input.getStartDate());
+        }
+        result.addIfPresent(startError);
+
+        // renewal date: optional, but a real date and not before the start date
+        Optional<FieldError> renewalError = Validators.date(LoanDetailsInput.RENEWAL_DATE, input.getRenewalDate());
+        if (renewalError.isEmpty()) {
+            renewalError = renewalNotBeforeStart(input.getStartDate(), input.getRenewalDate());
+        }
+        result.addIfPresent(renewalError);
+
         return result;
     }
 
@@ -86,12 +113,12 @@ public class LoanService {
             return LoanSaveResult.invalid(validation);
         }
 
-        var message = new mainframe.client.messages.loan.Create(
+        mainframe.client.messages.loan.Create message = new mainframe.client.messages.loan.Create(
                 customerNumber,
-                Double.parseDouble(input.paymentAmount()), input.paymentFrequency(),
-                Double.parseDouble(input.principal()),
-                Double.parseDouble(input.rateAmount()), input.rateFrequency(), input.rateType(),
-                blankToNull(input.renewalDate()), input.startDate());
+                Double.parseDouble(input.getPaymentAmount()), input.getPaymentFrequency(),
+                Double.parseDouble(input.getPrincipal()),
+                Double.parseDouble(input.getRateAmount()), input.getRateFrequency(), input.getRateType(),
+                blankToNull(input.getRenewalDate()), input.getStartDate());
         Status status = message.send(_connection);
         if (!status.getWasSuccessful()) {
             return LoanSaveResult.failed(status);
@@ -113,12 +140,12 @@ public class LoanService {
             return LoanSaveResult.invalid(validation);
         }
 
-        var message = new mainframe.client.messages.loan.Update(
+        mainframe.client.messages.loan.Update message = new mainframe.client.messages.loan.Update(
                 customerNumber, loanNumber,
-                Double.parseDouble(input.paymentAmount()), input.paymentFrequency(),
-                Double.parseDouble(input.principal()),
-                Double.parseDouble(input.rateAmount()), input.rateFrequency(), input.rateType(),
-                blankToNull(input.renewalDate()), input.startDate());
+                Double.parseDouble(input.getPaymentAmount()), input.getPaymentFrequency(),
+                Double.parseDouble(input.getPrincipal()),
+                Double.parseDouble(input.getRateAmount()), input.getRateFrequency(), input.getRateType(),
+                blankToNull(input.getRenewalDate()), input.getStartDate());
         Status status = message.send(_connection);
         if (!status.getWasSuccessful()) {
             return LoanSaveResult.failed(status);
@@ -143,25 +170,15 @@ public class LoanService {
         return loan;
     }
 
-    // the first error from a field's checks, so each field reports one problem at a time
-    @SafeVarargs
-    private static Optional<FieldError> firstOf(Optional<FieldError>... checks) {
-        for (Optional<FieldError> check : checks) {
-            if (check.isPresent()) return check;
-        }
-        return Optional.empty();
-    }
-
-    // skips values the other checks already reject, so it only judges real numbers
+    // only called once Validators.currency has passed, so value is a valid number
     private static Optional<FieldError> moreThanZero(String fieldName, String value) {
-        if (value == null || !RATE.matcher(value).matches()) return Optional.empty();
         if (new BigDecimal(value).signum() > 0) return Optional.empty();
         return Optional.of(new FieldError(fieldName, "must be more than 0"));
     }
 
-    // a blank value is left to Validators.required, which firstOf reports first
+    // only called once Validators.required has passed, so value is not blank
     private static Optional<FieldError> rate(String fieldName, String value) {
-        if (value == null || RATE.matcher(value).matches()) return Optional.empty();
+        if (RATE.matcher(value).matches()) return Optional.empty();
         return Optional.of(new FieldError(fieldName, "must be a non-negative number, e.g. 6.29"));
     }
 

@@ -13,10 +13,10 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class LoanServiceTests {
     private static final String CUSTOMER_NUMBER = "C-10234";
@@ -397,7 +397,16 @@ public class LoanServiceTests {
         LoanDetailsInput input = LoanDetailsInput.fromLoan(loan);
 
         // Assert
-        Assertions.assertEquals(VALID, input);
+        Assertions.assertAll(
+                () -> Assertions.assertEquals("450000.00", input.getPrincipal()),
+                () -> Assertions.assertEquals("Fixed", input.getRateType()),
+                () -> Assertions.assertEquals("6.29", input.getRateAmount()),
+                () -> Assertions.assertEquals("Yearly", input.getRateFrequency()),
+                () -> Assertions.assertEquals("2786.00", input.getPaymentAmount()),
+                () -> Assertions.assertEquals("Monthly", input.getPaymentFrequency()),
+                () -> Assertions.assertEquals("2026-11-01", input.getStartDate()),
+                () -> Assertions.assertEquals("2027-11-01", input.getRenewalDate())
+        );
     }
 
     @Test
@@ -409,7 +418,16 @@ public class LoanServiceTests {
         LoanDetailsInput input = LoanDetailsInput.fromLoan(loan);
 
         // Assert
-        Assertions.assertEquals(new LoanDetailsInput("", null, "", null, "", null, "", ""), input);
+        Assertions.assertAll(
+                () -> Assertions.assertEquals("", input.getPrincipal()),
+                () -> Assertions.assertNull(input.getRateType()),
+                () -> Assertions.assertEquals("", input.getRateAmount()),
+                () -> Assertions.assertNull(input.getRateFrequency()),
+                () -> Assertions.assertEquals("", input.getPaymentAmount()),
+                () -> Assertions.assertNull(input.getPaymentFrequency()),
+                () -> Assertions.assertEquals("", input.getStartDate()),
+                () -> Assertions.assertEquals("", input.getRenewalDate())
+        );
     }
 
     private static Map<String, String> savedLoanReply(LoanDetailsInput input) {
@@ -417,18 +435,22 @@ public class LoanServiceTests {
         reply.put("loanNumber", LOAN_NUMBER);
         reply.put("customerNumber", CUSTOMER_NUMBER);
         reply.put("status", "New");
-        reply.put("principal", input.principal());
-        reply.put("rateType", input.rateType());
-        reply.put("rateAmount", input.rateAmount());
-        reply.put("rateFrequency", input.rateFrequency());
-        reply.put("paymentAmount", input.paymentAmount());
-        reply.put("paymentFrequency", input.paymentFrequency());
-        reply.put("startDate", input.startDate());
-        reply.put("renewalDate", input.renewalDate());
+        reply.put("principal", input.getPrincipal());
+        reply.put("rateType", input.getRateType());
+        reply.put("rateAmount", input.getRateAmount());
+        reply.put("rateFrequency", input.getRateFrequency());
+        reply.put("paymentAmount", input.getPaymentAmount());
+        reply.put("paymentFrequency", input.getPaymentFrequency());
+        reply.put("startDate", input.getStartDate());
+        reply.put("renewalDate", input.getRenewalDate());
         return reply;
     }
 
     private static List<String> fieldNames(ValidationResult result) {
-        return result.getErrors().stream().map(FieldError::getFieldName).collect(Collectors.toList());
+        List<String> names = new ArrayList<>();
+        for (FieldError error : result.getErrors()) {
+            names.add(error.getFieldName());
+        }
+        return names;
     }
 }
