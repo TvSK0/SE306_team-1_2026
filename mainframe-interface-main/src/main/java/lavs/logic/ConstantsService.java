@@ -4,9 +4,9 @@ package lavs.logic;
 import lavs.data.ConstantsLoadResult;
 import lavs.data.ConstantsSource;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 // Keeps the category constants in memory so forms can fill their dropdowns without
 // asking the mainframe each time. refresh() is meant to run on a background thread
@@ -28,10 +28,11 @@ public class ConstantsService {
         ConstantsLoadResult result = _source.load();
         if (result.getOutcome() == ConstantsLoadResult.Outcome.SUCCESS) {
             // copy every list so the source cannot change the cache afterwards
-            _values = result.getValues().entrySet().stream()
-                    .collect(Collectors.toUnmodifiableMap(
-                            Map.Entry::getKey,
-                            entry -> List.copyOf(entry.getValue())));
+            Map<String, List<String>> copy = new HashMap<>();
+            for (String category : result.getValues().keySet()) {
+                copy.put(category, List.copyOf(result.getValues().get(category)));
+            }
+            _values = Map.copyOf(copy);
         }
         return result;
     }

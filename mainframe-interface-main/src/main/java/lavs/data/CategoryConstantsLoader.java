@@ -8,7 +8,6 @@ import mainframe.client.StatusMessage;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,38 +46,49 @@ public class CategoryConstantsLoader implements ConstantsSource {
         }
     }
 
+    // Requests pages 1, 2, ... until every category is collected. Also stops on an
+    // empty page, so a wrong total from the server cannot cause an endless loop.
     private List<mainframe.client.messages.constantCategory.List.Item> loadCategories() throws LoadFailure {
-        return loadAllPages(page -> {
-            // a new message per page, because message objects keep the items from earlier sends
-            var message = new mainframe.client.messages.constantCategory.List(page, _pageSize);
-            send(message);
-            return new Page<>(List.of(message.getItems()), message.getTotal());
-        });
-    }
-
-    private List<String> loadValues(long categoryId) throws LoadFailure {
-        List<mainframe.client.messages.constantItem.List.Item> items = loadAllPages(page -> {
-            var message = new mainframe.client.messages.constantItem.List(categoryId, page, _pageSize);
-            send(message);
-            return new Page<>(List.of(message.getItems()), message.getTotal());
-        });
-        return items.stream()
-                .sorted(Comparator.comparing(mainframe.client.messages.constantItem.List.Item::getOrder))
-                .map(mainframe.client.messages.constantItem.List.Item::getName)
-                .toList();
-    }
-
-    // Requests pages 1, 2, ... until every item is collected. Also stops on an empty
-    // page, so a wrong total from the server cannot cause an endless loop.
-    private static <T> List<T> loadAllPages(PageRequest<T> request) throws LoadFailure {
-        List<T> all = new ArrayList<>();
+        List<mainframe.client.messages.constantCategory.List.Item> all = new ArrayList<>();
         long page = 1;
         while (true) {
-            Page<T> result = request.send(page);
-            all.addAll(result.items());
-            if (result.items().isEmpty() || all.size() >= result.total()) return all;
+            // a new message per page, because message objects keep the items from earlier sends
+            mainframe.client.messages.constantCategory.List message =
+                    new mainframe.client.messages.constantCategory.List(page, _pageSize);
+            send(message);
+            mainframe.client.messages.constantCategory.List.Item[] items = message.getItems();
+            for (mainframe.client.messages.constantCategory.List.Item item : items) {
+                all.add(item);
+            }
+            if (items.length == 0 || all.size() >= message.getTotal()) return all;
             page++;
         }
+    }
+
+    // Same paging as loadCategories, for one category's values. Returns the value
+    // names sorted by their order number.
+    private List<String> loadValues(long categoryId) throws LoadFailure {
+        List<mainframe.client.messages.constantItem.List.Item> all = new ArrayList<>();
+        long page = 1;
+        while (true) {
+            mainframe.client.messages.constantItem.List message =
+                    new mainframe.client.messages.constantItem.List(categoryId, page, _pageSize);
+            send(message);
+            mainframe.client.messages.constantItem.List.Item[] items = message.getItems();
+            for (mainframe.client.messages.constantItem.List.Item item : items) {
+                all.add(item);
+            }
+            if (items.length == 0 || all.size() >= message.getTotal()) break;
+            page++;
+        }
+
+        // smallest order number first
+        all.sort((first, second) -> Long.compare(first.getOrder(), second.getOrder()));
+        List<String> names = new ArrayList<>();
+        for (mainframe.client.messages.constantItem.List.Item item : all) {
+            names.add(item.getName());
+        }
+        return names;
     }
 
     // TEMPORARY: swap this for Scott's gateway, which will turn a Status into
@@ -95,12 +105,6 @@ public class CategoryConstantsLoader implements ConstantsSource {
             throw new LoadFailure(ConstantsLoadResult.networkFailure(status.getErrorMessage()));
         }
         throw new LoadFailure(ConstantsLoadResult.rejected(status.getErrorMessage()));
-    }
-
-    private record Page<T>(List<T> items, long total) {}
-
-    private interface PageRequest<T> {
-        Page<T> send(long page) throws LoadFailure;
     }
 
     // Used only inside this class to stop loading at the first failure;
