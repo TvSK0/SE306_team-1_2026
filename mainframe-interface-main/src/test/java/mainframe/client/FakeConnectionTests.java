@@ -113,4 +113,64 @@ public class FakeConnectionTests {
                 IllegalStateException.class,
                 () -> new mainframe.client.messages.constantCategory.List(1, 20).send(connection));
     }
+
+    // AI-assisted: going offline partway through a test makes send() return a
+    // network failure instead of the scripted response
+    @Test
+    void returnsNetworkFailureAfterGoingOfflineMidTest() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("constantCategory.list", FakeConnection.list("LoanRateType"));
+        Status before = new mainframe.client.messages.constantCategory.List(1, 20).send(connection);
+
+        // Act
+        connection.setIsConnected(false);
+        Status after = new mainframe.client.messages.constantCategory.List(1, 20).send(connection);
+
+        // Assert
+        Assertions.assertAll(
+                () -> Assertions.assertTrue(before.getWasSuccessful()),
+                () -> Assertions.assertFalse(after.getWasSuccessful()),
+                () -> Assertions.assertEquals(StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode(), after.getErrorCode()),
+                () -> Assertions.assertFalse(connection.isConnected())
+        );
+    }
+
+    // AI-assisted
+    @Test
+    void resumesScriptedResponsesAfterReconnecting() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("constantCategory.list", FakeConnection.list("LoanRateType"));
+        connection.setIsConnected(false);
+        new mainframe.client.messages.constantCategory.List(1, 20).send(connection);
+
+        // Act
+        connection.setIsConnected(true);
+        Status status = new mainframe.client.messages.constantCategory.List(1, 20).send(connection);
+
+        // Assert
+        Assertions.assertAll(
+                () -> Assertions.assertTrue(status.getWasSuccessful()),
+                () -> Assertions.assertTrue(connection.isConnected())
+        );
+    }
+
+    // AI-assisted
+    @Test
+    void recordsRequestsSentWhileOffline() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.setIsConnected(false);
+
+        // Act
+        new mainframe.client.messages.constantCategory.List(1, 20).send(connection);
+
+        // Assert
+        var sent = connection.getSentRequests();
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(1, sent.size()),
+                () -> Assertions.assertEquals("constantCategory.list", sent.get(0).getRequestType())
+        );
+    }
 }

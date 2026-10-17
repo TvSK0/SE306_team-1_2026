@@ -30,6 +30,9 @@ public class FakeConnection implements Connection {
         return List.copyOf(_sentRequests);
     }
 
+    // AI-assisted: toggle this mid-test to simulate the connection dropping out.
+    // While offline, send() returns networkDown() instead of consulting the
+    // scripted rules below - call setIsConnected(true) again to "reconnect".
     public void setIsConnected(boolean isConnected) {
         _isConnected = isConnected;
     }
@@ -41,6 +44,12 @@ public class FakeConnection implements Connection {
     @Override
     public MessageResponse send(MessageRequest request) {
         _sentRequests.add(request);
+        // AI-assisted: the one behaviour this card adds - previously
+        // setIsConnected(false) only changed what isConnected() reported;
+        // send() ignored it and kept returning scripted responses.
+        if (!_isConnected) {
+            return networkDown();
+        }
         for (Rule rule : _rules) {
             if (rule.matches(request)) return rule.response;
         }
