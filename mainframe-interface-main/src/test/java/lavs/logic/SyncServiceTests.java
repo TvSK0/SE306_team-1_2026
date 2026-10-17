@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
@@ -29,6 +30,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 // AI-assisted: tests generated with Claude (team-approved).
 class SyncServiceTests {
@@ -207,11 +211,78 @@ class SyncServiceTests {
         };
         try (SyncService throwingService = SyncService.create(queue, throwing)) {
             assertNull(throwingService.getLastError());
-            CompletableFuture<SyncStep> future = throwingService.queue("customer.addEmail", "C1", null, Map.of());
-            eventually(() -> throwingService.getLastError() != null);
+
+            SyncStep step = await(throwingService.queue("customer.addEmail", "C1", null, Map.of()));
+
             assertSame(boom, throwingService.getLastError());
-            assertTrue(!future.isDone());
+            assertEquals(SyncStep.Outcome.WAITING, step.getOutcome());
+            assertEquals(1, throwingService.getPendingCount());
         }
+    }
+
+    // AI-assisted: tests for the error and close fixes.
+    @Test
+    void errorWhenTheQueueCannotBeReadFailsTheWaitingFuture() {
+        RuntimeException boom = new IllegalStateException("disk error");
+        ChangeQueue broken = new InMemoryChangeQueue() {
+            private boolean failing;
+
+            @Override
+            public synchronized Optional<PendingChange> next() {
+                failing = true;
+                throw boom;
+            }
+
+            @Override
+            public synchronized List<PendingChange> all() {
+                if (failing) {
+                    throw boom;
+                }
+                return super.all();
+            }
+        };
+        try (SyncService brokenService = SyncService.create(broken, gateway)) {
+            ExecutionException error = assertThrows(ExecutionException.class,
+                    () -> await(brokenService.queue("customer.addEmail", "C1", null, Map.of())));
+            assertSame(boom, error.getCause());
+            assertSame(boom, brokenService.getLastError());
+        }
+    }
+
+    @Test
+    void closeLetsSavesAlreadyQueuedReachTheLocalFile() {
+        gateway.offline = true;
+        CompletableFuture<SyncStep> first = service.queue("customer.addAddress", "C1", null, Map.of());
+        CompletableFuture<SyncStep> second = service.queue("customer.addEmail", "C1", null, Map.of());
+
+        service.close();
+
+        assertTrue(first.isDone());
+        assertTrue(second.isDone());
+        assertEquals(2, new SqlitePendingChangeStore(new LocalDatabase(folder.resolve("lavs.db"))).all().size());
+    }
+
+    @Test
+    void closeStopsTheThreadIfItDoesNotFinishInTime() throws Exception {
+        ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+        when(executor.awaitTermination(SyncService.CLOSE_WAIT_SECONDS, TimeUnit.SECONDS)).thenReturn(false);
+
+        new SyncService(queue, gateway, executor).close();
+
+        verify(executor).shutdown();
+        verify(executor).shutdownNow();
+    }
+
+    @Test
+    void closeWhenInterruptedStopsTheThreadAndKeepsTheInterrupt() throws Exception {
+        ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+        when(executor.awaitTermination(SyncService.CLOSE_WAIT_SECONDS, TimeUnit.SECONDS))
+                .thenThrow(new InterruptedException());
+
+        new SyncService(queue, gateway, executor).close();
+
+        verify(executor).shutdownNow();
+        assertTrue(Thread.interrupted());
     }
 
     @Test

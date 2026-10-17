@@ -35,6 +35,9 @@ public class SyncService implements AutoCloseable {
     private final List<Runnable> listeners = new CopyOnWriteArrayList<>();
     private volatile RuntimeException lastError;
 
+    // How long close() waits for the sync thread before stopping it.
+    static final long CLOSE_WAIT_SECONDS = 5;
+
     public SyncService(ChangeQueue queue, UploadGateway gateway, ScheduledExecutorService executor) {
         this.queue = queue;
         this.gateway = gateway;
@@ -60,7 +63,9 @@ public class SyncService implements AutoCloseable {
     }
 
     /**
-     * Queues a save and tries to send it straight away.
+     * Queues a save and tries to send it straight away. If something unexpected goes wrong while
+     * uploading, the change stays queued, the future completes as WAITING and getLastError() has
+     * the details.
      *
      * @param messageType    the mainframe message, e.g. "customer.addAddress"
      * @param customerNumber the customer the change belongs to (may be temporary)
@@ -137,9 +142,20 @@ public class SyncService implements AutoCloseable {
         return lastError;
     }
 
+    // AI-assisted: waits for the sync thread so saves already handed to it reach the local file,
+    // and nothing still has the file open once this returns (Windows can't delete an open file).
+    /** Stops the sync thread after it finishes what it was given, waiting up to CLOSE_WAIT_SECONDS. */
     @Override
     public void close() {
-        executor.shutdownNow();
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(CLOSE_WAIT_SECONDS, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 
     void retryIfConnected() {
@@ -165,8 +181,22 @@ public class SyncService implements AutoCloseable {
             settleWaiting();
         } catch (RuntimeException e) {
             lastError = e;
+            answerWaitingAfterError(e);
             notifyListeners();
         }
+    }
+
+    // AI-assisted: a screen waiting on a result shouldn't wait forever after an unexpected error.
+    // The changes are still saved, so their results come from the queue (usually WAITING). Any
+    // future left over (eg the queue can't be read either) fails with the original error.
+    private void answerWaitingAfterError(RuntimeException error) {
+        try {
+            settleWaiting();
+        } catch (RuntimeException unreadable) {
+            // handled below: whatever is still waiting fails with the original error
+        }
+        waiting.values().forEach(future -> future.completeExceptionally(error));
+        waiting.clear();
     }
 
     // Completes the futures of changes that were not sent this round, from their current status.
