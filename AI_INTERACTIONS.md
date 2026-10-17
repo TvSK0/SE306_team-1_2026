@@ -8,6 +8,28 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-18 - Aum, Claude (Opus 5.5) - fixes from pre-push testing
+
+**Prompt (summarised):** test the local store and sync work before pushing and
+fix anything that could fail.
+
+**What it changed** on `feature/local-store-sync`:
+
+- `SyncService.close()` waits for the sync thread, so saves already queued
+  reach the local file and the SQLite file is released (an open file stops
+  Windows CI deleting test temp folders).
+- `SyncService` no longer leaves a screen waiting forever after an unexpected
+  upload error; the change stays queued and the result comes back as WAITING.
+- `SyncProcessor` never sends a change that still has the temporary number of
+  a paused or rejected record, including indirect cases (changes to a new loan
+  whose new customer is paused or rejected), and resumes those changes when
+  the MMM resolves the duplicate.
+- New tests for each fix in `SyncServiceTests` and `SyncProcessorTests`.
+
+**Marking:** the changed code carries `// AI-assisted` comments.
+
+---
+
 ## 2026-10-18 - Aum, Claude (Opus 5.5)
 
 **Prompt (summarised):** assist with Phase 2 local store and sync — result
