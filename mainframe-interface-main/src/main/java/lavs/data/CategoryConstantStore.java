@@ -11,7 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-// This keeps the category constants in the CategoryCosntant table so that dropdowns will
+// This keeps the category constants in the CategoryConstant table so that dropdowns will
 // still work offline. Values are kept per category in display order, matching ConstantsService.
 
 public class CategoryConstantStore {

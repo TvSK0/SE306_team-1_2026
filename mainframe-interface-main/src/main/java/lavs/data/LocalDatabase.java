@@ -7,7 +7,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 // The SQLite file on the MMM's laptop. This creates the PendingChange and CategoryConstant
-// tables the first time the fiel is opened, so saves will survive in different cases like 
+// tables the first time the file is opened, so saves will survive in different cases like 
 // a dropped connection or restart.
 public class LocalDatabase {
 

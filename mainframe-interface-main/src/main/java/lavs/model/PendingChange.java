@@ -45,7 +45,7 @@ public class PendingChange {
         return number.equals(customerNumber) || number.equals(createsNumber) || fields.containsValue(number);
     }
 
-    //Swaps every use of oldNumber with the newNumber (for customer number and field valiues)
+    //Swaps every use of oldNumber with the newNumber (for customer number and field values)
     public void replaceNumber(String oldNumber, String newNumber) {
         if (oldNumber.equals(customerNumber)) {
             customerNumber = newNumber;
