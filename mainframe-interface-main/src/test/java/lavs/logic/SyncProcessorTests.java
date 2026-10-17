@@ -42,6 +42,14 @@ class SyncProcessorTests {
         return processor.processNext().orElseThrow();
     }
 
+    private PendingChange addLoanFor(String customer) {
+        return queue.add(new PendingChange("loan.create", customer, "TMP-L", Map.of("customer", customer)));
+    }
+
+    private PendingChange addCoborrowerTo(String loan) {
+        return queue.add(new PendingChange("loan.addCoborrower", "C2", null, Map.of("loanNumber", loan)));
+    }
+
     @Test
     void nothingToDoWhenQueueIsEmpty() {
         assertTrue(processor.processNext().isEmpty());
@@ -209,6 +217,23 @@ class SyncProcessorTests {
                 () -> assertEquals("C5", processor.resolveNumber(TEMP)));
     }
 
+    // AI-assisted: another new customer that mentions the number must not be mistaken for its create.
+    @Test
+    void anotherNewCustomerThatMentionsTheNumberIsRepointedNotDropped() {
+        addCreateCustomer();
+        PendingChange referred = queue.add(new PendingChange("customer.create", "TMP-2", "TMP-2",
+                Map.of("referredBy", TEMP)));
+        gateway.answerDuplicate(DuplicateCheckResult.found(List.of("C5")));
+        next();
+
+        processor.useExistingCustomer(TEMP, "C5");
+
+        assertEquals(1, queue.all().size());
+        assertEquals(referred.getId(), queue.all().get(0).getId());
+        assertEquals("C5", referred.getFields().get("referredBy"));
+        assertEquals(PendingChange.Status.PENDING, referred.getStatus());
+    }
+
     @Test
     void confirmNewCustomerResumesAndSkipsTheSearch() {
         PendingChange create = addCreateCustomer();
@@ -271,5 +296,110 @@ class SyncProcessorTests {
                 () -> assertEquals("Not sent because change " + rejectedLoan.getId() + " was rejected",
                         forRejected.getStatusMessage()),
                 () -> assertEquals(PendingChange.Status.PENDING, forPending.getStatus()));
+    }
+
+    // AI-assisted: changes that use a paused or rejected record indirectly (through a new loan).
+    @Test
+    void changesToTheNewLoanOfAPausedCustomerArePausedAndResumedWithIt() {
+        addCreateCustomer();
+        PendingChange loan = addLoanFor(TEMP);
+        PendingChange coborrower = addCoborrowerTo("TMP-L");
+        gateway.answerDuplicate(DuplicateCheckResult.found(List.of("C5")));
+        next();
+
+        SyncStep held = next();
+
+        assertAll(
+                () -> assertEquals(SyncStep.Outcome.PAUSED, held.getOutcome()),
+                () -> assertEquals(coborrower.getId(), held.getChange().getId()),
+                () -> assertEquals("Possible existing customer: C5", held.getMessage()),
+                () -> assertEquals(PendingChange.Status.PAUSED, coborrower.getStatus()),
+                () -> assertEquals(PendingChange.Status.PAUSED, loan.getStatus()),
+                () -> assertTrue(gateway.sent.isEmpty()));
+        assertTrue(processor.processNext().isEmpty());
+
+        processor.confirmNewCustomer(TEMP);
+        gateway.answerSend(SendResult.success("C80"), SendResult.success("L9"));
+        next();
+        next();
+        next();
+
+        assertEquals(List.of("customer.create", "loan.create", "loan.addCoborrower"), gateway.sent);
+        assertEquals("C80", gateway.sentFields.get(1).get("customer"));
+        assertEquals("L9", gateway.sentFields.get(2).get("loanNumber"));
+        assertTrue(queue.all().isEmpty());
+    }
+
+    @Test
+    void usingTheExistingCustomerAlsoResumesChangesToItsNewLoan() {
+        addCreateCustomer();
+        addLoanFor(TEMP);
+        addCoborrowerTo("TMP-L");
+        gateway.answerDuplicate(DuplicateCheckResult.found(List.of("C5")));
+        next();
+        next();
+
+        processor.useExistingCustomer(TEMP, "C5");
+        gateway.answerSend(SendResult.success("L9"));
+        next();
+        next();
+
+        assertEquals(List.of("loan.create", "loan.addCoborrower"), gateway.sent);
+        assertEquals("C5", gateway.sentFields.get(0).get("customer"));
+        assertEquals("L9", gateway.sentFields.get(1).get("loanNumber"));
+        assertTrue(queue.all().isEmpty());
+    }
+
+    @Test
+    void changesToTheNewLoanOfARejectedCustomerAreRejectedWithoutBeingSent() {
+        addCreateCustomer();
+        PendingChange loan = addLoanFor(TEMP);
+        PendingChange coborrower = addCoborrowerTo("TMP-L");
+        gateway.answerSend(SendResult.rejected("Missing date of birth"));
+        next();
+
+        SyncStep held = next();
+
+        assertAll(
+                () -> assertEquals(SyncStep.Outcome.REJECTED, held.getOutcome()),
+                () -> assertEquals(coborrower.getId(), held.getChange().getId()),
+                () -> assertEquals("Not sent because change " + loan.getId() + " was rejected", held.getMessage()),
+                () -> assertEquals(PendingChange.Status.REJECTED, coborrower.getStatus()),
+                () -> assertEquals(PendingChange.Status.REJECTED, loan.getStatus()),
+                () -> assertTrue(gateway.sent.isEmpty()));
+        assertTrue(processor.processNext().isEmpty());
+    }
+
+    @Test
+    void resumedChangeThatStillUsesAnotherPausedCustomerIsHeldAgain() {
+        addCreateCustomer();
+        PendingChange other = queue.add(new PendingChange("customer.create", "TMP-2", "TMP-2", Map.of()));
+        PendingChange link = queue.add(new PendingChange("customer.addRelationship", TEMP, null,
+                Map.of("customer", TEMP, "relatedCustomer", "TMP-2")));
+        gateway.answerDuplicate(DuplicateCheckResult.found(List.of("C5")), DuplicateCheckResult.found(List.of("C6")));
+        next();
+        next();
+        assertEquals(PendingChange.Status.PAUSED, other.getStatus());
+
+        processor.confirmNewCustomer(TEMP);
+        gateway.answerSend(SendResult.success("C80"));
+        next();
+        SyncStep held = next();
+
+        assertAll(
+                () -> assertEquals(SyncStep.Outcome.PAUSED, held.getOutcome()),
+                () -> assertEquals(link.getId(), held.getChange().getId()),
+                () -> assertEquals("Possible existing customer: C6", held.getMessage()),
+                () -> assertEquals("C80", link.getCustomerNumber()),
+                () -> assertEquals(List.of("customer.create"), gateway.sent));
+
+        processor.confirmNewCustomer("TMP-2");
+        gateway.answerSend(SendResult.success("C81"));
+        next();
+        next();
+
+        assertEquals(List.of("customer.create", "customer.create", "customer.addRelationship"), gateway.sent);
+        assertEquals("C80", gateway.sentFields.get(2).get("customer"));
+        assertEquals("C81", gateway.sentFields.get(2).get("relatedCustomer"));
     }
 }

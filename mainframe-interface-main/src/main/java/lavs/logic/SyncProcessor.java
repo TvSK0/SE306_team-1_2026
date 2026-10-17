@@ -6,6 +6,8 @@ import lavs.data.SendResult;
 import lavs.data.UploadGateway;
 import lavs.model.PendingChange;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 // - If the mainframe rejects a change, mark it and never retry it (anything that depends on it is rejected too)
 // - Once a new customer or loan is uploaded, swap its temp number for the real one in every queued change
 // - Before uploading a new customer, check if they already exist. If they might, pause their changes until the MMM decides
+// - Never send a change that still uses the temporary number of a paused or rejected record (it's held with that record)
 
 public class SyncProcessor {
 
@@ -37,6 +40,13 @@ public class SyncProcessor {
             return Optional.empty();
         }
         PendingChange change = next.get();
+        if (holdIfUsesBlockedRecord(change)) {
+            queue.update(change);
+            SyncStep.Outcome outcome = change.getStatus() == PendingChange.Status.PAUSED
+                    ? SyncStep.Outcome.PAUSED
+                    : SyncStep.Outcome.REJECTED;
+            return Optional.of(new SyncStep(change, outcome, change.getStatusMessage()));
+        }
         if (needsDuplicateCheck(change)) {
             DuplicateCheckResult search = gateway.findExistingCustomers(change);
             if (search.getOutcome() == DuplicateCheckResult.Outcome.NETWORK_FAILURE) {
@@ -74,6 +84,7 @@ public class SyncProcessor {
 
     // The MMM chose the existing customer, will drop the queued create and point everything else at it.
     public void useExistingCustomer(String temporaryNumber, String existingNumber) {
+        Deque<String> resumed = new ArrayDeque<>();
         for (PendingChange change : queue.all()) {
             if (!change.references(temporaryNumber)) {
                 continue;
@@ -84,13 +95,16 @@ public class SyncProcessor {
                 change.replaceNumber(temporaryNumber, existingNumber);
                 resumeIfPaused(change);
                 queue.update(change);
+                addCreatedNumber(resumed, change);
             }
         }
         knownNumbers.put(temporaryNumber, existingNumber);
+        resumeChangesUsing(resumed);
     }
 
     // The MMM confirmed it as a new customer, so upload without searching again.
     public void confirmNewCustomer(String temporaryNumber) {
+        Deque<String> resumed = new ArrayDeque<>();
         for (PendingChange change : queue.all()) {
             if (change.references(temporaryNumber) && change.getStatus() == PendingChange.Status.PAUSED) {
                 if (isCreateOf(change, temporaryNumber)) {
@@ -98,8 +112,10 @@ public class SyncProcessor {
                 }
                 resumeIfPaused(change);
                 queue.update(change);
+                addCreatedNumber(resumed, change);
             }
         }
+        resumeChangesUsing(resumed);
     }
 
     // Gets a change ready to be queued by swapping any temp number that's already been replaced
@@ -111,6 +127,13 @@ public class SyncProcessor {
                 change.replaceNumber(temporary, real);
             }
         });
+        holdIfUsesBlockedRecord(change);
+    }
+
+    // AI-assisted: used by prepareNew and processNext so a change is never sent while it still has
+    // the temporary number of a record that's paused or rejected, even indirectly (eg changes to a
+    // new loan whose new customer is paused). Returns true if the change was held back.
+    private boolean holdIfUsesBlockedRecord(PendingChange change) {
         for (PendingChange other : queue.all()) {
             String created = other.getCreatesNumber();
             if (created != null && other.getStatus() != PendingChange.Status.PENDING && change.references(created)) {
@@ -118,7 +141,31 @@ public class SyncProcessor {
                 change.setStatusMessage(other.getStatus() == PendingChange.Status.PAUSED
                         ? other.getStatusMessage()
                         : "Not sent because change " + other.getId() + " was rejected");
+                return true;
             }
+        }
+        return false;
+    }
+
+    // AI-assisted: changes that were held only because a record they use was paused (eg changes to
+    // the paused customer's new loan) resume along with it. If one still uses another paused
+    // record, processNext holds it again.
+    private void resumeChangesUsing(Deque<String> numbers) {
+        while (!numbers.isEmpty()) {
+            String number = numbers.pop();
+            for (PendingChange change : queue.all()) {
+                if (change.getStatus() == PendingChange.Status.PAUSED && change.references(number)) {
+                    resumeIfPaused(change);
+                    queue.update(change);
+                    addCreatedNumber(numbers, change);
+                }
+            }
+        }
+    }
+
+    private static void addCreatedNumber(Deque<String> numbers, PendingChange change) {
+        if (change.getCreatesNumber() != null) {
+            numbers.push(change.getCreatesNumber());
         }
     }
 
