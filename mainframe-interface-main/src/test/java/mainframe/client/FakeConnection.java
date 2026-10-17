@@ -1,13 +1,5 @@
 package mainframe.client;
 
-// NOTE: this class's scripted-response design (whenRequested/getSentRequests/
-// rejected/networkDown/Rule) originates from Yu Tokuda's FakeConnection on the
-// unmerged `feature/us10-constants` branch - brought in here as-is so this
-// "Test fake" card can add the one behaviour it still needed: going offline
-// mid-test and having send() itself return a rejection (previously
-// setIsConnected only affected isConnected(), not send()). When that branch
-// merges, reconcile the two files - this one line is the only real delta.
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
