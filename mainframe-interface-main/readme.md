@@ -62,4 +62,14 @@ Most of the starter tests under `mainframe.client.messages` and `HttpConnectionT
 
 ### Running the application
 
-There is no standalone application entry point yet — this repository is currently a library of mainframe request/response types plus the team's own service and validation logic, built and exercised through the test suite above. Once the first UI slice lands, run instructions will be added here.
+LAVS is a JavaFX desktop app. To build it and open the main window:
+
+```
+# macOS / Linux / Git Bash
+./mvnw javafx:run
+
+# Windows (cmd or PowerShell)
+mvnw.cmd javafx:run
+```
+
+Maven downloads JavaFX for your operating system automatically; you only need JDK 17 or later.

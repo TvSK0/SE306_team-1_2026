@@ -18,6 +18,8 @@
         <jacoco.version>0.8.12</jacoco.version>
         <!-- CI fails the build when logic (branch) coverage drops below this -->
         <coverage.minimum>0.95</coverage.minimum>
+        <!-- JavaFX 21 runs on JDK 17 and later -->
+        <javafx.version>21.0.5</javafx.version>
     </properties>
 
     <dependencyManagement>
@@ -61,10 +63,30 @@
             <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- UI toolkit for the LAVS screens; Maven picks the right native jars for the OS -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-fxml</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- `./mvnw javafx:run` starts the app -->
+            <plugin>
+                <groupId>org.openjfx</groupId>
+                <artifactId>javafx-maven-plugin</artifactId>
+                <version>0.0.8</version>
+                <configuration>
+                    <mainClass>lavs.ui.LavsApp</mainClass>
+                </configuration>
+            </plugin>
             <!-- AI-assisted: runs tests. By default we skip the starter tests that call
                  the live shared mainframe HTTP server (mainframe.client.messages.* and
                  HttpConnectionTests) so `mvn verify` is deterministic without network
