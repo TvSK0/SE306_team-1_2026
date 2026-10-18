@@ -2,26 +2,23 @@
 package lavs.ui;
 
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
 import javafx.scene.control.Control;
-import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import lavs.logic.ConstantsService;
 import lavs.logic.LoanDetailsInput;
 import lavs.logic.LoanSaveResult;
 import lavs.logic.LoanService;
-import lavs.model.Customer;
 import lavs.model.Loan;
 import lavs.validation.FieldError;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
-// US6: the Details tab of a loan (loan-details.fxml). Creates a new loan or edits an
-// existing one. The checks themselves live in LoanService; this class only moves values
+// US6: the Details tab of a loan (loan-details.fxml), shown inside LoanScreenController,
+// which owns the header and the tabs. Creates a new loan or edits an existing one. The checks themselves live in LoanService; this class only moves values
 // between the form and the service, and shows the errors it gets back.
 public class LoanDetailsController {
     private static final String FIELD_ERROR = "field-error";
@@ -29,9 +26,6 @@ public class LoanDetailsController {
     private static final String SAVED = "saved";
     private static final String EMPTY = "empty";
 
-    @FXML private Hyperlink _backLink;
-    @FXML private Label _titleLabel;
-    @FXML private Label _statusLabel;
     @FXML private Label _messageLabel;
     @FXML private Label _estimateLabel;
     @FXML private Label _savedStateLabel;
@@ -62,23 +56,10 @@ public class LoanDetailsController {
     private LoanService _loanService;
     private ConstantsService _constantsService;
     private String _customerNumber;
-    // run by the "Back to <customer>" link; may be null
-    private Runnable _goBack;
+    // told about the loan each time a save works
+    private Consumer<Loan> _onSaved;
     // null until the loan has been saved for the first time
     private Loan _savedLoan;
-
-    // Loads the screen for a customer. Pass existingLoan to edit it, or null to start a
-    // new loan. goBack is run when the MMM clicks "Back to <customer>", so the caller
-    // decides where that goes. Call LoanService.checkCanStartLoan before opening a new
-    // loan, so the MMM is told what the customer is missing first.
-    public static Parent open(LoanService loanService, ConstantsService constantsService,
-                              Customer customer, Loan existingLoan, Runnable goBack) throws IOException {
-        FXMLLoader loader = new FXMLLoader(LoanDetailsController.class.getResource("loan-details.fxml"));
-        Parent root = loader.load();
-        LoanDetailsController controller = loader.getController();
-        controller.show(loanService, constantsService, customer, existingLoan, goBack);
-        return root;
-    }
 
     // called by FXMLLoader once the @FXML fields are filled in
     @FXML
@@ -97,24 +78,16 @@ public class LoanDetailsController {
         _paymentFrequency.valueProperty().addListener((property, oldValue, newValue) -> showEstimate());
     }
 
+    // Pass existingLoan to edit it, or null to start a new loan.
     public void show(LoanService loanService, ConstantsService constantsService,
-                     Customer customer, Loan existingLoan, Runnable goBack) {
+                     String customerNumber, Loan existingLoan, Consumer<Loan> onSaved) {
         _loanService = loanService;
         _constantsService = constantsService;
-        _customerNumber = customer.getNumber();
-        _goBack = goBack;
+        _customerNumber = customerNumber;
+        _onSaved = onSaved;
         _savedLoan = existingLoan;
-        String name = customer.getFullName();
-        _backLink.setText("← Back to " + (name.isEmpty() ? _customerNumber : name));
-        showHeader();
+        showSavedState();
         fillFormFromSavedLoan();
-    }
-
-    @FXML
-    private void onBack() {
-        if (_goBack != null) {
-            _goBack.run();
-        }
     }
 
     @FXML
@@ -142,8 +115,8 @@ public class LoanDetailsController {
 
         if (result.isSuccessful()) {
             _savedLoan = result.getLoan();
-            showHeader();
-            // TEMPORARY: swap this for opening the Repayments tab once US7's screen exists.
+            showSavedState();
+            _onSaved.accept(_savedLoan);
         }
     }
 
@@ -161,15 +134,11 @@ public class LoanDetailsController {
         _errorLabels.put(fieldName, errorLabel);
     }
 
-    private void showHeader() {
+    private void showSavedState() {
         _savedStateLabel.getStyleClass().remove(SAVED);
         if (_savedLoan == null) {
-            _titleLabel.setText("New loan");
-            _statusLabel.setText("Status: New (not saved yet)");
             _savedStateLabel.setText("Not saved yet");
         } else {
-            _titleLabel.setText("Loan " + _savedLoan.getLoanNumber());
-            _statusLabel.setText("Status: " + _savedLoan.getStatus());
             _savedStateLabel.setText("Saved to mainframe");
             _savedStateLabel.getStyleClass().add(SAVED);
         }
