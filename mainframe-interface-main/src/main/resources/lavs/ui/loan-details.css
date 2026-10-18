@@ -1,0 +1,105 @@
+/* Styles for the Loan Details screen (loan-details.fxml), following proposal mockup 4. */
+
+.loan-details {
+    -fx-background-color: white;
+    -fx-font-size: 13px;
+}
+
+.loan-details .back-link {
+    -fx-text-fill: #1f5fbf;
+    -fx-font-size: 14px;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+}
+
+.loan-details .title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+}
+
+.loan-details .status {
+    -fx-background-color: #fff4d6;
+    -fx-text-fill: #8a5a00;
+    -fx-font-weight: bold;
+    -fx-padding: 2 10 2 10;
+    -fx-background-radius: 12;
+}
+
+/* the bordered boxes holding the form and the estimate */
+.loan-details .card {
+    -fx-background-color: white;
+    -fx-border-color: #dddddd;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 16 18 16 18;
+}
+
+.loan-details .section {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.loan-details .field-label {
+    -fx-text-fill: #555555;
+}
+
+/* the message under the title after Save */
+.loan-details .message {
+    -fx-padding: 8;
+    -fx-background-radius: 4;
+    -fx-background-color: #e8f5e9;
+    -fx-text-fill: #1b5e20;
+}
+
+.loan-details .message.problem {
+    -fx-background-color: #fdecea;
+    -fx-text-fill: #b71c1c;
+}
+
+/* a field that failed validation, and the text under it */
+.loan-details .field-error {
+    -fx-border-color: #c62828;
+    -fx-border-radius: 3;
+}
+
+.loan-details .error-text {
+    -fx-text-fill: #c62828;
+    -fx-font-size: 11px;
+    -fx-min-height: 16px;
+}
+
+/* repayment estimate panel */
+.loan-details .estimate {
+    -fx-text-fill: #1f5fbf;
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+}
+
+.loan-details .estimate.empty {
+    -fx-text-fill: #999999;
+    -fx-font-size: 16px;
+    -fx-font-weight: normal;
+}
+
+.loan-details .note {
+    -fx-text-fill: #666666;
+    -fx-font-size: 12px;
+}
+
+.loan-details .saved-state {
+    -fx-background-color: #eeeeee;
+    -fx-text-fill: #555555;
+    -fx-font-weight: bold;
+    -fx-padding: 2 10 2 10;
+    -fx-background-radius: 12;
+}
+
+.loan-details .saved-state.saved {
+    -fx-background-color: #e3f4e8;
+    -fx-text-fill: #1e7b3c;
+}
+
+.loan-details .primary {
+    -fx-background-color: #1f5fbf;
+    -fx-text-fill: white;
+}
