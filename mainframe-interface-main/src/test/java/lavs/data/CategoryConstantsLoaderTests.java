@@ -163,9 +163,12 @@ public class CategoryConstantsLoaderTests {
     }
 
     private static long countRequests(FakeConnection connection, String requestType) {
-        return connection.getSentRequests().stream()
-                .map(MessageRequest::getRequestType)
-                .filter(requestType::equals)
-                .count();
+        long count = 0;
+        for (MessageRequest request : connection.getSentRequests()) {
+            if (requestType.equals(request.getRequestType())) {
+                count++;
+            }
+        }
+        return count;
     }
 }

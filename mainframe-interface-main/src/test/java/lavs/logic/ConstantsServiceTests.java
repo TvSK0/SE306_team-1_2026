@@ -133,6 +133,6 @@ public class ConstantsServiceTests {
     // a source that returns the given results in turn, one per refresh
     private static ConstantsSource sourceReturning(ConstantsLoadResult... results) {
         Queue<ConstantsLoadResult> remaining = new ArrayDeque<>(Arrays.asList(results));
-        return remaining::remove;
+        return () -> remaining.remove();
     }
 }
