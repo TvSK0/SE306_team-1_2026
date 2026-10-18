@@ -1,0 +1,54 @@
+package lavs.data;
+
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+// The SQLite file on the MMM's laptop. This creates the PendingChange and CategoryConstant
+// tables the first time the file is opened, so saves will survive in different cases like 
+// a dropped connection or restart.
+public class LocalDatabase {
+
+    static final String CREATE_PENDING_CHANGE =
+            "CREATE TABLE IF NOT EXISTS PendingChange ("
+            + " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            + " createdAt TEXT NOT NULL,"
+            + " messageType TEXT NOT NULL,"
+            + " customerNumber TEXT,"
+            + " createsNumber TEXT,"
+            + " fields TEXT NOT NULL,"
+            + " status TEXT NOT NULL,"
+            + " statusMessage TEXT,"
+            + " skipDuplicateCheck INTEGER NOT NULL DEFAULT 0)";
+
+    static final String CREATE_CATEGORY_CONSTANT =
+            "CREATE TABLE IF NOT EXISTS CategoryConstant ("
+            + " category TEXT NOT NULL,"
+            + " position INTEGER NOT NULL,"
+            + " value TEXT NOT NULL,"
+            + " PRIMARY KEY (category, position))";
+
+    private final String url;
+
+    public LocalDatabase(Path file) {
+        this.url = "jdbc:sqlite:" + file.toAbsolutePath();
+        createTables();
+    }
+
+    // Opens a new connection, the caller closes it. (so open in try {} statements in order for it to close automatically
+    // in the case there's an exception.)
+    public Connection connect() throws SQLException {
+        return DriverManager.getConnection(url);
+    }
+
+    private void createTables() {
+        try (Connection connection = connect(); Statement statement = connection.createStatement()) {
+            statement.executeUpdate(CREATE_PENDING_CHANGE);
+            statement.executeUpdate(CREATE_CATEGORY_CONSTANT);
+        } catch (SQLException e) {
+            throw new LocalStoreException("Could not open the local database at " + url, e);
+        }
+    }
+}
