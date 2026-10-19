@@ -88,3 +88,156 @@
 
 .lavs-button-link:hover,
 .lavs-button-danger-link:hover { -fx-underline: true; }
+
+/* ---- form fields ---- */
+.lavs-field-label { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -lavs-text-muted; }
+.lavs-field-error { -fx-font-size: 12px; -fx-text-fill: -lavs-danger; }
+
+.lavs-input {
+    -fx-pref-height: 36;
+    -fx-min-height: 36;
+    -fx-font-size: 14px;
+    -fx-text-fill: -lavs-text;
+    -fx-background-color: -lavs-surface;
+    -fx-background-insets: 0;
+    -fx-background-radius: 6;
+    -fx-border-color: -lavs-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-padding: 0 12 0 12;
+}
+
+/* the "lavs-error" class goes on the label and the input of a field that failed validation */
+.lavs-input.lavs-error {
+    -fx-background-color: -lavs-danger-soft;
+    -fx-border-color: -lavs-danger;
+    -fx-border-width: 1.5;
+}
+.lavs-field-label.lavs-error { -fx-text-fill: -lavs-danger; }
+
+/* ---- tags (pills) ---- */
+.lavs-tag {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-background-radius: 999;
+    -fx-padding: 3 10 3 10;
+}
+.lavs-tag-success { -fx-background-color: -lavs-success-soft; -fx-text-fill: -lavs-success; }
+.lavs-tag-neutral { -fx-background-color: -lavs-surface-subtle; -fx-text-fill: -lavs-text-muted; }
+.lavs-tag-warning { -fx-background-color: -lavs-warning-soft; -fx-text-fill: -lavs-warning; }
+.lavs-tag-danger  { -fx-background-color: -lavs-danger-soft;  -fx-text-fill: -lavs-danger; }
+.lavs-tag-info    { -fx-background-color: -lavs-primary-soft; -fx-text-fill: -lavs-primary; }
+
+/* ---- banners ---- */
+.lavs-banner {
+    -fx-background-radius: 8;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-padding: 12 16 12 16;
+}
+.lavs-banner-title { -fx-font-size: 14px; -fx-font-weight: bold; }
+.lavs-banner-body  { -fx-font-size: 13px; -fx-text-fill: -lavs-text; }
+
+.lavs-banner-error   { -fx-background-color: -lavs-danger-soft;  -fx-border-color: -lavs-danger; }
+.lavs-banner-warning { -fx-background-color: -lavs-warning-soft; -fx-border-color: -lavs-warning; }
+.lavs-banner-info    { -fx-background-color: -lavs-primary-soft; -fx-border-color: -lavs-primary; }
+.lavs-banner-error   .lavs-banner-title { -fx-text-fill: -lavs-danger; }
+.lavs-banner-warning .lavs-banner-title { -fx-text-fill: -lavs-warning; }
+.lavs-banner-info    .lavs-banner-title { -fx-text-fill: -lavs-primary; }
+
+/* ---- tables (built from panes, see RecordTable) ---- */
+.lavs-table {
+    -fx-background-color: -lavs-surface;
+    -fx-background-radius: 8;
+    -fx-border-color: -lavs-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+}
+.lavs-table-header {
+    -fx-background-color: -lavs-surface-subtle;
+    -fx-background-radius: 8 8 0 0;
+    -fx-padding: 10 16 10 16;
+}
+.lavs-table-header-cell { -fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: -lavs-text-muted; }
+.lavs-table-row {
+    -fx-background-color: -lavs-surface;
+    -fx-border-color: -lavs-border transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 12 16 12 16;
+}
+.lavs-table-cell { -fx-font-size: 13px; }
+.lavs-row-action { -fx-font-size: 13px; -fx-font-weight: bold; }
+
+/* ---- sidebar navigation ---- */
+.lavs-sidebar {
+    -fx-pref-width: 230;
+    -fx-min-width: 230;
+    -fx-background-color: -lavs-surface-subtle;
+    -fx-border-color: transparent -lavs-border transparent transparent;
+    -fx-border-width: 0 1 0 0;
+    -fx-padding: 20 12 20 12;
+}
+.lavs-sidebar-heading { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -lavs-text-muted; }
+.lavs-nav-item {
+    -fx-pref-height: 36;
+    -fx-min-height: 36;
+    -fx-background-radius: 6;
+    -fx-padding: 0 12 0 12;
+    -fx-cursor: hand;
+}
+.lavs-nav-item .lavs-nav-label { -fx-font-size: 14px; }
+.lavs-nav-item.selected { -fx-background-color: -lavs-primary-soft; }
+.lavs-nav-item.selected .lavs-nav-label { -fx-font-weight: bold; -fx-text-fill: -lavs-primary; }
+.lavs-nav-count { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -lavs-text-muted; }
+
+/* ---- top bar ---- */
+.lavs-topbar { -fx-background-color: -lavs-topbar; -fx-padding: 12 24 12 24; }
+.lavs-topbar-brand { -fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white; }
+.lavs-topbar-title { -fx-font-size: 14px; -fx-text-fill: -lavs-topbar-text; }
+.lavs-topbar-user  { -fx-font-size: 13px; -fx-text-fill: -lavs-topbar-text; }
+.lavs-topbar-logout {
+    -fx-background-color: transparent;
+    -fx-border-color: -lavs-topbar-text;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 6 14 6 14;
+    -fx-cursor: hand;
+}
+
+/* ---- status pill (online / offline) ---- */
+.lavs-status-pill { -fx-background-radius: 999; -fx-padding: 6 12 6 12; -fx-cursor: hand; }
+.lavs-status-pill.online  { -fx-background-color: -lavs-status-online; }
+.lavs-status-pill.offline { -fx-background-color: -lavs-status-offline; }
+.lavs-status-dot { -fx-background-radius: 999; -fx-pref-width: 8; -fx-pref-height: 8; -fx-min-width: 8; -fx-min-height: 8; }
+.lavs-status-pill.online  .lavs-status-dot { -fx-background-color: -lavs-dot-online; }
+.lavs-status-pill.offline .lavs-status-dot { -fx-background-color: -lavs-dot-offline; }
+.lavs-status-label  { -fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: white; }
+.lavs-status-detail { -fx-font-size: 13px; -fx-text-fill: -lavs-topbar-text; }
+
+/* ---- skeleton bars (loading state) ---- */
+.lavs-skeleton { -fx-background-color: -lavs-disabled; -fx-background-radius: 6; -fx-pref-height: 12; -fx-min-height: 12; }
+
+/* ---- popover and card ---- */
+.lavs-popover {
+    -fx-pref-width: 380;
+    -fx-background-color: -lavs-surface;
+    -fx-background-radius: 8;
+    -fx-border-color: -lavs-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-padding: 16;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 18, 0, 0, 6);
+}
+.lavs-popover-title { -fx-font-size: 15px; -fx-font-weight: bold; }
+
+.lavs-card {
+    -fx-background-color: -lavs-surface;
+    -fx-background-radius: 8;
+    -fx-border-color: -lavs-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-padding: 20;
+}

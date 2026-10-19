@@ -52,4 +52,19 @@ class LavsStylesheetTests {
         String afterRoot = css.substring(css.indexOf('}', css.indexOf(".root")));
         assertFalse(HEX.matcher(afterRoot).find(), "one-off hex code outside .root");
     }
+
+    // the class names the shared components (A2 onwards) will put on their nodes
+    @Test
+    void definesEveryComponentClass() throws IOException {
+        String css = css();
+        for (String selector : new String[] {
+                ".lavs-input", ".lavs-error", ".lavs-field-label", ".lavs-field-error",
+                ".lavs-tag-success", ".lavs-tag-neutral", ".lavs-tag-warning", ".lavs-tag-danger", ".lavs-tag-info",
+                ".lavs-banner-error", ".lavs-banner-warning", ".lavs-banner-info",
+                ".lavs-table-header", ".lavs-table-row", ".lavs-sidebar", ".lavs-nav-item", ".lavs-nav-count",
+                ".lavs-topbar", ".lavs-status-pill.online", ".lavs-status-pill.offline",
+                ".lavs-skeleton", ".lavs-popover", ".lavs-card"}) {
+            assertTrue(css.contains(selector), "missing " + selector);
+        }
+    }
 }
