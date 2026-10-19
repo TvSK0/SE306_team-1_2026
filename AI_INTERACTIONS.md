@@ -8,6 +8,26 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build the shared LAVS stylesheet from the Figma.
+
+**What it produced** on `feature/ui-stylesheet`:
+
+- `lavs.css`: colour tokens as looked-up colours on `.root`, Segoe UI
+  typography (Segoe UI Semibold for Figma's semibold text), and the style
+  classes for every shared component.
+- `LavsStylesheetTests`: checks that every token used is defined, that no
+  one-off hex colours sit outside `.root`, and that every component class
+  exists. Runs without starting JavaFX.
+- `LavsApp` now loads the stylesheet at 1280x800; `main-window.fxml` has a
+  TEMPORARY row of sample buttons and tags for checking the styles by eye.
+
+**Marking:** `lavs.css` and `LavsStylesheetTests` carry an `// AI-assisted`
+comment. The `LavsApp` and FXML edits were small.
+
+---
+
 ## 2026-10-18 - Aum, Claude (Opus 5.5) - fixes from pre-push testing
 
 **Prompt (summarised):** test the local store and sync work before pushing and
