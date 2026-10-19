@@ -118,6 +118,22 @@
 }
 .lavs-field-label.lavs-error { -fx-text-fill: -lavs-danger; }
 
+/* a focused input gets the primary border (an input in error keeps the danger border) */
+.lavs-input:focused { -fx-border-color: -lavs-primary; }
+.lavs-input.lavs-error:focused { -fx-border-color: -lavs-danger; }
+
+/* a ComboBox (e.g. ConstantDropdown) with lavs-input: the box itself carries the look, so
+   the inner cell and arrow button are made transparent to let it show through,
+   in both the normal and the error state */
+.lavs-input.combo-box-base { -fx-padding: 0; }
+.lavs-input.combo-box-base > .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -lavs-text;
+    -fx-padding: 0 0 0 12;
+}
+.lavs-input.combo-box-base > .arrow-button { -fx-background-color: transparent; }
+.lavs-input.combo-box-base:disabled { -fx-opacity: 1; -fx-background-color: -lavs-disabled; }
+
 /* ---- tags (pills) ---- */
 .lavs-tag {
     -fx-font-size: 12px;

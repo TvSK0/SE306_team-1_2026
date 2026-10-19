@@ -58,7 +58,7 @@ class LavsStylesheetTests {
     void definesEveryComponentClass() throws IOException {
         String css = css();
         for (String selector : new String[] {
-                ".lavs-input", ".lavs-error", ".lavs-field-label", ".lavs-field-error",
+                ".lavs-input", ".lavs-error", ".lavs-input.lavs-error", ".lavs-input.combo-box-base", ".lavs-input:focused", ".lavs-field-label", ".lavs-field-error",
                 ".lavs-tag-success", ".lavs-tag-neutral", ".lavs-tag-warning", ".lavs-tag-danger", ".lavs-tag-info",
                 ".lavs-banner-error", ".lavs-banner-warning", ".lavs-banner-info",
                 ".lavs-table-header", ".lavs-table-row", ".lavs-sidebar", ".lavs-nav-item", ".lavs-nav-count",
