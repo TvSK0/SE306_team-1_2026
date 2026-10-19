@@ -33,6 +33,10 @@ public class LavsApp extends Application {
         // Teammates register their screens here: navigator.register(Screen.X, parameter -> view).
         // Screens nobody has registered yet show a "Not built yet" placeholder.
         navigator.register(Screen.LOGIN, parameter -> temporaryLogin(navigator, topBar));
+        // developer only: with LAVS_DEMO=true (or -Dlavs.demo=true) start on the component gallery
+        if (DemoScreen.isEnabled()) {
+            navigator.register(Screen.LOGIN, parameter -> DemoScreen.create());
+        }
         navigator.start();
 
         stage.setTitle("LAVS");
