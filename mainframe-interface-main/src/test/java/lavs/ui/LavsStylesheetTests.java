@@ -63,7 +63,7 @@ class LavsStylesheetTests {
                 ".lavs-banner-error", ".lavs-banner-warning", ".lavs-banner-info",
                 ".lavs-table-header", ".lavs-table-row", ".lavs-sidebar", ".lavs-nav-item", ".lavs-nav-count",
                 ".lavs-topbar", ".lavs-status-pill.online", ".lavs-status-pill.offline",
-                ".lavs-skeleton", ".lavs-popover", ".lavs-card"}) {
+                ".lavs-button-danger", ".lavs-table-scroll", ".lavs-table-empty", ".lavs-skeleton", ".lavs-popover", ".lavs-card"}) {
             assertTrue(css.contains(selector), "missing " + selector);
         }
     }
