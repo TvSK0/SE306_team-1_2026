@@ -67,7 +67,7 @@ public class LavsApp extends Application {
         navigator.register(Screen.LOGIN, parameter -> temporaryLogin(navigator, topBar, connection, constantsService, tasks));
         LoanService loanService = new LoanService(connection);
         navigator.register(Screen.CUSTOMER_SEARCH, parameter -> temporaryCustomerSearch(navigator, loanService, tasks));
-        new LoanScreens(loanService, new LoanRepaymentsService(connection), constantsService)
+        new LoanScreens(loanService, new LoanRepaymentsService(connection), constantsService, tasks)
                 .register(navigator);
         navigator.start();
 

@@ -42,12 +42,12 @@ public class LoanScreenController {
     // decides where that goes. Call LoanService.checkCanStartLoan before opening a new
     // loan, so the MMM is told what the customer is missing first.
     public static Parent open(LoanService loanService, LoanRepaymentsService repaymentsService,
-                              ConstantsService constantsService, Customer customer,
+                              ConstantsService constantsService, BackgroundTasks tasks, Customer customer,
                               Loan existingLoan, Runnable goBack) throws IOException {
         FXMLLoader loader = new FXMLLoader(LoanScreenController.class.getResource("loan-screen.fxml"));
         Parent root = loader.load();
         LoanScreenController controller = loader.getController();
-        controller.show(loanService, repaymentsService, constantsService, customer, existingLoan, goBack);
+        controller.show(loanService, repaymentsService, constantsService, tasks, customer, existingLoan, goBack);
         return root;
     }
 
@@ -63,14 +63,14 @@ public class LoanScreenController {
     }
 
     public void show(LoanService loanService, LoanRepaymentsService repaymentsService,
-                     ConstantsService constantsService, Customer customer,
+                     ConstantsService constantsService, BackgroundTasks tasks, Customer customer,
                      Loan existingLoan, Runnable goBack) {
         _goBack = goBack;
         _loan = existingLoan;
         String name = customer.getFullName();
         _backLink.setText("← Back to " + (name.isEmpty() ? customer.getNumber() : name));
-        _repaymentsController.show(repaymentsService);
-        _detailsController.show(loanService, constantsService, customer.getNumber(), existingLoan, this::onLoanSaved);
+        _repaymentsController.show(repaymentsService, tasks);
+        _detailsController.show(loanService, constantsService, tasks, customer.getNumber(), existingLoan, this::onLoanSaved);
         showHeader();
     }
 
