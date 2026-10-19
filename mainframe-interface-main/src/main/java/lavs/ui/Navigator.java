@@ -10,14 +10,15 @@ import java.util.function.Function;
 
 // Thin control: the rules are in NavigatorState and ScreenRegistry (unit tested).
 // Teammates call register(Screen, factory) once at start-up, then views call goTo, resetTo and back.
+// goTo and resetTo build a new view; back shows the view that was built for that screen before.
 public class Navigator {
-    private final NavigatorState _state;
+    private final NavigatorState<Node> _state;
     private final ScreenRegistry<Node> _registry = new ScreenRegistry<>(Navigator::placeholder);
     private final StackPane _content = new StackPane();
     private Consumer<Screen> _onScreenChanged = screen -> { };
 
     public Navigator(Screen first) {
-        _state = new NavigatorState(first, null);
+        _state = new NavigatorState<>(first, null);
     }
 
     // the node MainWindow puts in its centre
@@ -36,30 +37,39 @@ public class Navigator {
 
     // Shows the first screen. Call after every screen has been registered.
     public void start() {
-        show();
+        build();
     }
 
     public void goTo(Screen screen, Object parameter) {
         _state.goTo(screen, parameter);
-        show();
+        build();
     }
 
     public void resetTo(Screen screen, Object parameter) {
         _state.resetTo(screen, parameter);
-        show();
+        build();
     }
 
+    // Shows the previous screen's stored view and tells it, if it is Refreshable.
+    // With nothing to go back to, the current screen just stays.
     public void back() {
-        _state.back();
-        show();
+        if (_state.back()) {
+            show();
+            Refreshable.notifyReturned(_state.getView());
+        }
     }
 
     public boolean canGoBack() {
         return _state.canGoBack();
     }
 
+    private void build() {
+        _state.setView(_registry.create(_state.getScreen(), _state.getParameter()));
+        show();
+    }
+
     private void show() {
-        _content.getChildren().setAll(_registry.create(_state.getScreen(), _state.getParameter()));
+        _content.getChildren().setAll(_state.getView());
         _onScreenChanged.accept(_state.getScreen());
     }
 
