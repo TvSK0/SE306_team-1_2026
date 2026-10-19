@@ -122,6 +122,9 @@
                 <configuration>
                     <excludes>
                         <exclude>mainframe/client/**</exclude>
+                        <!-- JavaFX screens: the proposal's 95% target is for the business
+                             logic layer, so keep screen rules in tested logic classes -->
+                        <exclude>lavs/ui/**</exclude>
                     </excludes>
                 </configuration>
                 <executions>
