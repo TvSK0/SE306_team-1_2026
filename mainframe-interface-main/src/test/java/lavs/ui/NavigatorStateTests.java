@@ -10,40 +10,30 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NavigatorStateTests {
-    private final NavigatorState<String> state = new NavigatorState<>(Screen.LOGIN, null);
+    private final NavigatorState<String> state = new NavigatorState<>(Screen.LOGIN, null, "login");
 
     @Test
-    void startsOnTheFirstScreenWithNoViewAndNothingToGoBackTo() {
+    void startsOnTheFirstScreenWithNothingToGoBackTo() {
         assertEquals(Screen.LOGIN, state.getScreen());
         assertNull(state.getParameter());
-        assertNull(state.getView());
+        assertEquals("login", state.getView());
         assertFalse(state.canGoBack());
     }
 
     @Test
-    void setViewStoresTheViewForTheCurrentScreen() {
-        state.setView("login view");
-
-        assertEquals("login view", state.getView());
-        assertEquals(Screen.LOGIN, state.getScreen());
-    }
-
-    @Test
-    void goToShowsTheScreenWithItsParameterAndNoViewYet() {
-        state.goTo(Screen.CUSTOMER_RECORD, "C-10234");
+    void goToShowsTheScreenWithItsParameterAndView() {
+        state.goTo(Screen.CUSTOMER_RECORD, "C-10234", "record");
 
         assertEquals(Screen.CUSTOMER_RECORD, state.getScreen());
         assertEquals("C-10234", state.getParameter());
-        assertNull(state.getView());
+        assertEquals("record", state.getView());
         assertTrue(state.canGoBack());
     }
 
     @Test
     void backReturnsToThePreviousScreenWithItsParameterAndTheSameView() {
-        state.resetTo(Screen.CUSTOMER_SEARCH, "jane");
-        state.setView("search view");
-        state.goTo(Screen.CUSTOMER_RECORD, "C-10234");
-        state.setView("record view");
+        state.resetTo(Screen.CUSTOMER_SEARCH, "jane", "search view");
+        state.goTo(Screen.CUSTOMER_RECORD, "C-10234", "record view");
 
         assertTrue(state.back());
 
@@ -55,8 +45,8 @@ class NavigatorStateTests {
     @Test
     void theStoredViewIsTheSameObjectNotACopy() {
         String view = new String("search view");
-        state.setView(view);
-        state.goTo(Screen.CUSTOMER_RECORD, null);
+        state.resetTo(Screen.CUSTOMER_SEARCH, null, view);
+        state.goTo(Screen.CUSTOMER_RECORD, null, "record");
 
         state.back();
 
@@ -65,13 +55,9 @@ class NavigatorStateTests {
 
     @Test
     void backWalksTheWholeStackInOrderWithEachScreensView() {
-        state.setView("login");
-        state.goTo(Screen.CUSTOMER_SEARCH, null);
-        state.setView("search");
-        state.goTo(Screen.CUSTOMER_RECORD, "C-1");
-        state.setView("record");
-        state.goTo(Screen.LOAN, "L-9");
-        state.setView("loan");
+        state.goTo(Screen.CUSTOMER_SEARCH, null, "search");
+        state.goTo(Screen.CUSTOMER_RECORD, "C-1", "record");
+        state.goTo(Screen.LOAN, "L-9", "loan");
 
         state.back();
         assertEquals(Screen.CUSTOMER_RECORD, state.getScreen());
@@ -86,8 +72,6 @@ class NavigatorStateTests {
 
     @Test
     void backWithNothingToGoBackToStaysPutAndSaysSo() {
-        state.setView("login");
-
         assertFalse(state.back());
 
         assertEquals(Screen.LOGIN, state.getScreen());
@@ -95,11 +79,9 @@ class NavigatorStateTests {
     }
 
     @Test
-    void goingToTheSameScreenAgainBuildsAFreshEntry() {
-        state.goTo(Screen.CUSTOMER_RECORD, "C-1");
-        state.setView("first");
-        state.goTo(Screen.CUSTOMER_RECORD, "C-2");
-        state.setView("second");
+    void goingToTheSameScreenAgainKeepsBothEntries() {
+        state.goTo(Screen.CUSTOMER_RECORD, "C-1", "first");
+        state.goTo(Screen.CUSTOMER_RECORD, "C-2", "second");
 
         assertEquals("second", state.getView());
         state.back();
@@ -109,23 +91,20 @@ class NavigatorStateTests {
 
     @Test
     void resetToClearsTheBackStackAndDropsTheStoredViews() {
-        state.setView("login");
-        state.goTo(Screen.CUSTOMER_SEARCH, null);
-        state.setView("search");
+        state.goTo(Screen.CUSTOMER_SEARCH, null, "search");
 
-        state.resetTo(Screen.CUSTOMER_SEARCH, null);
+        state.resetTo(Screen.CUSTOMER_SEARCH, null, "fresh search");
 
         assertEquals(Screen.CUSTOMER_SEARCH, state.getScreen());
-        assertNull(state.getView());
+        assertEquals("fresh search", state.getView());
         assertFalse(state.canGoBack());
         assertFalse(state.back());
     }
 
     @Test
     void afterResetBackCannotReturnToTheLoginScreen() {
-        state.resetTo(Screen.CUSTOMER_SEARCH, null);
-        state.setView("search");
-        state.goTo(Screen.CUSTOMER_RECORD, "C-1");
+        state.resetTo(Screen.CUSTOMER_SEARCH, null, "search");
+        state.goTo(Screen.CUSTOMER_RECORD, "C-1", "record");
 
         state.back();
         assertEquals(Screen.CUSTOMER_SEARCH, state.getScreen());

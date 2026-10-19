@@ -10,7 +10,8 @@ import java.util.function.Function;
 
 // Thin control: the rules are in NavigatorState and ScreenRegistry (unit tested).
 // Teammates call register(Screen, factory) once at start-up, then views call goTo, resetTo and back.
-// goTo and resetTo build a new view; back shows the view that was built for that screen before.
+// goTo and resetTo build a new view first; back shows the view that was built for that screen before.
+// If a factory throws, the error is printed to stderr and the current screen stays as it was.
 public class Navigator {
     private final NavigatorState<Node> _state;
     private final ScreenRegistry<Node> _registry = new ScreenRegistry<>(Navigator::placeholder);
@@ -18,7 +19,7 @@ public class Navigator {
     private Consumer<Screen> _onScreenChanged = screen -> { };
 
     public Navigator(Screen first) {
-        _state = new NavigatorState<>(first, null);
+        _state = new NavigatorState<>(first, null, null);
     }
 
     // the node MainWindow puts in its centre
@@ -37,17 +38,21 @@ public class Navigator {
 
     // Shows the first screen. Call after every screen has been registered.
     public void start() {
-        build();
+        resetTo(_state.getScreen(), null);
     }
 
     public void goTo(Screen screen, Object parameter) {
-        _state.goTo(screen, parameter);
-        build();
+        _registry.tryCreate(screen, parameter, Throwable::printStackTrace).ifPresent(view -> {
+            _state.goTo(screen, parameter, view);
+            show();
+        });
     }
 
     public void resetTo(Screen screen, Object parameter) {
-        _state.resetTo(screen, parameter);
-        build();
+        _registry.tryCreate(screen, parameter, Throwable::printStackTrace).ifPresent(view -> {
+            _state.resetTo(screen, parameter, view);
+            show();
+        });
     }
 
     // Shows the previous screen's stored view and tells it, if it is Refreshable.
@@ -61,11 +66,6 @@ public class Navigator {
 
     public boolean canGoBack() {
         return _state.canGoBack();
-    }
-
-    private void build() {
-        _state.setView(_registry.create(_state.getScreen(), _state.getParameter()));
-        show();
     }
 
     private void show() {

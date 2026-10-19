@@ -3,6 +3,8 @@ package lavs.ui;
 
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 // Generic over the view type N so it can be unit tested with plain strings; the app uses
@@ -28,5 +30,16 @@ public final class ScreenRegistry<N> {
             return _placeholder.apply(screen);
         }
         return factory.apply(parameter);
+    }
+
+    // Like create, but a factory that throws is reported to onError and gives an empty
+    // result, so the caller can leave the current screen as it is.
+    public Optional<N> tryCreate(Screen screen, Object parameter, Consumer<Throwable> onError) {
+        try {
+            return Optional.of(create(screen, parameter));
+        } catch (RuntimeException e) {
+            onError.accept(e);
+            return Optional.empty();
+        }
     }
 }

@@ -7,10 +7,11 @@ import java.util.Deque;
 // The navigation rules, kept apart from the JavaFX Navigator so they can be unit tested.
 // V is the view type: Navigator uses javafx.scene.Node, tests use strings.
 //
-// goTo pushes the current screen, with the view already built for it, onto the back stack,
-// so Back shows that same view again (nothing typed or searched is lost). resetTo starts a
-// fresh stack and drops the stored views: use it for Log in and Log out, so Back can never
-// return to the login screen (or to a customer after logging out).
+// The caller builds the view first and only then calls goTo or resetTo with it, so a view
+// that fails to build never changes the state. goTo pushes the current screen, with its
+// view, onto the back stack, so Back shows that same view again (nothing typed or searched
+// is lost). resetTo starts a fresh stack and drops the stored views: use it for Log in and
+// Log out, so Back can never return to the login screen (or to a customer after logging out).
 public final class NavigatorState<V> {
     private record Entry<V>(Screen screen, Object parameter, V view) {
     }
@@ -18,8 +19,9 @@ public final class NavigatorState<V> {
     private final Deque<Entry<V>> _backStack = new ArrayDeque<>();
     private Entry<V> _current;
 
-    public NavigatorState(Screen first, Object parameter) {
-        _current = new Entry<>(first, parameter, null);
+    // view may be null for the first screen until Navigator.start() builds it and calls resetTo
+    public NavigatorState(Screen first, Object parameter, V view) {
+        _current = new Entry<>(first, parameter, view);
     }
 
     public Screen getScreen() {
@@ -30,25 +32,18 @@ public final class NavigatorState<V> {
         return _current.parameter();
     }
 
-    // The view built for the current screen. Null until setView is called.
     public V getView() {
         return _current.view();
     }
 
-    // Called by the Navigator once it has built the view for the current screen.
-    public void setView(V view) {
-        _current = new Entry<>(_current.screen(), _current.parameter(), view);
-    }
-
-    // Moves to a new screen. The caller builds its view and passes it to setView.
-    public void goTo(Screen screen, Object parameter) {
+    public void goTo(Screen screen, Object parameter, V view) {
         _backStack.push(_current);
-        _current = new Entry<>(screen, parameter, null);
+        _current = new Entry<>(screen, parameter, view);
     }
 
-    public void resetTo(Screen screen, Object parameter) {
+    public void resetTo(Screen screen, Object parameter, V view) {
         _backStack.clear();
-        _current = new Entry<>(screen, parameter, null);
+        _current = new Entry<>(screen, parameter, view);
     }
 
     public boolean canGoBack() {
