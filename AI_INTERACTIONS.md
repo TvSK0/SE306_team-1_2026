@@ -8,6 +8,30 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build the app shell: a list of screens and a
+navigator with a back stack, a top bar showing connection state, pending
+uploads and the signed-in user, and the main window that joins them.
+
+**What it produced** on `feature/ui-app-shell`:
+
+- `lavs.ui.Screen`, `NavigatorState`, `ScreenRegistry`, `Refreshable`: the
+  navigation rules (parameters, a back stack that keeps each built view,
+  reset on login/logout, "not built yet" placeholders, a view that fails to
+  build leaves the current screen alone), with no JavaFX, and unit tests.
+- `Navigator` (thin JavaFX control over those rules).
+- `StatusFeed`, `FixedStatusFeed` (TEMPORARY), `TopBarState`, `TopBar`:
+  "Online / Offline" with "All changes uploaded" or "N waiting to upload",
+  "Signed in: J. Smith", a default title per screen, hidden on Login. The
+  text and style decisions are in `TopBarState` and unit tested.
+- `MainWindow`; `LavsApp` now builds the shell and starts on a TEMPORARY
+  login stand-in; the sample `main-window.fxml` was removed.
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
 ## 2026-10-18 - Aum, Claude (Opus 5.5) - fixes from pre-push testing
 
 **Prompt (summarised):** test the local store and sync work before pushing and
