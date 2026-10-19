@@ -1,0 +1,90 @@
+/* AI-assisted: the one stylesheet every LAVS screen imports (tokens, typography, buttons). */
+
+/* JavaFX CSS has no variables, so the design tokens are looked-up colours on .root.
+   Use them as -lavs-xxx anywhere below; never write a one-off hex code in a rule. */
+.root {
+    -lavs-text: #1f2126;
+    -lavs-text-muted: #707580;
+    -lavs-primary: #2961c7;
+    -lavs-primary-soft: #e8f0ff;
+    -lavs-border: #d6d9de;
+    -lavs-surface-subtle: #f6f7f9;
+    -lavs-surface: #ffffff;
+    -lavs-disabled: #e5e8ed;
+    -lavs-danger: #cc2929;
+    -lavs-danger-soft: #fff0f0;
+    -lavs-success: #1f944d;
+    -lavs-success-soft: #e5f7eb;
+    -lavs-warning: #b87505;
+    -lavs-warning-soft: #fff5db;
+    -lavs-topbar: #2b303b;
+    -lavs-topbar-text: #d1d9e5;
+    -lavs-status-online: #334d40;
+    -lavs-status-offline: #664f1f;
+    /* the Figma export had no dot colours, so these two are approximations */
+    -lavs-dot-online: #3ccb7f;
+    -lavs-dot-offline: #f2b630;
+
+    /* Segoe UI ships with Windows; JavaFX falls back to the system font elsewhere */
+    -fx-font-family: "Segoe UI";
+    -fx-font-size: 14px;
+    -fx-text-fill: -lavs-text;
+    -fx-background-color: -lavs-surface;
+}
+
+/* ---- typography ---- */
+.lavs-brand        { -fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: -lavs-primary; }
+.lavs-page-title   { -fx-font-size: 24px; -fx-font-weight: bold; }
+.lavs-section-title{ -fx-font-size: 20px; -fx-font-weight: bold; }
+.lavs-subtitle     { -fx-font-size: 14px; -fx-text-fill: -lavs-text-muted; }
+.lavs-subtitle-small { -fx-font-size: 13px; -fx-text-fill: -lavs-text-muted; }
+.lavs-muted        { -fx-text-fill: -lavs-text-muted; }
+
+/* ---- buttons ---- */
+.lavs-button-primary,
+.lavs-button-secondary,
+.lavs-button-link,
+.lavs-button-danger-link {
+    -fx-cursor: hand;
+    -fx-font-size: 14px;
+}
+
+.lavs-button-primary {
+    -fx-background-color: -lavs-primary;
+    -fx-background-radius: 6;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 9 16 9 16;
+}
+
+.lavs-button-secondary {
+    -fx-background-color: -lavs-surface;
+    -fx-background-radius: 6;
+    -fx-border-color: -lavs-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-text-fill: -lavs-text;
+    -fx-padding: 9 16 9 16;
+}
+
+/* busy / disabled (e.g. "Searching...") */
+.lavs-button-primary:disabled,
+.lavs-button-secondary:disabled {
+    -fx-background-color: -lavs-disabled;
+    -fx-border-color: transparent;
+    -fx-text-fill: -lavs-text-muted;
+    -fx-opacity: 1;
+    -fx-cursor: default;
+}
+
+.lavs-button-link,
+.lavs-button-danger-link {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.lavs-button-link        { -fx-text-fill: -lavs-primary; }
+.lavs-button-danger-link { -fx-text-fill: -lavs-danger; }
+
+.lavs-button-link:hover,
+.lavs-button-danger-link:hover { -fx-underline: true; }
