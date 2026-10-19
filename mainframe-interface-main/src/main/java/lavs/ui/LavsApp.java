@@ -7,17 +7,46 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import lavs.data.CategoryConstantsLoader;
+import lavs.data.ConstantsLoadResult;
+import lavs.logic.ConstantsService;
+import lavs.logic.LoanRepaymentsService;
+import lavs.logic.LoanService;
+import lavs.model.Customer;
+import mainframe.client.Connection;
+import mainframe.client.HttpConnection;
+import mainframe.client.Status;
+
+import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 // TEMPORARY: swap this for the real package name once Scott's skeleton exists.
 // Starts the desktop app: builds the window (top bar + navigator) and shows the login screen.
 public class LavsApp extends Application {
     // every screen shares this one stylesheet (colour tokens, type, components)
     private static final String STYLESHEET = "lavs.css";
+    // TEMPORARY: swap this for the server address from the real login screen (US1) once Taran's
+    // login exists. Same server as TestConstants.BASE_URL.
+    private static final String SERVER_URL = "https://animating-eraser-arrogance.ngrok-free.dev/";
+
+    // daemon threads, so closing the window ends the app even while a call is running
+    private final ExecutorService _background = Executors.newCachedThreadPool(runnable -> {
+        Thread thread = new Thread(runnable, "lavs-background");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     @Override
     public void start(Stage stage) {
+        // TEMPORARY: swap this Connection for Scott's gateway once it exists
+        Connection connection = new HttpConnection(SERVER_URL);
+        ConstantsService constantsService = new ConstantsService(new CategoryConstantsLoader(connection));
+        BackgroundTasks tasks = new BackgroundTasks(_background, Platform::runLater);
+
         Navigator navigator = new Navigator(Screen.LOGIN);
         // TEMPORARY: swap the fixed feed for an adapter over SyncService once the services are
         // composed here (see StatusFeed)
@@ -26,13 +55,17 @@ public class LavsApp extends Application {
 
         // Log out: forget the user and go back to a fresh login screen (no Back to the old screens)
         topBar.setOnLogOut(() -> {
+            connection.Logout();
             topBar.setUserName(null);
             navigator.resetTo(Screen.LOGIN, null);
         });
 
         // Teammates register their screens here: navigator.register(Screen.X, parameter -> view).
         // Screens nobody has registered yet show a "Not built yet" placeholder.
-        navigator.register(Screen.LOGIN, parameter -> temporaryLogin(navigator, topBar));
+        navigator.register(Screen.LOGIN, parameter -> temporaryLogin(navigator, topBar, connection, constantsService, tasks));
+        navigator.register(Screen.CUSTOMER_SEARCH, parameter -> temporaryCustomerSearch(navigator));
+        new LoanScreens(new LoanService(connection), new LoanRepaymentsService(connection), constantsService)
+                .register(navigator);
         navigator.start();
 
         stage.setTitle("LAVS");
@@ -43,17 +76,72 @@ public class LavsApp extends Application {
     }
 
     // TEMPORARY: swap this for the real login screen (US1, feature/us1-login). Until then this
-    // button lets the shell be tried: it "signs in" and goes to customer search.
-    private static Node temporaryLogin(Navigator navigator, TopBar topBar) {
+    // button signs in to the class server as admin, loads the dropdown values and goes to
+    // customer search.
+    private static Node temporaryLogin(Navigator navigator, TopBar topBar, Connection connection,
+                                       ConstantsService constantsService, BackgroundTasks tasks) {
         Label label = new Label("Login screen: built in US1");
         label.getStyleClass().add("lavs-page-title");
+        Label error = new Label();
         Button continueButton = new Button("Continue (temporary)");
         continueButton.getStyleClass().add("lavs-button-primary");
-        continueButton.setOnAction(event -> {
-            topBar.setUserName("Jane Smith");
-            navigator.resetTo(Screen.CUSTOMER_SEARCH, null);
+        LoadingView loading = new LoadingView(LoadingState.forSave("Continue (temporary)", "Signing in..."), continueButton);
+        continueButton.setOnAction(event -> tasks.run(
+                () -> signIn(connection, constantsService),
+                loading::start,
+                message -> {
+                    loading.finish();
+                    if (message == null) {
+                        topBar.setUserName("admin");
+                        navigator.resetTo(Screen.CUSTOMER_SEARCH, null);
+                    } else {
+                        error.setText(message);
+                    }
+                },
+                failure -> {
+                    loading.finish();
+                    error.setText("Could not sign in: " + failure.getMessage());
+                }));
+        VBox box = new VBox(16, label, continueButton, error);
+        box.setAlignment(Pos.CENTER);
+        return box;
+    }
+
+    // Runs in the background. Returns null when signed in with the dropdown values loaded,
+    // otherwise the message to show.
+    private static String signIn(Connection connection, ConstantsService constantsService) {
+        try {
+            Status status = connection.Login("admin", "admin");
+            if (!status.getWasSuccessful()) {
+                return "Could not sign in: " + status.getErrorMessage();
+            }
+        } catch (IOException e) {
+            return "Could not reach the server: " + e.getMessage();
+        }
+        ConstantsLoadResult constants = constantsService.refresh();
+        if (constants.getOutcome() != ConstantsLoadResult.Outcome.SUCCESS) {
+            return "Could not load the dropdown values: " + constants.getMessage();
+        }
+        return null;
+    }
+
+    // TEMPORARY: swap this for the real customer search (US2) once Taran's screen exists. Until
+    // then it opens a new loan for a customer number typed in by hand.
+    private static Node temporaryCustomerSearch(Navigator navigator) {
+        Label label = new Label("Customer search: built in US2");
+        label.getStyleClass().add("lavs-page-title");
+        TextField customerNumber = new TextField();
+        customerNumber.setPromptText("Customer number");
+        customerNumber.setMaxWidth(240);
+        Button newLoan = new Button("New loan (temporary)");
+        newLoan.getStyleClass().add("lavs-button-primary");
+        newLoan.disableProperty().bind(customerNumber.textProperty().isEmpty());
+        newLoan.setOnAction(event -> {
+            Customer customer = new Customer();
+            customer.setNumber(customerNumber.getText().trim());
+            navigator.goTo(Screen.LOAN, LoanScreenRequest.forNewLoan(customer));
         });
-        VBox box = new VBox(16, label, continueButton);
+        VBox box = new VBox(16, label, customerNumber, newLoan);
         box.setAlignment(Pos.CENTER);
         return box;
     }
