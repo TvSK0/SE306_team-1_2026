@@ -10,6 +10,52 @@ Add an entry per session/PR, newest first.
 
 ## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
 
+**Prompt (summarised):** build the app shell: a list of screens and a
+navigator with a back stack, a top bar showing connection state, pending
+uploads and the signed-in user, and the main window that joins them.
+
+**What it produced** on `feature/ui-app-shell`:
+
+- `lavs.ui.Screen`, `NavigatorState`, `ScreenRegistry`, `Refreshable`: the
+  navigation rules (parameters, a back stack that keeps each built view,
+  reset on login/logout, "not built yet" placeholders, a view that fails to
+  build leaves the current screen alone), with no JavaFX, and unit tests.
+- `Navigator` (thin JavaFX control over those rules).
+- `StatusFeed`, `FixedStatusFeed` (TEMPORARY), `TopBarState`, `TopBar`:
+  "Online / Offline" with "All changes uploaded" or "N waiting to upload",
+  "Signed in: J. Smith", a default title per screen, hidden on Login. The
+  text and style decisions are in `TopBarState` and unit tested.
+- `MainWindow`; `LavsApp` now builds the shell and starts on a TEMPORARY
+  login stand-in; the sample `main-window.fxml` was removed.
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
+## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build the helper that runs every service call off
+the UI thread and shows a loading state, testable without starting JavaFX.
+
+**What it produced** on `feature/ui-background-task`:
+
+- `lavs.ui.BackgroundTasks`: takes a background executor and a UI-thread
+  runner; `run(work, onStart, onDone, onError)` returns a handle whose
+  `cancel()` means no callback is ever made. 100% branch tested with
+  queues standing in for threads (`BackgroundTasksTests`).
+- `lavs.ui.LoadingState`: the rules for the busy button text, disabled
+  button, Cancel button and skeleton rows. Reads get Cancel and skeletons;
+  saves do not, because saves still upload through the sync queue
+  (`LoadingStateTests`).
+- `LoadingView` and `SkeletonRows`: thin JavaFX controls with no branches
+  that copy the state onto the screen.
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
+## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
+
 **Prompt (summarised):** build the shared LAVS stylesheet from the Figma.
 
 **What it produced** on `feature/ui-stylesheet`:
