@@ -2,7 +2,6 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
-<?import javafx.scene.control.Hyperlink?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.ColumnConstraints?>
@@ -11,19 +10,15 @@
 <?import javafx.scene.layout.VBox?>
 <?import lavs.ui.ConstantDropdown?>
 
-<!-- US6: the Details tab of a loan (mockup 4). The form card is on the left and the
-     repayment estimate on the right. Each field has an error label under it that
+<!-- US6: the Details tab of a loan (mockup 4), included by loan-screen.fxml, which has
+     the header and the stylesheet. The form card is on the left and the repayment
+     estimate on the right. Each field has an error label under it that
      LoanDetailsController fills when the field fails validation. -->
 <VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
       fx:controller="lavs.ui.LoanDetailsController"
-      stylesheets="@loan-details.css" styleClass="loan-details" spacing="16">
-    <padding><Insets top="20" right="24" bottom="20" left="24"/></padding>
+      spacing="16">
+    <padding><Insets top="20" right="0" bottom="0" left="0"/></padding>
 
-    <HBox spacing="16" alignment="CENTER_LEFT">
-        <Hyperlink fx:id="_backLink" styleClass="back-link" onAction="#onBack"/>
-        <Label fx:id="_titleLabel" styleClass="title" text="New loan"/>
-        <Label fx:id="_statusLabel" styleClass="status"/>
-    </HBox>
     <Label fx:id="_messageLabel" styleClass="message" wrapText="true" maxWidth="Infinity"
            managed="false" visible="false"/>
 

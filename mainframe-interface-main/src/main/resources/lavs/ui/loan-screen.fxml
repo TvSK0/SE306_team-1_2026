@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Hyperlink?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<!-- A loan (mockups 4 and 6): the header shared by every tab, then the tabs. Details
+     (US6) and Repayments (US7) are included from their own FXML files. -->
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="lavs.ui.LoanScreenController"
+      stylesheets="@loan.css" styleClass="loan" spacing="12">
+    <padding><Insets top="20" right="24" bottom="20" left="24"/></padding>
+
+    <HBox spacing="16" alignment="CENTER_LEFT">
+        <Hyperlink fx:id="_backLink" styleClass="back-link" onAction="#onBack"/>
+        <Label fx:id="_titleLabel" styleClass="title" text="New loan"/>
+        <Label fx:id="_statusLabel" styleClass="status"/>
+    </HBox>
+
+    <TabPane fx:id="_tabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
+        <Tab fx:id="_detailsTab" text="Details">
+            <fx:include fx:id="_details" source="loan-details.fxml"/>
+        </Tab>
+        <Tab fx:id="_repaymentsTab" text="Repayments">
+            <fx:include fx:id="_repayments" source="loan-repayments.fxml"/>
+        </Tab>
+    </TabPane>
+</VBox>
