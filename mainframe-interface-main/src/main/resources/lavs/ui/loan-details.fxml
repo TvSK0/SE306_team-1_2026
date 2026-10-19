@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import lavs.ui.ConstantDropdown?>
+
+<!-- US6: the Details tab of a loan (mockup 4), included by loan-screen.fxml, which has
+     the header and the stylesheet. The form card is on the left and the repayment
+     estimate on the right. Each field has an error label under it that
+     LoanDetailsController fills when the field fails validation. -->
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="lavs.ui.LoanDetailsController"
+      spacing="16">
+    <padding><Insets top="20" right="0" bottom="0" left="0"/></padding>
+
+    <Label fx:id="_messageLabel" styleClass="message" wrapText="true" maxWidth="Infinity"
+           managed="false" visible="false"/>
+
+    <HBox spacing="24" alignment="TOP_LEFT" fillHeight="false">
+        <VBox styleClass="card" spacing="12" HBox.hgrow="ALWAYS">
+            <Label styleClass="section" text="Loan details"/>
+            <GridPane hgap="24" vgap="2">
+                <columnConstraints>
+                    <ColumnConstraints percentWidth="50"/>
+                    <ColumnConstraints percentWidth="50"/>
+                </columnConstraints>
+
+                <Label text="Principal *" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                <TextField fx:id="_principal" promptText="e.g. 450000.00" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                <Label fx:id="_principalError" styleClass="error-text" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+
+                <Label text="Rate type *" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                <ConstantDropdown fx:id="_rateType" category="LoanRateType" maxWidth="Infinity"
+                                  GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                <Label fx:id="_rateTypeError" styleClass="error-text" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                <Label text="Rate amount (%) *" styleClass="field-label" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                <TextField fx:id="_rateAmount" promptText="e.g. 6.29" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                <Label fx:id="_rateAmountError" styleClass="error-text" GridPane.rowIndex="5" GridPane.columnIndex="0"/>
+
+                <Label text="Rate frequency *" styleClass="field-label" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                <ConstantDropdown fx:id="_rateFrequency" category="LoanRateFrequency" maxWidth="Infinity"
+                                  GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+                <Label fx:id="_rateFrequencyError" styleClass="error-text" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+                <Label text="Payment amount *" styleClass="field-label" GridPane.rowIndex="6" GridPane.columnIndex="0"/>
+                <TextField fx:id="_paymentAmount" promptText="e.g. 2786.00" GridPane.rowIndex="7" GridPane.columnIndex="0"/>
+                <Label fx:id="_paymentAmountError" styleClass="error-text" GridPane.rowIndex="8" GridPane.columnIndex="0"/>
+
+                <Label text="Payment frequency *" styleClass="field-label" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+                <ConstantDropdown fx:id="_paymentFrequency" category="LoanPaymentFrequency" maxWidth="Infinity"
+                                  GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+                <Label fx:id="_paymentFrequencyError" styleClass="error-text" GridPane.rowIndex="8" GridPane.columnIndex="1"/>
+
+                <Label text="Start date *" styleClass="field-label" GridPane.rowIndex="9" GridPane.columnIndex="0"/>
+                <TextField fx:id="_startDate" promptText="yyyy-mm-dd" GridPane.rowIndex="10" GridPane.columnIndex="0"/>
+                <Label fx:id="_startDateError" styleClass="error-text" GridPane.rowIndex="11" GridPane.columnIndex="0"/>
+
+                <Label text="Renewal date" styleClass="field-label" GridPane.rowIndex="9" GridPane.columnIndex="1"/>
+                <TextField fx:id="_renewalDate" promptText="yyyy-mm-dd" GridPane.rowIndex="10" GridPane.columnIndex="1"/>
+                <Label fx:id="_renewalDateError" styleClass="error-text" GridPane.rowIndex="11" GridPane.columnIndex="1"/>
+            </GridPane>
+
+            <HBox spacing="8" alignment="CENTER_RIGHT">
+                <Button fx:id="_cancelButton" text="Cancel" onAction="#onCancel"/>
+                <Button fx:id="_saveButton" text="Save loan" styleClass="primary" defaultButton="true" onAction="#onSave"/>
+            </HBox>
+        </VBox>
+
+        <VBox styleClass="card" spacing="12" prefWidth="320" minWidth="260" maxWidth="360">
+            <Label styleClass="section" text="Repayment estimate"/>
+            <Label fx:id="_estimateLabel" styleClass="estimate" wrapText="true"/>
+            <Label styleClass="note" wrapText="true"
+                   text="Estimate only. The official repayment schedule and loan summary are produced by the mainframe once the loan is saved."/>
+            <Label fx:id="_savedStateLabel" styleClass="saved-state"/>
+            <Label styleClass="note" wrapText="true"
+                   text="Dropdown values (rate type, frequencies) come from the mainframe category lists."/>
+        </VBox>
+    </HBox>
+</VBox>

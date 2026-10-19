@@ -8,28 +8,6 @@ Add an entry per session/PR, newest first.
 
 ---
 
-## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
-
-**Prompt (summarised):** build the helper that runs every service call off
-the UI thread and shows a loading state, testable without starting JavaFX.
-
-**What it produced** on `feature/ui-background-task`:
-
-- `lavs.ui.BackgroundTasks`: takes a background executor and a UI-thread
-  runner; `run(work, onStart, onDone, onError)` returns a handle whose
-  `cancel()` means no callback is ever made. 100% branch tested with
-  queues standing in for threads (`BackgroundTasksTests`).
-- `lavs.ui.LoadingState`: the rules for the busy button text, disabled
-  button, Cancel button and skeleton rows. Reads get Cancel and skeletons;
-  saves do not, because saves still upload through the sync queue
-  (`LoadingStateTests`).
-- `LoadingView` and `SkeletonRows`: thin JavaFX controls with no branches
-  that copy the state onto the screen.
-
-**Marking:** each new file carries an `// AI-assisted` comment.
-
----
-
 ## 2026-10-18 - Aum, Claude (Opus 5.5) - fixes from pre-push testing
 
 **Prompt (summarised):** test the local store and sync work before pushing and
