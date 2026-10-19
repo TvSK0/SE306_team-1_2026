@@ -32,6 +32,48 @@ uploads and the signed-in user, and the main window that joins them.
 
 ---
 
+## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build the helper that runs every service call off
+the UI thread and shows a loading state, testable without starting JavaFX.
+
+**What it produced** on `feature/ui-background-task`:
+
+- `lavs.ui.BackgroundTasks`: takes a background executor and a UI-thread
+  runner; `run(work, onStart, onDone, onError)` returns a handle whose
+  `cancel()` means no callback is ever made. 100% branch tested with
+  queues standing in for threads (`BackgroundTasksTests`).
+- `lavs.ui.LoadingState`: the rules for the busy button text, disabled
+  button, Cancel button and skeleton rows. Reads get Cancel and skeletons;
+  saves do not, because saves still upload through the sync queue
+  (`LoadingStateTests`).
+- `LoadingView` and `SkeletonRows`: thin JavaFX controls with no branches
+  that copy the state onto the screen.
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
+## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build the shared LAVS stylesheet from the Figma.
+
+**What it produced** on `feature/ui-stylesheet`:
+
+- `lavs.css`: colour tokens as looked-up colours on `.root`, Segoe UI
+  typography (Segoe UI Semibold for Figma's semibold text), and the style
+  classes for every shared component.
+- `LavsStylesheetTests`: checks that every token used is defined, that no
+  one-off hex colours sit outside `.root`, and that every component class
+  exists. Runs without starting JavaFX.
+- `LavsApp` now loads the stylesheet at 1280x800; `main-window.fxml` has a
+  TEMPORARY row of sample buttons and tags for checking the styles by eye.
+
+**Marking:** `lavs.css` and `LavsStylesheetTests` carry an `// AI-assisted`
+comment. The `LavsApp` and FXML edits were small.
+
+---
+
 ## 2026-10-18 - Aum, Claude (Opus 5.5) - fixes from pre-push testing
 
 **Prompt (summarised):** test the local store and sync work before pushing and
