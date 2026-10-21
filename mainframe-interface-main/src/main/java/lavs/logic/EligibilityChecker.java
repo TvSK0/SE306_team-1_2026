@@ -10,10 +10,11 @@ import java.util.Collection;
 // mailing address and at least one way to reach them - a phone number or an
 // email.
 //
-// NOTE: whether a main borrower with no employer must also have a guarantor
-// before a loan can become Pending is a separate, unresolved question (raised
-// with James on Ed) and is deliberately NOT enforced here. Do not add it to
-// this shared rule, or to US9's submit action, until that comes back answered.
+// NOTE: the guarantor rule (a main borrower with no employer needs a guarantor
+// before a loan can become Pending) is deliberately NOT part of this shared
+// rule. It only applies to US9's submit action, so it lives in
+// LoanStatusService; US6 uses this rule to start a loan, which has no
+// guarantors yet.
 public final class EligibilityChecker {
     private EligibilityChecker() {
     }

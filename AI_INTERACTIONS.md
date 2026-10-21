@@ -8,6 +8,26 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5) - US9 guarantor rule
+
+**Prompt (summarised):** I decided the guarantor rule (block Pending when
+the main borrower has no employer and no guarantor is on the loan); add it
+to US9.
+
+**What it produced** on `feature/us9-guarantor-rule`:
+
+- `LoanStatusService.submitForVerification` now takes the main borrower's
+  customer number and checks the rule: `customerEmployer.List` first, then
+  `loanCoborrower.List` (via `listCoborrowers`) only if there's no employer.
+  A failed lookup is returned as the mainframe status; nothing is submitted.
+- `LoanStatusServiceTests` rewritten for the new rule and lookups.
+- Notes in `LoanStatusService` and `EligibilityChecker` updated: the rule
+  lives in US9 only, not the shared eligibility check US6 uses.
+
+**Marking:** the guarantor check and tests carry an `// AI-assisted` comment.
+
+---
+
 ## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5)
 
 **Prompt (summarised):** go through the task list, do my tasks that aren't
