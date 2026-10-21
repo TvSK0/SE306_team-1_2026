@@ -2,6 +2,7 @@
 package lavs.ui;
 
 import lavs.logic.ConstantsService;
+import lavs.logic.LoanBorrowerService;
 import lavs.logic.LoanRepaymentsService;
 import lavs.logic.LoanService;
 import lavs.logic.LoanStatusService;
@@ -13,12 +14,13 @@ import java.util.Objects;
 // tasks is how each of them runs those calls off the UI thread.
 public record LoanScreenServices(LoanService loans, LoanRepaymentsService repayments,
                                  ConstantsService constants, LoanStatusService statuses,
-                                 BackgroundTasks tasks) {
+                                 LoanBorrowerService borrowers, BackgroundTasks tasks) {
     public LoanScreenServices {
         Objects.requireNonNull(loans, "loans");
         Objects.requireNonNull(repayments, "repayments");
         Objects.requireNonNull(constants, "constants");
         Objects.requireNonNull(statuses, "statuses");
+        Objects.requireNonNull(borrowers, "borrowers");
         Objects.requireNonNull(tasks, "tasks");
     }
 }

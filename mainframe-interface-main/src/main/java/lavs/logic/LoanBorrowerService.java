@@ -16,17 +16,16 @@ import java.util.List;
 // TEMPORARY: lives in lavs.logic until Scott's logic package skeleton is on
 // main (see the same note on ConstantsService); move/adapt this once it is.
 //
-// US8: co-borrowers and guarantors on a loan.
-//
-// This is the service-logic slice only - no screen yet. US8 depends on US6
-// (login -> customer search -> open customer record) to find the customer
-// being added, and on customer search running in "select" mode; neither
-// exists on main yet, so the Loan Borrowers screen itself is blocked on
-// that. See the project notes.
+// US8: co-borrowers and guarantors on a loan. The Borrowers tab of the loan
+// screen (LoanBorrowersController) calls these.
 public final class LoanBorrowerService {
     // the two kinds of borrower, so screens never have to import the mainframe message classes
     public static final String COBORROWER = AddCoborrower.TYPE_COBORROWER;
     public static final String GUARANTOR = AddCoborrower.TYPE_GUARANTOR;
+
+    // the field names of the errors addCoborrower and updateCoborrower can return
+    public static final String CUSTOMER_NUMBER = "customerNumber";
+    public static final String TYPE = "type";
 
     static final long PAGE_SIZE = 50;
 
@@ -97,31 +96,42 @@ public final class LoanBorrowerService {
 
     // US8: "updates remove then re-add" - the mainframe has no update
     // message for a co-borrower/guarantor, so changing one removes the
-    // existing record (by id) and adds the replacement. If the removal
-    // fails, the add is never attempted, so a failed update can't leave
-    // two records for the same person.
-    public LoanBorrowerResult updateCoborrower(long existingRecordId, String loanNumber, String customerNumber, String type) throws IOException {
+    // existing record (as read by listCoborrowers) and adds the replacement.
+    // If the removal fails, the add is never attempted, so a failed update
+    // can't leave two records for the same person.
+    //
+    // AI-assisted: if the mainframe refuses the replacement, the existing
+    // record is added back as it was, so a refused change doesn't quietly
+    // take the person off the loan. That is a best effort - the refusal is
+    // what's returned either way, and the screen reloads the list to show
+    // what the mainframe now has.
+    public LoanBorrowerResult updateCoborrower(LoanCoborrower existing, String customerNumber, String type) throws IOException {
+        String loanNumber = existing.getLoanNumber();
         ValidationResult validation = validateCoborrower(loanNumber, customerNumber, type);
         if (!validation.isValid()) {
             return LoanBorrowerResult.invalid(validation);
         }
 
-        Status deleteStatus = sendDelete(existingRecordId, loanNumber);
+        Status deleteStatus = sendDelete(existing.getId(), loanNumber);
         if (!deleteStatus.getWasSuccessful()) {
             return LoanBorrowerResult.fromStatus(deleteStatus);
         }
-        return LoanBorrowerResult.fromStatus(sendAdd(loanNumber, customerNumber, type));
+        Status addStatus = sendAdd(loanNumber, customerNumber, type);
+        if (!addStatus.getWasSuccessful()) {
+            sendAdd(loanNumber, existing.getCoborrowerNumber(), existing.getType());
+        }
+        return LoanBorrowerResult.fromStatus(addStatus);
     }
 
     private ValidationResult validateCoborrower(String loanNumber, String customerNumber, String type) {
         ValidationResult validation = new ValidationResult();
         validation.addIfPresent(Validators.required("loanNumber", loanNumber));
-        validation.addIfPresent(Validators.required("customerNumber", customerNumber));
-        validation.addIfPresent(Validators.required("type", type));
+        validation.addIfPresent(Validators.required(CUSTOMER_NUMBER, customerNumber));
+        validation.addIfPresent(Validators.required(TYPE, type));
         if (type != null && !type.isBlank()
                 && !AddCoborrower.TYPE_COBORROWER.equals(type)
                 && !AddCoborrower.TYPE_GUARANTOR.equals(type)) {
-            validation.add(new FieldError("type",
+            validation.add(new FieldError(TYPE,
                     "must be '" + AddCoborrower.TYPE_COBORROWER + "' or '" + AddCoborrower.TYPE_GUARANTOR + "'"));
         }
         return validation;

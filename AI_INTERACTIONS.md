@@ -8,6 +8,32 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5) - US8 Borrowers tab
+
+**Prompt (summarised):** same session as the US9 submit button: build the US8
+Borrowers tab on the loan screen.
+
+**What it produced** on `feature/us8-borrowers-tab`:
+
+- The Borrowers tab (`loan-borrowers.fxml`, `LoanBorrowersController`): lists
+  everyone else on the loan, changes a selected borrower's type, removes one
+  after a confirmation, and adds one by customer number (TEMPORARY until
+  customer search has select mode). Every call runs through `BackgroundTasks`
+  and the list is read again after each change.
+- `BorrowersText` (no JavaFX, unit tested): type names, button text and the
+  message for each outcome.
+- `LoanBorrowerService.updateCoborrower` now takes the existing record and,
+  if the mainframe refuses the replacement, adds the original back so a
+  refused change doesn't drop the person from the loan. Tested.
+- Checked the real tab locally under JavaFX with a `FakeConnection` and
+  looked at rendered screenshots (not committed: CI has no display).
+
+**Marking:** new classes, the changed service method and the tests carry an
+`// AI-assisted` comment. Agreed by me as an exception to the hand-written
+rule.
+
+---
+
 ## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5) - US9 submit button
 
 **Prompt (summarised):** do my US9 and US8 parts with high quality: the

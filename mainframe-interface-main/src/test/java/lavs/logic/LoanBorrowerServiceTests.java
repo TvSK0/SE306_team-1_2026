@@ -131,12 +131,15 @@ class LoanBorrowerServiceTests {
                         "type", AddCoborrower.TYPE_GUARANTOR,
                         "id", "8")));
 
-        LoanBorrowerResult result = service.updateCoborrower(7, LOAN_NUMBER, CUSTOMER_NUMBER, AddCoborrower.TYPE_GUARANTOR);
+        LoanBorrowerResult result = service.updateCoborrower(existingCoborrower(), CUSTOMER_NUMBER, AddCoborrower.TYPE_GUARANTOR);
 
         assertTrue(result.isSuccessful());
         InOrder order = inOrder(connection);
-        order.verify(connection).send(argThat(requestOfType("loan.deleteCoborrower")));
-        order.verify(connection).send(argThat(requestOfType("loan.addCoborrower")));
+        order.verify(connection).send(argThat(request -> request != null
+                && "loan.deleteCoborrower".equals(request.getRequestType())
+                && "7".equals(request.getValue("id"))));
+        order.verify(connection).send(argThat(addOf(AddCoborrower.TYPE_GUARANTOR)));
+        verifyNoMoreInteractions(connection);
     }
 
     @Test
@@ -144,7 +147,7 @@ class LoanBorrowerServiceTests {
         when(connection.send(argThat(requestOfType("loan.deleteCoborrower"))))
                 .thenReturn(rejectedResponse("no such co-borrower record"));
 
-        LoanBorrowerResult result = service.updateCoborrower(7, LOAN_NUMBER, CUSTOMER_NUMBER, AddCoborrower.TYPE_GUARANTOR);
+        LoanBorrowerResult result = service.updateCoborrower(existingCoborrower(), CUSTOMER_NUMBER, AddCoborrower.TYPE_GUARANTOR);
 
         assertFalse(result.isSuccessful());
         assertFalse(result.getMainframeStatus().getWasSuccessful());
@@ -153,11 +156,47 @@ class LoanBorrowerServiceTests {
     }
 
     @Test
+    void updateCoborrowerPutsTheOriginalBackWhenTheReplacementIsRefused() throws IOException {
+        when(connection.send(argThat(requestOfType("loan.deleteCoborrower"))))
+                .thenReturn(successResponse(Map.of("loanNumber", LOAN_NUMBER, "id", "7")));
+        when(connection.send(argThat(addOf(AddCoborrower.TYPE_GUARANTOR))))
+                .thenReturn(rejectedResponse("guarantor must be over 18"));
+        when(connection.send(argThat(addOf(AddCoborrower.TYPE_COBORROWER))))
+                .thenReturn(successResponse(Map.of("loanNumber", LOAN_NUMBER, "id", "9")));
+
+        LoanBorrowerResult result = service.updateCoborrower(existingCoborrower(), CUSTOMER_NUMBER, AddCoborrower.TYPE_GUARANTOR);
+
+        // the refusal is what the MMM is told about, even though the original went back
+        assertFalse(result.isSuccessful());
+        assertEquals("guarantor must be over 18", result.getMainframeStatus().getErrorMessage());
+        InOrder order = inOrder(connection);
+        order.verify(connection).send(argThat(requestOfType("loan.deleteCoborrower")));
+        order.verify(connection).send(argThat(addOf(AddCoborrower.TYPE_GUARANTOR)));
+        order.verify(connection).send(argThat(addOf(AddCoborrower.TYPE_COBORROWER)));
+    }
+
+    @Test
     void updateCoborrowerFailsValidationWithoutContactingTheMainframe() throws IOException {
-        LoanBorrowerResult result = service.updateCoborrower(7, LOAN_NUMBER, CUSTOMER_NUMBER, "Cosigner");
+        LoanBorrowerResult result = service.updateCoborrower(existingCoborrower(), CUSTOMER_NUMBER, "Cosigner");
 
         assertFalse(result.isSuccessful());
+        assertEquals(LoanBorrowerService.TYPE, result.getValidationErrors().getErrors().get(0).getFieldName());
         verifyNoInteractions(connection);
+    }
+
+    // record 7 on the loan: CUSTOMER_NUMBER as a co-borrower, as listCoborrowers reads it
+    private static LoanCoborrower existingCoborrower() {
+        LoanCoborrower existing = new LoanCoborrower(LOAN_NUMBER, CUSTOMER_NUMBER, AddCoborrower.TYPE_COBORROWER);
+        existing.setId(7L);
+        return existing;
+    }
+
+    private static org.mockito.ArgumentMatcher<MessageRequest> addOf(String type) {
+        return request -> request != null
+                && "loan.addCoborrower".equals(request.getRequestType())
+                && LOAN_NUMBER.equals(request.getValue("loanNumber"))
+                && CUSTOMER_NUMBER.equals(request.getValue("coborrowerNumber"))
+                && type.equals(request.getValue("type"));
     }
 
     // --- listCoborrowers ---

@@ -19,6 +19,7 @@ import lavs.data.LocalStoreException;
 import lavs.logic.ConstantsService;
 import lavs.logic.LoanRepaymentsService;
 import lavs.logic.LoanSaveResult;
+import lavs.logic.LoanBorrowerService;
 import lavs.logic.LoanService;
 import lavs.logic.LoanStatusService;
 import lavs.model.Customer;
@@ -80,7 +81,7 @@ public class LavsApp extends Application {
         LoanService loanService = new LoanService(connection);
         navigator.register(Screen.CUSTOMER_SEARCH, parameter -> temporaryCustomerSearch(navigator, loanService, tasks));
         new LoanScreens(new LoanScreenServices(loanService, new LoanRepaymentsService(connection),
-                constantsService, new LoanStatusService(connection), tasks))
+                constantsService, new LoanStatusService(connection), new LoanBorrowerService(connection), tasks))
                 .register(navigator);
         navigator.start();
 
