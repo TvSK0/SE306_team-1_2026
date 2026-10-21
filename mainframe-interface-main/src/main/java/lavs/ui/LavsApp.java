@@ -11,7 +11,11 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import lavs.data.CategoryConstantsLoader;
+import lavs.data.CategoryConstantStore;
+import lavs.data.ConstantsCache;
 import lavs.data.ConstantsLoadResult;
+import lavs.data.LocalDatabase;
+import lavs.data.LocalStoreException;
 import lavs.logic.ConstantsService;
 import lavs.logic.LoanRepaymentsService;
 import lavs.logic.LoanSaveResult;
@@ -23,6 +27,8 @@ import mainframe.client.Status;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -34,6 +40,8 @@ public class LavsApp extends Application {
     // TEMPORARY: swap this for the server address from the real login screen (US1) once Taran's
     // login exists. Same server as TestConstants.BASE_URL.
     private static final String SERVER_URL = "https://animating-eraser-arrogance.ngrok-free.dev/";
+    // the SQLite file on this laptop that keeps the dropdown values between runs
+    private static final Path LOCAL_DATABASE = Path.of(System.getProperty("user.home"), ".lavs", "lavs.db");
 
     // daemon threads, so closing the window ends the app even while a call is running
     private final ExecutorService _background = Executors.newCachedThreadPool(runnable -> {
@@ -46,8 +54,11 @@ public class LavsApp extends Application {
     public void start(Stage stage) {
         // TEMPORARY: swap this Connection for Scott's gateway once it exists
         Connection connection = new HttpConnection(SERVER_URL);
-        ConstantsService constantsService = new ConstantsService(new CategoryConstantsLoader(connection));
+        ConstantsService constantsService = new ConstantsService(new CategoryConstantsLoader(connection),
+                openConstantsCache());
         BackgroundTasks tasks = new BackgroundTasks(_background, Platform::runLater);
+        // the dropdowns get last run's values straight away, even if the mainframe never answers
+        tasks.run(constantsService::loadSaved, loaded -> { }, failure -> failure.printStackTrace());
 
         Navigator navigator = new Navigator(Screen.LOGIN);
         // TEMPORARY: swap the fixed feed for an adapter over SyncService once the services are
@@ -122,10 +133,24 @@ public class LavsApp extends Application {
             return "Could not reach the server: " + e.getMessage();
         }
         ConstantsLoadResult constants = constantsService.refresh();
-        if (constants.getOutcome() != ConstantsLoadResult.Outcome.SUCCESS) {
+        // the values saved last run are good enough to carry on with
+        if (constants.getOutcome() != ConstantsLoadResult.Outcome.SUCCESS && !constantsService.isLoaded()) {
             return "Could not load the dropdown values: " + constants.getMessage();
         }
         return null;
+    }
+
+    // TEMPORARY: swap this for the LocalDatabase Aum's SyncService uses once the services are
+    // composed here, so the app opens one SQLite file. Until then the constants get their own
+    // copy of it. If the file cannot be opened the dropdowns just are not kept between runs.
+    private static ConstantsCache openConstantsCache() {
+        try {
+            Files.createDirectories(LOCAL_DATABASE.getParent());
+            return new CategoryConstantStore(new LocalDatabase(LOCAL_DATABASE));
+        } catch (IOException | LocalStoreException e) {
+            e.printStackTrace();
+            return ConstantsCache.NONE;
+        }
     }
 
     // TEMPORARY: swap this for the real customer search (US2) once Taran's screen exists. Until
