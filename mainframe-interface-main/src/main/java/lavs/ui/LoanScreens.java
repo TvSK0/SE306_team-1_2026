@@ -15,19 +15,21 @@ public class LoanScreens {
     private final LoanService _loanService;
     private final LoanRepaymentsService _repaymentsService;
     private final ConstantsService _constantsService;
+    private final BackgroundTasks _tasks;
 
     public LoanScreens(LoanService loanService, LoanRepaymentsService repaymentsService,
-                       ConstantsService constantsService) {
+                       ConstantsService constantsService, BackgroundTasks tasks) {
         _loanService = loanService;
         _repaymentsService = repaymentsService;
         _constantsService = constantsService;
+        _tasks = tasks;
     }
 
     public void register(Navigator navigator) {
         navigator.register(Screen.LOAN, parameter -> {
             LoanScreenRequest request = LoanScreenRequest.from(parameter);
             try {
-                return LoanScreenController.open(_loanService, _repaymentsService, _constantsService,
+                return LoanScreenController.open(_loanService, _repaymentsService, _constantsService, _tasks,
                         request.customer(), request.loan(), navigator::back);
             } catch (IOException e) {
                 // a missing or broken FXML file: the Navigator reports it and stays where it is
