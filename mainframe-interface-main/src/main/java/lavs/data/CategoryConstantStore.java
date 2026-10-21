@@ -14,7 +14,7 @@ import java.util.Map;
 // This keeps the category constants in the CategoryConstant table so that dropdowns will
 // still work offline. Values are kept per category in display order, matching ConstantsService.
 
-public class CategoryConstantStore {
+public class CategoryConstantStore implements ConstantsCache {
 
     private final LocalDatabase database;
 
