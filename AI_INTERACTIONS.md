@@ -8,6 +8,26 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5)
+
+**Prompt (summarised):** go through the task list, do my tasks that aren't
+blocked by anyone else, and write the US8 method that lists a loan's
+co-borrowers and guarantors.
+
+**What it produced** on `feature/us8-list-coborrowers`:
+
+- `LoanBorrowerService.listCoborrowers` and `LoanBorrowerListResult`: reads
+  every co-borrower and guarantor on a loan with `loanCoborrower.List`, page
+  by page, for the Borrowers tab and the US9 guarantor check.
+- `LoanCoborrower` gets a `coborrowerName` field (filled in from the list).
+- Tests for each in `LoanBorrowerServiceTests` and `LoanCoborrowerTests`.
+
+**Marking:** the new method, result class, model field and tests carry an
+`// AI-assisted` comment. Agreed by me as an exception to the hand-written
+rule, like the earlier US8/US9 service work.
+
+---
+
 ## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
 
 **Prompt (summarised):** build the app shell: a list of screens and a
