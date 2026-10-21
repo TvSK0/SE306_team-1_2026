@@ -24,6 +24,10 @@ import java.util.List;
 // exists on main yet, so the Loan Borrowers screen itself is blocked on
 // that. See the project notes.
 public final class LoanBorrowerService {
+    // the two kinds of borrower, so screens never have to import the mainframe message classes
+    public static final String COBORROWER = AddCoborrower.TYPE_COBORROWER;
+    public static final String GUARANTOR = AddCoborrower.TYPE_GUARANTOR;
+
     static final long PAGE_SIZE = 50;
 
     private final Connection _connection;
