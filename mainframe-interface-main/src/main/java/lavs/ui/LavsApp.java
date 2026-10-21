@@ -14,6 +14,7 @@ import lavs.data.CategoryConstantsLoader;
 import lavs.data.ConstantsLoadResult;
 import lavs.logic.ConstantsService;
 import lavs.logic.LoanRepaymentsService;
+import lavs.logic.LoanSaveResult;
 import lavs.logic.LoanService;
 import lavs.model.Customer;
 import mainframe.client.Connection;
@@ -21,6 +22,7 @@ import mainframe.client.HttpConnection;
 import mainframe.client.Status;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -63,8 +65,9 @@ public class LavsApp extends Application {
         // Teammates register their screens here: navigator.register(Screen.X, parameter -> view).
         // Screens nobody has registered yet show a "Not built yet" placeholder.
         navigator.register(Screen.LOGIN, parameter -> temporaryLogin(navigator, topBar, connection, constantsService, tasks));
-        navigator.register(Screen.CUSTOMER_SEARCH, parameter -> temporaryCustomerSearch(navigator));
-        new LoanScreens(new LoanService(connection), new LoanRepaymentsService(connection), constantsService)
+        LoanService loanService = new LoanService(connection);
+        navigator.register(Screen.CUSTOMER_SEARCH, parameter -> temporaryCustomerSearch(navigator, loanService, tasks));
+        new LoanScreens(loanService, new LoanRepaymentsService(connection), constantsService)
                 .register(navigator);
         navigator.start();
 
@@ -126,8 +129,9 @@ public class LavsApp extends Application {
     }
 
     // TEMPORARY: swap this for the real customer search (US2) once Taran's screen exists. Until
-    // then it opens a new loan for a customer number typed in by hand.
-    private static Node temporaryCustomerSearch(Navigator navigator) {
+    // then it opens a new loan for a customer number, or a saved loan by its number, typed in
+    // by hand.
+    private static Node temporaryCustomerSearch(Navigator navigator, LoanService loanService, BackgroundTasks tasks) {
         Label label = new Label("Customer search: built in US2");
         label.getStyleClass().add("lavs-page-title");
         TextField customerNumber = new TextField();
@@ -141,9 +145,50 @@ public class LavsApp extends Application {
             customer.setNumber(customerNumber.getText().trim());
             navigator.goTo(Screen.LOAN, LoanScreenRequest.forNewLoan(customer));
         });
-        VBox box = new VBox(16, label, customerNumber, newLoan);
+
+        TextField loanNumber = new TextField();
+        loanNumber.setPromptText("Loan number");
+        loanNumber.setMaxWidth(240);
+        Button openLoan = new Button("Open loan (temporary)");
+        openLoan.getStyleClass().add("lavs-button-secondary");
+        Label error = new Label();
+        LoadingView loading = new LoadingView(LoadingState.forRead("Open loan (temporary)", "Opening..."), openLoan);
+        openLoan.setOnAction(event -> tasks.run(
+                () -> {
+                    try {
+                        return loanService.loadLoan(loanNumber.getText().trim());
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                },
+                loading::start,
+                result -> {
+                    loading.finish();
+                    if (result.isSuccessful()) {
+                        // the loan only knows its customer's number; the real customer record
+                        // passes the whole customer so the Back link shows the name
+                        Customer customer = new Customer();
+                        customer.setNumber(result.getLoan().getCustomerNumber());
+                        navigator.goTo(Screen.LOAN, LoanScreenRequest.forLoan(customer, result.getLoan()));
+                    } else {
+                        error.setText(openLoanError(result));
+                    }
+                },
+                failure -> {
+                    loading.finish();
+                    error.setText("Could not open the loan: " + failure.getMessage());
+                }));
+
+        VBox box = new VBox(16, label, customerNumber, newLoan, loanNumber, openLoan, error);
         box.setAlignment(Pos.CENTER);
         return box;
+    }
+
+    private static String openLoanError(LoanSaveResult result) {
+        if (result.getMainframeStatus() == null) {
+            return "Type a loan number first.";
+        }
+        return "Could not open the loan: " + result.getMainframeStatus().getErrorMessage();
     }
 
     public static void main(String[] args) {

@@ -157,8 +157,29 @@ public class LoanService {
                 message.getStartDate(), message.getRenewalDate()));
     }
 
-    // Builds the model from the values the mainframe sent back. loan.Create and
-    // loan.Update share no type, so both pass their getters in here.
+    // Loads a saved loan by its number with loan.Retrieve, e.g. to open it from the
+    // customer record for editing.
+    public LoanSaveResult loadLoan(String loanNumber) throws IOException {
+        ValidationResult validation = new ValidationResult();
+        validation.addIfPresent(Validators.required(LOAN_NUMBER, loanNumber));
+        if (!validation.isValid()) {
+            return LoanSaveResult.invalid(validation);
+        }
+
+        mainframe.client.messages.loan.Retrieve message = new mainframe.client.messages.loan.Retrieve(loanNumber);
+        Status status = message.send(_connection);
+        if (!status.getWasSuccessful()) {
+            return LoanSaveResult.failed(status);
+        }
+        return LoanSaveResult.saved(status, toLoan(
+                message.getLoanNumber(), message.getCustomerNumber(), message.getStatus(),
+                message.getPrincipal(), message.getRateType(), message.getRateAmount(), message.getRateFrequency(),
+                message.getPaymentAmount(), message.getPaymentFrequency(),
+                message.getStartDate(), message.getRenewalDate()));
+    }
+
+    // Builds the model from the values the mainframe sent back. loan.Create, loan.Update
+    // and loan.Retrieve share no type, so each passes its getters in here.
     private static Loan toLoan(String loanNumber, String customerNumber, String status,
                                Double principal, String rateType, Double rateAmount, String rateFrequency,
                                Double paymentAmount, String paymentFrequency,
