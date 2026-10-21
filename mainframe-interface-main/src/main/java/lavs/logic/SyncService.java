@@ -132,6 +132,11 @@ public class SyncService implements AutoCloseable {
         return processor.resolveNumber(number);
     }
 
+    /** Whether the gateway currently reports a live mainframe connection. */
+    public boolean isConnected() {
+        return gateway.isConnected();
+    }
+
     /** Called on the sync thread whenever the queue changes. UI listeners must hop back to the UI thread. */
     public void addListener(Runnable listener) {
         listeners.add(listener);
