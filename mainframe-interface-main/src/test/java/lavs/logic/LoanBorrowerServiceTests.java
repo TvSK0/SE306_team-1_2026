@@ -1,5 +1,6 @@
 package lavs.logic;
 
+import lavs.model.LoanCoborrower;
 import mainframe.client.Connection;
 import mainframe.client.MessageRequest;
 import mainframe.client.MessageResponse;
@@ -157,6 +158,119 @@ class LoanBorrowerServiceTests {
 
         assertFalse(result.isSuccessful());
         verifyNoInteractions(connection);
+    }
+
+    // --- listCoborrowers ---
+
+    @Test
+    void listCoborrowersReturnsEveryCoborrowerAndGuarantorOnTheLoan() throws IOException {
+        when(connection.send(argThat(listPage(1))))
+                .thenReturn(listResponse(2,
+                        row(7, AddCoborrower.TYPE_COBORROWER, "CUST-43", "Mere Brown"),
+                        row(8, AddCoborrower.TYPE_GUARANTOR, "CUST-44", "Aroha Smith")));
+
+        LoanBorrowerListResult result = service.listCoborrowers(LOAN_NUMBER);
+
+        assertTrue(result.isSuccessful());
+        assertEquals(2, result.getCoborrowers().size());
+        LoanCoborrower first = result.getCoborrowers().get(0);
+        assertAll(
+                () -> assertEquals(7L, first.getId()),
+                () -> assertEquals(LOAN_NUMBER, first.getLoanNumber()),
+                () -> assertEquals("CUST-43", first.getCoborrowerNumber()),
+                () -> assertEquals("Mere Brown", first.getCoborrowerName()),
+                () -> assertEquals(AddCoborrower.TYPE_COBORROWER, first.getType()),
+                () -> assertEquals(AddCoborrower.TYPE_GUARANTOR, result.getCoborrowers().get(1).getType()));
+        verify(connection).send(argThat(request ->
+                LOAN_NUMBER.equals(request.getValue("number"))
+                        && Long.toString(LoanBorrowerService.PAGE_SIZE).equals(request.getValue("size"))));
+    }
+
+    @Test
+    void listCoborrowersReturnsAnEmptyListForALoanWithNone() throws IOException {
+        when(connection.send(argThat(listPage(1)))).thenReturn(listResponse(0));
+
+        LoanBorrowerListResult result = service.listCoborrowers(LOAN_NUMBER);
+
+        assertTrue(result.isSuccessful());
+        assertTrue(result.getCoborrowers().isEmpty());
+    }
+
+    @Test
+    void listCoborrowersKeepsRequestingPagesUntilItHasThemAll() throws IOException {
+        when(connection.send(argThat(listPage(1))))
+                .thenReturn(listResponse(3,
+                        row(7, AddCoborrower.TYPE_COBORROWER, "CUST-43", "Mere Brown"),
+                        row(8, AddCoborrower.TYPE_GUARANTOR, "CUST-44", "Aroha Smith")));
+        when(connection.send(argThat(listPage(2))))
+                .thenReturn(listResponse(3, row(9, AddCoborrower.TYPE_GUARANTOR, "CUST-45", "Hemi Walker")));
+
+        LoanBorrowerListResult result = service.listCoborrowers(LOAN_NUMBER);
+
+        assertTrue(result.isSuccessful());
+        assertEquals(3, result.getCoborrowers().size());
+        assertEquals("CUST-45", result.getCoborrowers().get(2).getCoborrowerNumber());
+        verify(connection, times(2)).send(any(MessageRequest.class));
+    }
+
+    @Test
+    void listCoborrowersStopsOnAnEmptyPageEvenIfTheTotalSaysThereAreMore() throws IOException {
+        when(connection.send(argThat(listPage(1))))
+                .thenReturn(listResponse(5, row(7, AddCoborrower.TYPE_COBORROWER, "CUST-43", "Mere Brown")));
+        when(connection.send(argThat(listPage(2)))).thenReturn(listResponse(5));
+
+        LoanBorrowerListResult result = service.listCoborrowers(LOAN_NUMBER);
+
+        assertTrue(result.isSuccessful());
+        assertEquals(1, result.getCoborrowers().size());
+        verify(connection, times(2)).send(any(MessageRequest.class));
+    }
+
+    @Test
+    void listCoborrowersReportsAMainframeRejectionWithoutThrowing() throws IOException {
+        when(connection.send(argThat(listPage(1)))).thenReturn(rejectedResponse("no such loan"));
+
+        LoanBorrowerListResult result = service.listCoborrowers(LOAN_NUMBER);
+
+        assertFalse(result.isSuccessful());
+        assertFalse(result.getMainframeStatus().getWasSuccessful());
+        assertTrue(result.getCoborrowers().isEmpty());
+    }
+
+    @Test
+    void listCoborrowersFailsValidationWithoutContactingTheMainframe() throws IOException {
+        LoanBorrowerListResult result = service.listCoborrowers(" ");
+
+        assertFalse(result.isSuccessful());
+        assertEquals("loanNumber", result.getValidationErrors().getErrors().get(0).getFieldName());
+        assertNull(result.getMainframeStatus());
+        assertTrue(result.getCoborrowers().isEmpty());
+        verifyNoInteractions(connection);
+    }
+
+    private static org.mockito.ArgumentMatcher<MessageRequest> listPage(long page) {
+        return request -> request != null
+                && "loanCoborrower.list".equals(request.getRequestType())
+                && Long.toString(page).equals(request.getValue("page"));
+    }
+
+    // one row of a loanCoborrower.list response: id, type, coborrowerNumber, coborrowerName
+    private static String[] row(long id, String type, String coborrowerNumber, String coborrowerName) {
+        return new String[] {Long.toString(id), type, coborrowerNumber, coborrowerName};
+    }
+
+    private static MessageResponse listResponse(long total, String[]... rows) {
+        HashMap<String, String> values = new HashMap<>();
+        values.put("loanNumber", LOAN_NUMBER);
+        values.put("total", Long.toString(total));
+        values.put("items", Integer.toString(rows.length));
+        for (int i = 1; i <= rows.length; i++) {
+            values.put(i + ":id", rows[i - 1][0]);
+            values.put(i + ":type", rows[i - 1][1]);
+            values.put(i + ":coborrowerNumber", rows[i - 1][2]);
+            values.put(i + ":coborrowerName", rows[i - 1][3]);
+        }
+        return new MessageResponse(new Status(1), values);
     }
 
     private static org.mockito.ArgumentMatcher<MessageRequest> requestOfType(String requestType) {

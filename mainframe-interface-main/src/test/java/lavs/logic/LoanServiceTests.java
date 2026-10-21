@@ -430,6 +430,113 @@ public class LoanServiceTests {
         );
     }
 
+    // --- loadLoan ---
+
+    @Test
+    void loadsTheLoanByItsNumber() throws IOException {
+        // Arrange
+        Map<String, String> reply = savedLoanReply(VALID);
+        reply.put("status", "Pending");
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("loan.retrieve", FakeConnection.success(reply));
+        LoanService service = new LoanService(connection);
+
+        // Act
+        LoanSaveResult result = service.loadLoan(LOAN_NUMBER);
+
+        // Assert
+        Loan loan = result.getLoan();
+        Assertions.assertAll(
+                () -> Assertions.assertTrue(result.isSuccessful()),
+                () -> Assertions.assertEquals(LOAN_NUMBER, connection.getSentRequests().get(0).getValue("number")),
+                () -> Assertions.assertEquals(LOAN_NUMBER, loan.getLoanNumber()),
+                () -> Assertions.assertEquals(CUSTOMER_NUMBER, loan.getCustomerNumber()),
+                () -> Assertions.assertEquals("Pending", loan.getStatus()),
+                () -> Assertions.assertEquals(0, new BigDecimal("450000").compareTo(loan.getPrincipal())),
+                () -> Assertions.assertEquals("Fixed", loan.getRateType()),
+                () -> Assertions.assertEquals(0, new BigDecimal("6.29").compareTo(loan.getRateAmount())),
+                () -> Assertions.assertEquals("Yearly", loan.getRateFrequency()),
+                () -> Assertions.assertEquals(0, new BigDecimal("2786").compareTo(loan.getPaymentAmount())),
+                () -> Assertions.assertEquals("Monthly", loan.getPaymentFrequency()),
+                () -> Assertions.assertEquals(LocalDate.of(2026, 11, 1), loan.getStartDate()),
+                () -> Assertions.assertEquals(LocalDate.of(2027, 11, 1), loan.getRenewalDate())
+        );
+    }
+
+    @Test
+    void loadsALoanWithoutARenewalDate() throws IOException {
+        // Arrange
+        Map<String, String> reply = savedLoanReply(VALID);
+        reply.remove("renewalDate");
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("loan.retrieve", FakeConnection.success(reply));
+        LoanService service = new LoanService(connection);
+
+        // Act
+        LoanSaveResult result = service.loadLoan(LOAN_NUMBER);
+
+        // Assert
+        Assertions.assertAll(
+                () -> Assertions.assertTrue(result.isSuccessful()),
+                () -> Assertions.assertNull(result.getLoan().getRenewalDate())
+        );
+    }
+
+    @Test
+    void loadingRequiresALoanNumber() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        LoanService service = new LoanService(connection);
+
+        // Act
+        LoanSaveResult result = service.loadLoan(" ");
+
+        // Assert
+        Assertions.assertAll(
+                () -> Assertions.assertFalse(result.isSuccessful()),
+                () -> Assertions.assertEquals(List.of(LoanService.LOAN_NUMBER), fieldNames(result.getValidationErrors())),
+                () -> Assertions.assertEquals(0, connection.getSentRequests().size())
+        );
+    }
+
+    @Test
+    void reportsALoanTheMainframeDoesNotHave() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("loan.retrieve", FakeConnection.rejected("Loan not found"));
+        LoanService service = new LoanService(connection);
+
+        // Act
+        LoanSaveResult result = service.loadLoan(LOAN_NUMBER);
+
+        // Assert
+        Assertions.assertAll(
+                () -> Assertions.assertFalse(result.isSuccessful()),
+                () -> Assertions.assertNull(result.getLoan()),
+                () -> Assertions.assertEquals(StatusMessage.SERVER_FAILURE.getCode(), result.getMainframeStatus().getErrorCode()),
+                () -> Assertions.assertEquals("Loan not found", result.getMainframeStatus().getErrorMessage())
+        );
+    }
+
+    @Test
+    void reportsANetworkFailureWhileLoading() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.setIsConnected(false);
+        LoanService service = new LoanService(connection);
+
+        // Act
+        LoanSaveResult result = service.loadLoan(LOAN_NUMBER);
+
+        // Assert
+        Assertions.assertAll(
+                () -> Assertions.assertFalse(result.isSuccessful()),
+                () -> Assertions.assertNull(result.getLoan()),
+                () -> Assertions.assertEquals(
+                        StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode(), result.getMainframeStatus().getErrorCode())
+        );
+    }
+
     private static Map<String, String> savedLoanReply(LoanDetailsInput input) {
         Map<String, String> reply = new HashMap<>();
         reply.put("loanNumber", LOAN_NUMBER);

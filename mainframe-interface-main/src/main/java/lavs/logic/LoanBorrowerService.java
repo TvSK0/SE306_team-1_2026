@@ -1,5 +1,6 @@
 package lavs.logic;
 
+import lavs.model.LoanCoborrower;
 import lavs.validation.FieldError;
 import lavs.validation.ValidationResult;
 import lavs.validation.Validators;
@@ -9,6 +10,8 @@ import mainframe.client.messages.loan.AddCoborrower;
 import mainframe.client.messages.loan.DeleteCoborrower;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 // TEMPORARY: lives in lavs.logic until Scott's logic package skeleton is on
 // main (see the same note on ConstantsService); move/adapt this once it is.
@@ -19,12 +22,54 @@ import java.io.IOException;
 // (login -> customer search -> open customer record) to find the customer
 // being added, and on customer search running in "select" mode; neither
 // exists on main yet, so the Loan Borrowers screen itself is blocked on
-// that, and on the team's UI framework choice. See the project notes.
+// that. See the project notes.
 public final class LoanBorrowerService {
+    // the two kinds of borrower, so screens never have to import the mainframe message classes
+    public static final String COBORROWER = AddCoborrower.TYPE_COBORROWER;
+    public static final String GUARANTOR = AddCoborrower.TYPE_GUARANTOR;
+
+    static final long PAGE_SIZE = 50;
+
     private final Connection _connection;
 
     public LoanBorrowerService(Connection connection) {
         _connection = connection;
+    }
+
+    // AI-assisted: every co-borrower and guarantor on a loan, using
+    // loanCoborrower.List. Requests pages 1, 2, ... until all of them are
+    // collected, and also stops on an empty page so a wrong total from the
+    // server cannot cause an endless loop (same approach as
+    // CategoryConstantsLoader).
+    public LoanBorrowerListResult listCoborrowers(String loanNumber) throws IOException {
+        ValidationResult validation = new ValidationResult();
+        validation.addIfPresent(Validators.required("loanNumber", loanNumber));
+        if (!validation.isValid()) {
+            return LoanBorrowerListResult.invalid(validation);
+        }
+
+        List<LoanCoborrower> coborrowers = new ArrayList<>();
+        long page = 1;
+        while (true) {
+            // a new message per page, because message objects keep the items from earlier sends
+            mainframe.client.messages.loanCoborrower.List message =
+                    new mainframe.client.messages.loanCoborrower.List(loanNumber, page, PAGE_SIZE);
+            Status status = message.send(_connection);
+            if (!status.getWasSuccessful()) {
+                return LoanBorrowerListResult.fromStatus(status, List.of());
+            }
+            mainframe.client.messages.loanCoborrower.List.Item[] items = message.getItems();
+            for (mainframe.client.messages.loanCoborrower.List.Item item : items) {
+                LoanCoborrower coborrower = new LoanCoborrower(loanNumber, item.getCoborrowerNumber(), item.getType());
+                coborrower.setId(item.getId());
+                coborrower.setCoborrowerName(item.getCoborrowerName());
+                coborrowers.add(coborrower);
+            }
+            if (items.length == 0 || coborrowers.size() >= message.getTotal()) {
+                return LoanBorrowerListResult.fromStatus(status, coborrowers);
+            }
+            page++;
+        }
     }
 
     // Adds a customer as a co-borrower or guarantor on a loan, using

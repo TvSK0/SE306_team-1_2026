@@ -1,0 +1,176 @@
+/* Styles for the loan screen (loan-screen.fxml) and its tabs, following proposal mockups 4 and 6. */
+
+.loan {
+    -fx-background-color: white;
+    -fx-font-size: 13px;
+}
+
+.loan .back-link {
+    -fx-text-fill: #1f5fbf;
+    -fx-font-size: 14px;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+}
+
+.loan .title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+}
+
+.loan .status {
+    -fx-background-color: #fff4d6;
+    -fx-text-fill: #8a5a00;
+    -fx-font-weight: bold;
+    -fx-padding: 2 10 2 10;
+    -fx-background-radius: 12;
+}
+
+/* the bordered boxes holding the form and the estimate */
+.loan .card {
+    -fx-background-color: white;
+    -fx-border-color: #dddddd;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 16 18 16 18;
+}
+
+.loan .section {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.loan .field-label {
+    -fx-text-fill: #555555;
+}
+
+/* the message under the title after Save */
+.loan .message {
+    -fx-padding: 8;
+    -fx-background-radius: 4;
+    -fx-background-color: #e8f5e9;
+    -fx-text-fill: #1b5e20;
+}
+
+.loan .message.problem {
+    -fx-background-color: #fdecea;
+    -fx-text-fill: #b71c1c;
+}
+
+/* a field that failed validation, and the text under it */
+.loan .field-error {
+    -fx-border-color: #c62828;
+    -fx-border-radius: 3;
+}
+
+.loan .error-text {
+    -fx-text-fill: #c62828;
+    -fx-font-size: 11px;
+    -fx-min-height: 16px;
+}
+
+/* repayment estimate panel */
+.loan .estimate {
+    -fx-text-fill: #1f5fbf;
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+}
+
+.loan .estimate.empty {
+    -fx-text-fill: #999999;
+    -fx-font-size: 16px;
+    -fx-font-weight: normal;
+}
+
+.loan .note {
+    -fx-text-fill: #666666;
+    -fx-font-size: 12px;
+}
+
+.loan .saved-state {
+    -fx-background-color: #eeeeee;
+    -fx-text-fill: #555555;
+    -fx-font-weight: bold;
+    -fx-padding: 2 10 2 10;
+    -fx-background-radius: 12;
+}
+
+.loan .saved-state.saved {
+    -fx-background-color: #e3f4e8;
+    -fx-text-fill: #1e7b3c;
+}
+
+.loan .primary {
+    -fx-background-color: #1f5fbf;
+    -fx-text-fill: white;
+}
+
+/* tabs: flat, with the selected one underlined in blue */
+.loan .tab-pane > .tab-header-area > .headers-region > .tab {
+    -fx-background-color: transparent;
+    -fx-padding: 6 14 6 14;
+}
+
+.loan .tab-pane > .tab-header-area > .tab-header-background {
+    -fx-background-color: white;
+    -fx-border-color: transparent transparent #dddddd transparent;
+}
+
+.loan .tab-pane > .tab-header-area > .headers-region > .tab:selected {
+    -fx-border-color: transparent transparent #1f5fbf transparent;
+    -fx-border-width: 0 0 2 0;
+}
+
+.loan .tab-pane > .tab-header-area > .headers-region > .tab .tab-label {
+    -fx-text-fill: #555555;
+    -fx-font-size: 14px;
+}
+
+.loan .tab-pane > .tab-header-area > .headers-region > .tab:selected .tab-label {
+    -fx-text-fill: #1f5fbf;
+}
+
+.loan .tab-pane .tab:selected .focus-indicator {
+    -fx-border-color: transparent;
+}
+
+/* repayments summary cards */
+.loan .stat-card {
+    -fx-border-color: #dddddd;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 12 14 12 14;
+    -fx-spacing: 4;
+    -fx-min-width: 120;
+}
+
+.loan .stat-label {
+    -fx-text-fill: #555555;
+}
+
+.loan .stat-value {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+
+/* repayment schedule table */
+.loan .schedule {
+    -fx-border-color: #dddddd;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+
+.loan .schedule .column-header,
+.loan .schedule .column-header-background,
+.loan .schedule .filler {
+    -fx-background-color: #f5f6f8;
+}
+
+.loan .schedule .column-header .label {
+    -fx-text-fill: #555555;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 4 8 4 8;
+}
+
+.loan .schedule .table-cell {
+    -fx-padding: 6 8 6 8;
+}

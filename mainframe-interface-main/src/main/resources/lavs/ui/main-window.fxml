@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.layout.StackPane?>
-
-<!-- TEMPORARY: swap this for the real first screen once Taran's UI shell exists. -->
-<StackPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml">
-    <Label text="LAVS - Loan Application and Verification System"/>
-</StackPane>

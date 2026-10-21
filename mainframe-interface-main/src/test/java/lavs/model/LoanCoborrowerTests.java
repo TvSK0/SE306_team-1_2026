@@ -19,7 +19,8 @@ class LoanCoborrowerTests {
                 () -> assertEquals("L1", link.getLoanNumber()),
                 () -> assertEquals("C2", link.getCoborrowerNumber()),
                 () -> assertEquals("Guarantor", link.getType()),
-                () -> assertNull(link.getId()));
+                () -> assertNull(link.getId()),
+                () -> assertNull(link.getCoborrowerName()));
     }
 
     @Test
@@ -28,12 +29,14 @@ class LoanCoborrowerTests {
         link.setId(8L);
         link.setLoanNumber("L2");
         link.setCoborrowerNumber("C3");
+        link.setCoborrowerName("Mere Brown");
         link.setType("Coborrower");
 
         assertAll(
                 () -> assertEquals(8L, link.getId()),
                 () -> assertEquals("L2", link.getLoanNumber()),
                 () -> assertEquals("C3", link.getCoborrowerNumber()),
+                () -> assertEquals("Mere Brown", link.getCoborrowerName()),
                 () -> assertEquals("Coborrower", link.getType()));
     }
 

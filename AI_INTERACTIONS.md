@@ -30,6 +30,140 @@ add, update, delete employer records for a customer) and implement the tests.
 
 ---
 
+## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5) - US9 submit button
+
+**Prompt (summarised):** do my US9 and US8 parts with high quality: the
+service should look everything up from the loan, then the "Submit for
+verification" button on the loan screen.
+
+**What it produced** on `feature/us9-submit-button`:
+
+- `LoanStatusService.submitForVerification(loanNumber)`: reads the loan for
+  its main borrower and status (only New can be submitted), checks the
+  customer's addresses (paging until it finds a mailing one), phone numbers,
+  emails and employers, then the guarantor rule. Every problem is returned
+  at once as field errors; a failed lookup returns its status. Tested with
+  `FakeConnection` (every branch covered).
+- `LoanSubmission` (no JavaFX, unit tested): when the button is shown or
+  enabled, and the message for each outcome.
+- The button and its message in the loan screen header
+  (`loan-screen.fxml`, `LoanScreenController`), run through `BackgroundTasks`.
+- `LoanScreenServices`: the loan screen's services as one value, so
+  `open`/`show` and `LoanScreens` don't grow a parameter per tab.
+- Checked the real screen once locally by loading the FXML under JavaFX with
+  a `FakeConnection` (not committed: CI has no display).
+
+**Marking:** new classes, the submit handler and the tests carry an
+`// AI-assisted` comment. Agreed by me as an exception to the hand-written
+rule.
+
+---
+
+## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5) - US9 guarantor rule
+
+**Prompt (summarised):** I decided the guarantor rule (block Pending when
+the main borrower has no employer and no guarantor is on the loan); add it
+to US9.
+
+**What it produced** on `feature/us9-guarantor-rule`:
+
+- `LoanStatusService.submitForVerification` now takes the main borrower's
+  customer number and checks the rule: `customerEmployer.List` first, then
+  `loanCoborrower.List` (via `listCoborrowers`) only if there's no employer.
+  A failed lookup is returned as the mainframe status; nothing is submitted.
+- `LoanStatusServiceTests` rewritten for the new rule and lookups.
+- Notes in `LoanStatusService` and `EligibilityChecker` updated: the rule
+  lives in US9 only, not the shared eligibility check US6 uses.
+
+**Marking:** the guarantor check and tests carry an `// AI-assisted` comment.
+
+---
+
+## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5)
+
+**Prompt (summarised):** go through the task list, do my tasks that aren't
+blocked by anyone else, and write the US8 method that lists a loan's
+co-borrowers and guarantors.
+
+**What it produced** on `feature/us8-list-coborrowers`:
+
+- `LoanBorrowerService.listCoborrowers` and `LoanBorrowerListResult`: reads
+  every co-borrower and guarantor on a loan with `loanCoborrower.List`, page
+  by page, for the Borrowers tab and the US9 guarantor check.
+- `LoanCoborrower` gets a `coborrowerName` field (filled in from the list).
+- Tests for each in `LoanBorrowerServiceTests` and `LoanCoborrowerTests`.
+
+**Marking:** the new method, result class, model field and tests carry an
+`// AI-assisted` comment. Agreed by me as an exception to the hand-written
+rule, like the earlier US8/US9 service work.
+
+---
+
+## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build the app shell: a list of screens and a
+navigator with a back stack, a top bar showing connection state, pending
+uploads and the signed-in user, and the main window that joins them.
+
+**What it produced** on `feature/ui-app-shell`:
+
+- `lavs.ui.Screen`, `NavigatorState`, `ScreenRegistry`, `Refreshable`: the
+  navigation rules (parameters, a back stack that keeps each built view,
+  reset on login/logout, "not built yet" placeholders, a view that fails to
+  build leaves the current screen alone), with no JavaFX, and unit tests.
+- `Navigator` (thin JavaFX control over those rules).
+- `StatusFeed`, `FixedStatusFeed` (TEMPORARY), `TopBarState`, `TopBar`:
+  "Online / Offline" with "All changes uploaded" or "N waiting to upload",
+  "Signed in: J. Smith", a default title per screen, hidden on Login. The
+  text and style decisions are in `TopBarState` and unit tested.
+- `MainWindow`; `LavsApp` now builds the shell and starts on a TEMPORARY
+  login stand-in; the sample `main-window.fxml` was removed.
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
+## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build the helper that runs every service call off
+the UI thread and shows a loading state, testable without starting JavaFX.
+
+**What it produced** on `feature/ui-background-task`:
+
+- `lavs.ui.BackgroundTasks`: takes a background executor and a UI-thread
+  runner; `run(work, onStart, onDone, onError)` returns a handle whose
+  `cancel()` means no callback is ever made. 100% branch tested with
+  queues standing in for threads (`BackgroundTasksTests`).
+- `lavs.ui.LoadingState`: the rules for the busy button text, disabled
+  button, Cancel button and skeleton rows. Reads get Cancel and skeletons;
+  saves do not, because saves still upload through the sync queue
+  (`LoadingStateTests`).
+- `LoadingView` and `SkeletonRows`: thin JavaFX controls with no branches
+  that copy the state onto the screen.
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
+## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build the shared LAVS stylesheet from the Figma.
+
+**What it produced** on `feature/ui-stylesheet`:
+
+- `lavs.css`: colour tokens as looked-up colours on `.root`, Segoe UI
+  typography (Segoe UI Semibold for Figma's semibold text), and the style
+  classes for every shared component.
+- `LavsStylesheetTests`: checks that every token used is defined, that no
+  one-off hex colours sit outside `.root`, and that every component class
+  exists. Runs without starting JavaFX.
+- `LavsApp` now loads the stylesheet at 1280x800; `main-window.fxml` has a
+  TEMPORARY row of sample buttons and tags for checking the styles by eye.
+
+**Marking:** `lavs.css` and `LavsStylesheetTests` carry an `// AI-assisted`
+comment. The `LavsApp` and FXML edits were small.
+
+---
 
 ## 2026-10-18 - Aum, Claude (Opus 5.5) - fixes from pre-push testing
 
