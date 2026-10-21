@@ -20,6 +20,7 @@ import lavs.logic.ConstantsService;
 import lavs.logic.LoanRepaymentsService;
 import lavs.logic.LoanSaveResult;
 import lavs.logic.LoanService;
+import lavs.logic.LoanStatusService;
 import lavs.model.Customer;
 import mainframe.client.Connection;
 import mainframe.client.HttpConnection;
@@ -78,7 +79,8 @@ public class LavsApp extends Application {
         navigator.register(Screen.LOGIN, parameter -> temporaryLogin(navigator, topBar, connection, constantsService, tasks));
         LoanService loanService = new LoanService(connection);
         navigator.register(Screen.CUSTOMER_SEARCH, parameter -> temporaryCustomerSearch(navigator, loanService, tasks));
-        new LoanScreens(loanService, new LoanRepaymentsService(connection), constantsService, tasks)
+        new LoanScreens(new LoanScreenServices(loanService, new LoanRepaymentsService(connection),
+                constantsService, new LoanStatusService(connection), tasks))
                 .register(navigator);
         navigator.start();
 

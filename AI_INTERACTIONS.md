@@ -8,6 +8,35 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5) - US9 submit button
+
+**Prompt (summarised):** do my US9 and US8 parts with high quality: the
+service should look everything up from the loan, then the "Submit for
+verification" button on the loan screen.
+
+**What it produced** on `feature/us9-submit-button`:
+
+- `LoanStatusService.submitForVerification(loanNumber)`: reads the loan for
+  its main borrower and status (only New can be submitted), checks the
+  customer's addresses (paging until it finds a mailing one), phone numbers,
+  emails and employers, then the guarantor rule. Every problem is returned
+  at once as field errors; a failed lookup returns its status. Tested with
+  `FakeConnection` (every branch covered).
+- `LoanSubmission` (no JavaFX, unit tested): when the button is shown or
+  enabled, and the message for each outcome.
+- The button and its message in the loan screen header
+  (`loan-screen.fxml`, `LoanScreenController`), run through `BackgroundTasks`.
+- `LoanScreenServices`: the loan screen's services as one value, so
+  `open`/`show` and `LoanScreens` don't grow a parameter per tab.
+- Checked the real screen once locally by loading the FXML under JavaFX with
+  a `FakeConnection` (not committed: CI has no display).
+
+**Marking:** new classes, the submit handler and the tests carry an
+`// AI-assisted` comment. Agreed by me as an exception to the hand-written
+rule.
+
+---
+
 ## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5) - US9 guarantor rule
 
 **Prompt (summarised):** I decided the guarantor rule (block Pending when
