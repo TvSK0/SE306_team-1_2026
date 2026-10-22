@@ -55,6 +55,39 @@ controllers have no unit tests; the app was started to check it launches.
 
 ---
 
+## 2026-10-22 - Aum, Claude Code (Opus 4.8) - route EmployerService through SyncService
+
+**Prompt (summarised):** start "step B" of US11 — route one service's writes through the
+offline queue instead of calling the mainframe directly. Picked `EmployerService` (US5) because
+it isn't wired into any screen yet, so the change is self-contained.
+
+**What it assisted with** on `feature/us5-employers-queue`:
+
+- `lavs.logic.EmployerService` - assisted rewriting add/update/delete to build the message fields
+  and call `SyncService.queue(...)` instead of sending `AddEmployer`/`UpdateEmployer`/
+  `DeleteEmployer` over the `Connection`. The field keys and string forms match those messages'
+  `send` exactly, so `MainframeGateway` replays each queued change unchanged. Writes now work
+  offline. Blocks on the queue future (safe: the service runs on a `BackgroundTasks` thread).
+- `lavs.logic.EmployerResult` - assisted reshaping it from a mainframe `Status` wrapper to the
+  queue outcomes **SAVED / WAITING / REJECTED** plus field errors. This is the template for the
+  other services moving onto `SyncService`; it differs from `ServiceResult` because on the queue
+  being offline is WAITING, not a failure.
+- `lavs.logic.EmployerServiceTests` - fully wrote the tests (21): validation stops a bad call
+  before it is queued; a good call is SAVED and replays the exact fields for add/update/delete; an
+  offline call is WAITING and stays queued; a refused call is REJECTED with the message; a local
+  save failure is reported. Drive a real `SyncService` over the in-memory queue and fake gateway.
+
+**Not done (flagged for the PR):** an employer added offline has no mainframe `id` until it
+uploads, so it cannot be updated or deleted before then; and `SyncStep` returns the assigned
+number only for customer/loan creates, so a future employer UI must re-list after an add.
+
+**Validation:** `mvn -B clean verify` passed - 734 tests, 95% branch coverage gate met
+(`EmployerService` 21/21 branches). The other services still call the gateway directly.
+
+**Marking:** the changed service, result and tests carry `// AI-assisted:` comments.
+
+---
+
 ## 2026-10-22 - Aum, Claude Code (Opus 4.8) - wire SyncService into LavsApp
 
 **Prompt (summarised):** now that the mainframe gateway exists, wire the offline
@@ -88,6 +121,28 @@ each write through `SyncService.queue` is a separate change, done per owner.
 gate met. Launched with `javafx:run`: started with no startup exceptions.
 
 **Marking:** the wiring in `LavsApp` carries `// AI-assisted:` comments.
+
+---
+
+## 2026-10-22 - Aum, Claude Code (Opus 4.8) - fix SyncService.drain notify ordering
+
+**Prompt (summarised):** fix the intermittent `SyncServiceTests.onlineSaveIsSentStraightAway`
+failure (~1 in 4) caused by `drain()` completing a change's future before notifying listeners.
+
+**What it assisted with** on `fix/sync-drain-notify-order`:
+
+- `lavs.logic.SyncService.drain()` - assisted swapping the order so `notifyListeners()` runs
+  **before** `complete(...)` in the send loop, and before `answerWaitingAfterError(...)` in the
+  error path. Now a caller woken by its future's result (and any listener it then reads, e.g. the
+  pending count) sees the up-to-date state - the same order `runOnSyncThread` already used.
+  Completing first was a race the top bar and the test could lose.
+
+**Tests:** no new test. The existing `onlineSaveIsSentStraightAway` becomes deterministic; ran
+`SyncServiceTests` 12 times in a row with no failure to confirm the flake is gone.
+
+**Validation:** `mvn -B clean verify` passed - 731 tests, 95% branch coverage gate met.
+
+**Marking:** the reordered lines in `drain()` carry `// AI-assisted:` comments.
 
 ---
 

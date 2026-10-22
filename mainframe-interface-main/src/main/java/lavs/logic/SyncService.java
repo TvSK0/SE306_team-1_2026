@@ -213,17 +213,23 @@ public class SyncService implements AutoCloseable {
                 } else if (step.get().getOutcome() == SyncStep.Outcome.SENT) {
                     updateConnected(true);
                 }
-                complete(step.get().getChange().getId(), step.get());
+                // AI-assisted: notify before completing the future, so a caller woken by its
+                // result (and any listener it then reads, e.g. the pending count) sees the
+                // up-to-date state - the same order as runOnSyncThread. Completing first was a
+                // race the top bar and SyncServiceTests could lose.
                 notifyListeners();
+                complete(step.get().getChange().getId(), step.get());
                 if (step.get().getOutcome() == SyncStep.Outcome.WAITING) {
                     break;
                 }
             }
             settleWaiting();
         } catch (RuntimeException e) {
+            // AI-assisted: notify before answering the waiters, so the error path keeps the same
+            // notify-before-complete ordering as the success path above.
             lastError = e;
-            answerWaitingAfterError(e);
             notifyListeners();
+            answerWaitingAfterError(e);
         }
     }
 
