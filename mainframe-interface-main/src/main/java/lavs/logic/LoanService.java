@@ -15,8 +15,10 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 // US6: start, create and edit a loan.
-// TEMPORARY: swap direct Connection use for Scott's gateway (and Aum's sync queue for
-// offline saves) once they exist.
+// AI-assisted: opening a loan reads the mainframe; creating and editing go through the upload
+// queue (SyncService), so they work offline (US11). A loan created offline gets a temporary
+// number, which the queue swaps for the real one in later changes once it uploads.
+// TEMPORARY: the read still uses the Connection directly rather than the MainframeGateway.
 public class LoanService {
     public static final String MAILING_ADDRESS = "mailingAddress";
     public static final String CONTACT_DETAILS = "contactDetails";
@@ -27,9 +29,11 @@ public class LoanService {
     private static final Pattern RATE = Pattern.compile("^\\d+(\\.\\d+)?$");
 
     private final Connection _connection;
+    private final SyncService _sync;
 
-    public LoanService(Connection connection) {
+    public LoanService(Connection connection, SyncService sync) {
         _connection = connection;
+        _sync = sync;
     }
 
     // Whether the customer may start a loan: they need a mailing address and a phone
@@ -118,12 +122,13 @@ public class LoanService {
                 Double.parseDouble(input.getPrincipal()),
                 Double.parseDouble(input.getRateAmount()), input.getRateFrequency(), input.getRateType(),
                 blankToNull(input.getRenewalDate()), input.getStartDate());
-        Status status = message.send(_connection);
-        if (!status.getWasSuccessful()) {
-            return LoanSaveResult.failed(status);
-        }
-        return LoanSaveResult.saved(status, toLoan(
-                message.getLoanNumber(), message.getCustomerNumber(), message.getStatus(),
+        // AI-assisted: queued under a temporary number. Sent straight away it comes back with the
+        // number the mainframe gave it; still waiting, it keeps the temporary one until it uploads.
+        String temporaryNumber = TemporaryNumbers.create();
+        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, temporaryNumber);
+        String loanNumber = step.getOutcome() == SyncStep.Outcome.SENT ? step.getMessage() : temporaryNumber;
+        return LoanSaveResult.queued(step, toLoan(
+                loanNumber, customerNumber, LoanStatusService.NEW,
                 message.getPrincipal(), message.getRateType(), message.getRateAmount(), message.getRateFrequency(),
                 message.getPaymentAmount(), message.getPaymentFrequency(),
                 message.getStartDate(), message.getRenewalDate()));
@@ -145,12 +150,12 @@ public class LoanService {
                 Double.parseDouble(input.getPrincipal()),
                 Double.parseDouble(input.getRateAmount()), input.getRateFrequency(), input.getRateType(),
                 blankToNull(input.getRenewalDate()), input.getStartDate());
-        Status status = message.send(_connection);
-        if (!status.getWasSuccessful()) {
-            return LoanSaveResult.failed(status);
-        }
-        return LoanSaveResult.saved(status, toLoan(
-                message.getLoanNumber(), message.getCustomerNumber(), message.getStatus(),
+        // AI-assisted: queued, so the change works offline. The loan's status isn't part of the
+        // change and the mainframe's answer doesn't come back through the queue, so it is left
+        // empty for the screen to keep the one it shows.
+        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, null);
+        return LoanSaveResult.queued(step, toLoan(
+                loanNumber, customerNumber, null,
                 message.getPrincipal(), message.getRateType(), message.getRateAmount(), message.getRateFrequency(),
                 message.getPaymentAmount(), message.getPaymentFrequency(),
                 message.getStartDate(), message.getRenewalDate()));

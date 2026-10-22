@@ -37,6 +37,10 @@ public final class RelationshipsText {
         if (result.isSuccessful()) {
             return doneText;
         }
+        // AI-assisted: a save kept on the upload queue (US11)
+        if (result.isWaitingToUpload()) {
+            return doneText + " " + ResultText.WAITING_TO_UPLOAD;
+        }
         Status status = result.getMainframeStatus();
         // no status means the field checks stopped the change before the mainframe was contacted
         if (status == null) {

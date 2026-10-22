@@ -153,6 +153,29 @@ class SyncServiceTests {
         assertEquals(1, service.getChanges().size());
     }
 
+    // AI-assisted: changes rejected only because the new customer they use was refused can never be
+    // sent, so dismissing that customer takes them with it; anything else stays (US11)
+    @Test
+    void dismissingARejectedNewCustomerAlsoDismissesTheChangesHeldBehindIt() throws Exception {
+        // the create is refused once it can be sent; the unrelated change then can't reach the mainframe
+        gateway.answerSend(SendResult.rejected("Unknown organisation"), SendResult.networkFailure("down"));
+        gateway.offline = true;
+        SyncStep create = await(service.queue("customer.create", TEMP, TEMP, Map.of("firstName", "Aroha")));
+        queueAddress(TEMP);
+        queueAddress("C9");
+        gateway.offline = false;
+        gateway.connected = true;
+        service.retryIfConnected();
+        // dismissing drains the queue again; keep the unrelated change from uploading so it can be checked
+        gateway.offline = true;
+
+        await(service.dismissRejected(create.getChange().getId()));
+
+        List<PendingChange> left = service.getChanges();
+        assertEquals(1, left.size(), "only the unrelated change is left");
+        assertEquals("C9", left.get(0).getCustomerNumber());
+    }
+
     @Test
     void duplicateCustomerIsPausedUntilConfirmedNew() throws Exception {
         gateway.answerDuplicate(DuplicateCheckResult.found(List.of("C5")));

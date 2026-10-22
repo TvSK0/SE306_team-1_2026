@@ -1,20 +1,27 @@
 // AI-assisted.
 package lavs.ui;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Popup;
 import lavs.logic.SyncService;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 // The floating panel that pops up when the user clicks the status in the top bar
 // This lists each queued change with it's description and upload status
 // Is wired in LavsApp  topBar.setOnStatusClicked(() -> panel.toggle(topBar))
 // It's styled by the lavs-pending-* classes in lavs.css
+// AI-assisted: a possible-duplicate new customer offers "Use existing" / "It's a new customer",
+// and a rejected change offers "Dismiss" (US11)
 public class PendingUploadsPanel {
     private final PendingUploadsState _state;
     private final Popup _popup = new Popup();
@@ -70,7 +77,7 @@ public class PendingUploadsPanel {
         }
     }
 
-    private static Node buildRow(PendingUploadsState.Row row) {
+    private Node buildRow(PendingUploadsState.Row row) {
         Label description = new Label(row.getDescription());
         description.getStyleClass().add("lavs-pending-description");
 
@@ -81,8 +88,47 @@ public class PendingUploadsPanel {
         detail.getStyleClass().add("lavs-pending-detail");
 
         VBox rowBox = new VBox(2, description, detail);
+        // AI-assisted: the MMM needs to know why a change is paused or was rejected (US11)
+        if (row.getReason() != null) {
+            Label reason = new Label(row.getReason());
+            reason.getStyleClass().add("lavs-pending-detail");
+            reason.setWrapText(true);
+            rowBox.getChildren().add(reason);
+        }
+        HBox actions = actionsFor(row);
+        if (!actions.getChildren().isEmpty()) {
+            rowBox.getChildren().add(actions);
+        }
         rowBox.getStyleClass().add("lavs-pending-row");
         rowBox.setPadding(new Insets(8, 12, 8, 12));
         return rowBox;
+    }
+
+    // AI-assisted: the buttons for what the MMM can do about this change, if anything (US11)
+    private HBox actionsFor(PendingUploadsState.Row row) {
+        HBox actions = new HBox(6);
+        if (row.canResolveDuplicate()) {
+            for (String existing : row.getDuplicateMatches()) {
+                actions.getChildren().add(actionButton("Use existing " + existing,
+                        () -> _state.useExistingCustomer(row, existing)));
+            }
+            actions.getChildren().add(actionButton("It's a new customer", () -> _state.confirmNewCustomer(row)));
+        }
+        if (row.canDismiss()) {
+            actions.getChildren().add(actionButton("Dismiss", () -> _state.dismiss(row)));
+        }
+        return actions;
+    }
+
+    // AI-assisted: runs the action on the sync thread, then shows the queue again. The future
+    // completes on the sync thread, so it hops back to the JavaFX thread before touching the panel.
+    private Button actionButton(String text, Supplier<CompletableFuture<Void>> action) {
+        Button button = new Button(text);
+        button.getStyleClass().add("lavs-button-secondary");
+        button.setOnAction(event -> {
+            button.setDisable(true);
+            action.get().whenComplete((done, failure) -> Platform.runLater(this::refresh));
+        });
+        return button;
     }
 }

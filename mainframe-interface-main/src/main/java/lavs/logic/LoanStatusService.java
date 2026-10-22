@@ -47,10 +47,14 @@ public final class LoanStatusService {
 
     private final Connection _connection;
     private final LoanBorrowerService _borrowers;
+    private final SyncService _sync;
 
-    public LoanStatusService(Connection connection) {
+    // AI-assisted: the checks read the mainframe; the status change itself goes through the
+    // upload queue (US11)
+    public LoanStatusService(Connection connection, SyncService sync) {
         _connection = connection;
-        _borrowers = new LoanBorrowerService(connection);
+        _sync = sync;
+        _borrowers = new LoanBorrowerService(connection, sync);
     }
 
     // AI-assisted: moves a New loan to Pending once its main borrower passes
@@ -66,9 +70,11 @@ public final class LoanStatusService {
             return LoanStatusResult.invalid(validation);
         }
 
+        String customerNumber;
         try {
             Retrieve loan = new Retrieve(loanNumber);
             lookUp(loan);
+            customerNumber = loan.getCustomerNumber();
             if (!NEW.equals(loan.getStatus())) {
                 validation.add(new FieldError(STATUS,
                         "only a New loan can be submitted for verification; this one is " + loan.getStatus()));
@@ -83,12 +89,11 @@ public final class LoanStatusService {
             return LoanStatusResult.invalid(validation);
         }
 
+        // AI-assisted: the checks needed the mainframe, but the change itself is queued, so if the
+        // connection drops now it is kept and sent later rather than lost
         UpdateStatus message = new UpdateStatus(loanNumber, PENDING);
-        Status status = message.send(_connection);
-        if (!status.getWasSuccessful()) {
-            return LoanStatusResult.fromStatus(status);
-        }
-        return LoanStatusResult.changed(status, message.getStatus());
+        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, null);
+        return LoanStatusResult.queued(step, PENDING);
     }
 
     // Adds a field error for each missing piece, so the screen can say exactly what to add.

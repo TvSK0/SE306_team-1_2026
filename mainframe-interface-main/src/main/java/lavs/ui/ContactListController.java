@@ -11,6 +11,7 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import lavs.logic.ConstantsService;
 import lavs.logic.ServiceResult;
+import lavs.logic.TemporaryNumbers;
 import lavs.validation.FieldError;
 
 import java.util.List;
@@ -117,6 +118,12 @@ public abstract class ContactListController<T, I> {
             _loading.cancel();
         }
         String customerNumber = _customerNumber;
+        // AI-assisted: a customer made offline isn't on the mainframe yet, so there is nothing to read (US11)
+        if (TemporaryNumbers.isTemporary(customerNumber)) {
+            _table.getItems().clear();
+            _emptyLabel.setText(ResultText.NOT_UPLOADED_YET);
+            return;
+        }
         _emptyLabel.setText(ContactText.loading(kind()));
         _loading = _tasks.run(
                 () -> list(customerNumber),
@@ -169,13 +176,14 @@ public abstract class ContactListController<T, I> {
                 result -> {
                     removing.finish();
                     bindRemove();
-                    showMessage(ResultText.forChange(result, ContactText.removed(kind())), !result.isSuccessful());
-                    if (result.isSuccessful()) {
+                    // AI-assisted: a removal kept on the upload queue is saved too, not a problem (US11)
+                    showMessage(ResultText.forChange(result, ContactText.removed(kind())), !result.isSaved());
+                    if (result.isSaved()) {
                         // the form may still hold the record that was just removed
                         if (_editing == selected) {
                             startAdding();
                         }
-                        load();
+                        reloadIfUploaded(result);
                     }
                 },
                 failure -> {
@@ -221,9 +229,19 @@ public abstract class ContactListController<T, I> {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        showMessage(ResultText.forChange(result, doneText), !result.isSuccessful());
-        if (result.isSuccessful()) {
+        // AI-assisted: a save kept on the upload queue is saved too, not a problem (US11)
+        showMessage(ResultText.forChange(result, doneText), !result.isSaved());
+        if (result.isSaved()) {
             startAdding();
+            reloadIfUploaded(result);
+        }
+    }
+
+    // AI-assisted: after a change that reached the mainframe the list is read again, so it shows
+    // new ids. A change still waiting to upload means the mainframe can't be reached, so reading
+    // the list would only fail and empty the table; it stays as it is until the next load.
+    private void reloadIfUploaded(ServiceResult<?> result) {
+        if (result.isSuccessful()) {
             load();
         }
     }

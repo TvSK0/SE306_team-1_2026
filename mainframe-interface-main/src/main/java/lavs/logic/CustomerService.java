@@ -21,23 +21,29 @@ import java.util.Optional;
 // person, and the upload queue's duplicate check matches on exactly those three. Title
 // and nationality are optional.
 //
-// TEMPORARY: saves go straight to the mainframe until SyncService is composed in LavsApp;
-// then a new customer made offline should be queued with a temporary number instead.
+// AI-assisted: reads go to the mainframe through the MainframeGateway; saves go through the
+// upload queue (SyncService), so they work offline (US11). A new customer is queued under a
+// temporary number: the queue checks the mainframe for a possible existing customer before
+// uploading it, and swaps the temporary number for the real one in later changes once it is up.
 public class CustomerService {
     public static final String CUSTOMER_NUMBER = "customerNumber";
+    // AI-assisted: why a customer made offline can't be read yet
+    public static final String NOT_UPLOADED_YET = "isn't on the mainframe yet; it will be once the customer uploads";
 
     private final MainframeGateway _gateway;
+    private final SyncService _sync;
     private final long _organisation;
     private final Clock _clock;
 
     // organisation is the one new customers are created in
-    public CustomerService(MainframeGateway gateway, long organisation) {
-        this(gateway, organisation, Clock.systemDefaultZone());
+    public CustomerService(MainframeGateway gateway, SyncService sync, long organisation) {
+        this(gateway, sync, organisation, Clock.systemDefaultZone());
     }
 
     // clock decides what "today" is, so tests can fix it
-    CustomerService(MainframeGateway gateway, long organisation, Clock clock) {
+    CustomerService(MainframeGateway gateway, SyncService sync, long organisation, Clock clock) {
         _gateway = gateway;
+        _sync = sync;
         _organisation = organisation;
         _clock = clock;
     }
@@ -67,7 +73,15 @@ public class CustomerService {
         if (!validation.isValid()) {
             return ServiceResult.invalid(validation);
         }
-        Retrieve message = new Retrieve(number.trim());
+        // AI-assisted: a customer made offline is read by the number the mainframe gave them once
+        // uploaded; until then the mainframe has nothing to read (US11)
+        String uploadedNumber = _sync.resolveNumber(number.trim());
+        if (TemporaryNumbers.isTemporary(uploadedNumber)) {
+            ValidationResult notUploaded = new ValidationResult();
+            notUploaded.add(new FieldError(CUSTOMER_NUMBER, NOT_UPLOADED_YET));
+            return ServiceResult.invalid(notUploaded);
+        }
+        Retrieve message = new Retrieve(uploadedNumber);
         GatewayResult result = _gateway.send(message);
         return ServiceResult.from(result, toCustomer(message.getNumber(), message.getTitle(), message.getFirstName(),
                 message.getFamilyName(), message.getDateOfBirth(), message.getNationality(), message.getStatus()));
@@ -82,9 +96,14 @@ public class CustomerService {
         }
         Create message = new Create(input.getDateOfBirth().trim(), input.getFamilyName().trim(),
                 input.getFirstName().trim(), optional(input.getNationality()), _organisation, optional(input.getTitle()));
-        GatewayResult result = _gateway.send(message);
-        return ServiceResult.from(result, toCustomer(message.getNumber(), message.getTitle(), message.getFirstName(),
-                message.getFamilyName(), message.getDateOfBirth(), message.getNationality(), message.getStatus()));
+        // AI-assisted: queued under a temporary number. Sent straight away it comes back with the
+        // number the mainframe gave them; still waiting (or held as a possible duplicate) it keeps
+        // the temporary one, which later changes for this customer use until it uploads.
+        String temporaryNumber = TemporaryNumbers.create();
+        SyncStep step = QueuedWrites.queue(_sync, message, temporaryNumber, temporaryNumber);
+        String number = step.getOutcome() == SyncStep.Outcome.SENT ? step.getMessage() : temporaryNumber;
+        return ServiceResult.queued(step, toCustomer(number, message.getTitle(), message.getFirstName(),
+                message.getFamilyName(), message.getDateOfBirth(), message.getNationality(), null));
     }
 
     // Saves changes to an existing customer.
@@ -96,13 +115,16 @@ public class CustomerService {
         }
         Update message = new Update(input.getDateOfBirth().trim(), input.getFamilyName().trim(),
                 input.getFirstName().trim(), optional(input.getNationality()), number.trim(), optional(input.getTitle()));
-        GatewayResult result = _gateway.send(message);
-        return ServiceResult.from(result, toCustomer(message.getNumber(), message.getTitle(), message.getFirstName(),
-                message.getFamilyName(), message.getDateOfBirth(), message.getNationality(), message.getStatus()));
+        // AI-assisted: queued, so the change works offline. The customer's status isn't part of
+        // the change and the mainframe's answer doesn't come back through the queue, so it is
+        // left empty for the screen to keep the one it shows.
+        SyncStep step = QueuedWrites.queue(_sync, message, number.trim(), null);
+        return ServiceResult.queued(step, toCustomer(number.trim(), message.getTitle(), message.getFirstName(),
+                message.getFamilyName(), message.getDateOfBirth(), message.getNationality(), null));
     }
 
-    // Builds the model from what the mainframe sent back. The three messages share no type,
-    // so each passes its getters in here. Only called with a value that is used on success.
+    // Builds the model from a message's values: what the mainframe sent back for a read, or what
+    // was queued for a save. The three messages share no type, so each passes its getters in here.
     private static Customer toCustomer(String number, String title, String firstName, String familyName,
                                        String dateOfBirth, String nationality, String status) {
         Customer customer = new Customer();

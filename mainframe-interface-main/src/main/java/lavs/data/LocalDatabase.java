@@ -3,6 +3,7 @@ package lavs.data;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -21,7 +22,13 @@ public class LocalDatabase {
             + " fields TEXT NOT NULL,"
             + " status TEXT NOT NULL,"
             + " statusMessage TEXT,"
-            + " skipDuplicateCheck INTEGER NOT NULL DEFAULT 0)";
+            + " skipDuplicateCheck INTEGER NOT NULL DEFAULT 0,"
+            + " duplicateMatches TEXT)";
+
+    // AI-assisted: the customers a paused new customer may already be (US11). A file made before
+    // they were kept has no column for them, so it is added when the file is opened.
+    static final String DUPLICATE_MATCHES = "duplicateMatches";
+    static final String ADD_DUPLICATE_MATCHES = "ALTER TABLE PendingChange ADD COLUMN " + DUPLICATE_MATCHES + " TEXT";
 
     static final String CREATE_CATEGORY_CONSTANT =
             "CREATE TABLE IF NOT EXISTS CategoryConstant ("
@@ -47,8 +54,24 @@ public class LocalDatabase {
         try (Connection connection = connect(); Statement statement = connection.createStatement()) {
             statement.executeUpdate(CREATE_PENDING_CHANGE);
             statement.executeUpdate(CREATE_CATEGORY_CONSTANT);
+            if (!hasPendingChangeColumn(connection, DUPLICATE_MATCHES)) {
+                statement.executeUpdate(ADD_DUPLICATE_MATCHES);
+            }
         } catch (SQLException e) {
             throw new LocalStoreException("Could not open the local database at " + url, e);
+        }
+    }
+
+    // AI-assisted: whether the PendingChange table already has the column (US11)
+    private static boolean hasPendingChangeColumn(Connection connection, String column) throws SQLException {
+        try (Statement statement = connection.createStatement();
+             ResultSet columns = statement.executeQuery("PRAGMA table_info(PendingChange)")) {
+            while (columns.next()) {
+                if (column.equalsIgnoreCase(columns.getString("name"))) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

@@ -5,6 +5,7 @@ import lavs.model.Address;
 import lavs.validation.FieldError;
 import mainframe.client.FakeConnection;
 import mainframe.client.MessageRequest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
@@ -13,17 +14,29 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-// AI-assisted
+// AI-assisted. Saves now go through the upload queue (US11): a real SyncService over an in-memory
+// queue sends them to the same FakeConnection, as the same requests.
 class AddressServiceTests {
     private static final String CUSTOMER = "C-10234";
     private static final AddressInput HOME = new AddressInput("Residential", "", "1 Queen St", "Unit 2", "CBD",
             "Auckland", "1010", "New Zealand", true, true);
 
     private final FakeConnection connection = new FakeConnection();
-    private final AddressService service = new AddressService(new MainframeGateway(connection));
+    private final MainframeGateway gateway = new MainframeGateway(connection);
+    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    private final InMemoryChangeQueue queue = new InMemoryChangeQueue();
+    private final SyncService sync = new SyncService(queue, gateway, executor);
+    private final AddressService service = new AddressService(gateway, sync);
+
+    @AfterEach
+    void tearDown() {
+        sync.close();
+    }
 
     // --- checking the form ---
 
@@ -174,19 +187,25 @@ class AddressServiceTests {
         assertFalse(service.updateAddress(customerNumber, 7, HOME).getValidationErrors().isValid());
         assertFalse(service.deleteAddress(customerNumber, 7).getValidationErrors().isValid());
         assertTrue(connection.getSentRequests().isEmpty());
+        assertTrue(queue.all().isEmpty(), "nothing is queued when the checks fail");
     }
 
     // --- adding, updating and deleting ---
 
     @Test
-    void addsAnAddressAndReturnsItWithItsNewId() {
+    void addsAnAddressAndReturnsWhatWasSaved() {
         connection.whenRequested("customer.addAddress", FakeConnection.success(addressReply(9, "Residential", null, "y", "y")));
 
         ServiceResult<Address> result = service.addAddress(CUSTOMER, new AddressInput("Residential", "ignored",
                 " 1 Queen St ", " ", "", " Auckland ", " 1010 ", " New Zealand ", true, false));
 
         assertTrue(result.isSuccessful());
-        assertEquals(9L, result.getValue().getId());
+        // what was saved, as sent; the new id comes from listing again
+        assertNull(result.getValue().getId());
+        assertEquals("1 Queen St", result.getValue().getLine1());
+        assertEquals("Auckland", result.getValue().getCity());
+        assertTrue(result.getValue().isPrimary());
+        assertFalse(result.getValue().isMailing());
         MessageRequest sent = connection.getSentRequests().get(0);
         assertAll(
                 () -> assertEquals(CUSTOMER, sent.getValue("customer")),
@@ -228,7 +247,8 @@ class AddressServiceTests {
 
         assertTrue(result.isSuccessful());
         assertEquals("7", connection.getSentRequests().get(0).getValue("id"));
-        assertEquals("Postal", result.getValue().getType());
+        assertEquals(7L, result.getValue().getId());
+        assertEquals("Residential", result.getValue().getType());
     }
 
     @Test
@@ -237,8 +257,44 @@ class AddressServiceTests {
 
         ServiceResult<Address> result = service.updateAddress(CUSTOMER, 7, HOME);
 
+        assertEquals(ServiceResult.Outcome.REJECTED, result.getOutcome());
         assertEquals("no such address", result.getMessage());
         assertNull(result.getValue());
+    }
+
+    @Test
+    void keepsAnAddressAddedOfflineToUploadLater() {
+        connection.whenRequested("customer.addAddress", FakeConnection.networkDown());
+
+        ServiceResult<Address> result = service.addAddress(CUSTOMER, HOME);
+
+        assertFalse(result.isSuccessful());
+        assertTrue(result.isSaved());
+        assertTrue(result.isWaitingToUpload());
+        assertEquals("1 Queen St", result.getValue().getLine1());
+        assertEquals(1, queue.all().size(), "the address waits on the upload queue");
+        assertEquals("customer.addAddress", queue.all().get(0).getMessageType());
+    }
+
+    @Test
+    void keepsAnUpdateMadeOfflineToUploadLater() {
+        connection.whenRequested("customer.updateAddress", FakeConnection.networkDown());
+
+        ServiceResult<Address> result = service.updateAddress(CUSTOMER, 7, HOME);
+
+        assertTrue(result.isWaitingToUpload());
+        assertEquals(7L, result.getValue().getId());
+        assertEquals("7", queue.all().get(0).getFields().get("id"));
+    }
+
+    @Test
+    void keepsADeleteMadeOfflineToUploadLater() {
+        connection.whenRequested("customer.deleteAddress", FakeConnection.networkDown());
+
+        ServiceResult<Void> result = service.deleteAddress(CUSTOMER, 7);
+
+        assertTrue(result.isWaitingToUpload());
+        assertEquals("customer.deleteAddress", queue.all().get(0).getMessageType());
     }
 
     @Test
