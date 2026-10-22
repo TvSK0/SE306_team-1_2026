@@ -41,6 +41,64 @@ number only for customer/loan creates, so a future employer UI must re-list afte
 
 ---
 
+## 2026-10-22 - Aum, Claude Code (Opus 4.8) - wire SyncService into LavsApp
+
+**Prompt (summarised):** now that the mainframe gateway exists, wire the offline
+sync service into the app's composition root: start `SyncService`, drive the top
+bar from it, open one shared SQLite file and show the pending-uploads panel.
+
+**What it assisted with** on `feature/us11-wire-sync`, all in `lavs.ui.LavsApp`
+(the composition root):
+
+- open one `LocalDatabase` shared by the dropdown cache (`CategoryConstantStore`)
+  and the upload queue (`SqlitePendingChangeStore`), resolving the TEMPORARY that
+  gave the constants their own copy.
+- build one `MainframeGateway` over the existing `Connection` and reuse it for both
+  the customer services and the sync thread, so queued uploads go out as the
+  logged-in MMM.
+- construct and `start()` the `SyncService`, and drive the top bar with
+  `SyncStatusFeed` instead of `FixedStatusFeed` (falling back to `FixedStatusFeed`
+  if the local database cannot be opened).
+- wire the pending-uploads panel to the status pill via `setOnStatusClicked`.
+- override `Application.stop()` to `close()` the sync thread so a queued change is
+  not cut off mid-write.
+
+**Tests:** none added. `LavsApp` is the JavaFX entry point (excluded from the
+coverage gate), and the one new behaviour — two stores sharing one SQLite file —
+is already covered by `LocalDatabaseTests.createsFileAndBothTables`.
+
+**Not done (next step):** the services still call the gateway directly; routing
+each write through `SyncService.queue` is a separate change, done per owner.
+
+**Validation:** `mvnw.cmd -B clean verify` passed — 731 tests, 95% branch coverage
+gate met. Launched with `javafx:run`: started with no startup exceptions.
+
+**Marking:** the wiring in `LavsApp` carries `// AI-assisted:` comments.
+
+---
+
+## 2026-10-22 - Aum, Claude Code (Opus 4.8) - fix SyncService.drain notify ordering
+
+**Prompt (summarised):** fix the intermittent `SyncServiceTests.onlineSaveIsSentStraightAway`
+failure (~1 in 4) caused by `drain()` completing a change's future before notifying listeners.
+
+**What it assisted with** on `fix/sync-drain-notify-order`:
+
+- `lavs.logic.SyncService.drain()` - assisted swapping the order so `notifyListeners()` runs
+  **before** `complete(...)` in the send loop, and before `answerWaitingAfterError(...)` in the
+  error path. Now a caller woken by its future's result (and any listener it then reads, e.g. the
+  pending count) sees the up-to-date state - the same order `runOnSyncThread` already used.
+  Completing first was a race the top bar and the test could lose.
+
+**Tests:** no new test. The existing `onlineSaveIsSentStraightAway` becomes deterministic; ran
+`SyncServiceTests` 12 times in a row with no failure to confirm the flake is gone.
+
+**Validation:** `mvn -B clean verify` passed - 731 tests, 95% branch coverage gate met.
+
+**Marking:** the reordered lines in `drain()` carry `// AI-assisted:` comments.
+
+---
+
 ## 2026-10-22 - Gabeliu, Codex - PR integration and sync status
 
 **Prompt (summarised):** finish Claude's outstanding work, fix and verify all
