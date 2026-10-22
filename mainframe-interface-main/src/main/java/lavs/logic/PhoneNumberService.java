@@ -22,7 +22,8 @@ import java.util.regex.Pattern;
 // A phone number needs a type (and a description for "Other") and a number the shared
 // phone validator accepts. The country code is optional, e.g. "+64".
 //
-// TEMPORARY: saves go straight to the mainframe until SyncService is composed in LavsApp.
+// Saves go through the gateway, which hands every write to the upload queue (QueuedWrites)
+// once LavsApp has set it up, so a save made offline waits on this laptop until it uploads.
 public class PhoneNumberService {
     public static final String CUSTOMER_NUMBER = "customerNumber";
     static final long PAGE_SIZE = 50;

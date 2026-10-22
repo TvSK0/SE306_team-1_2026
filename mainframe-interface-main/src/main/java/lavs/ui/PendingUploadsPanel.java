@@ -8,6 +8,7 @@ import javafx.scene.layout.*;
 import javafx.stage.Popup;
 import lavs.logic.DuplicateCandidates;
 import lavs.logic.SyncService;
+import lavs.logic.PendingUploadsState;
 import lavs.model.PendingChange;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

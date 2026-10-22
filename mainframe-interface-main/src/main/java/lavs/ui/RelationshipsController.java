@@ -4,9 +4,7 @@ import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
@@ -163,12 +161,11 @@ public class RelationshipsController {
     private void onRemove() {
         CustomerRelationship selected = _table.getSelectionModel().getSelectedItem();
         if (selected == null) return;
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+        // the shared confirm dialog, so every "are you sure?" in the app looks the same
+        ConfirmContent question = new ConfirmContent("Remove relationship",
                 "Remove the " + RelationshipsText.type(selected).toLowerCase() + " relationship with "
-                        + RelationshipsText.otherCustomer(selected) + "?",
-                ButtonType.OK, ButtonType.CANCEL);
-        confirm.setHeaderText("Remove relationship");
-        if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
+                        + RelationshipsText.otherCustomer(selected) + "?", "Remove");
+        if (!ConfirmDialog.confirm(_table.getScene().getWindow(), question)) return;
 
         hideMessage();
         _tasks.run(

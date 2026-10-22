@@ -1,9 +1,8 @@
 // AI-assisted: a stand-in StatusFeed that always reports the same thing.
 package lavs.ui;
 
-// TEMPORARY: swap this for an adapter over SyncService (pending count and listener) and the
-// gateway's isConnected() once the services are composed in LavsApp. Until then the top bar
-// shows "Online" / "All changes uploaded" (online, 0 waiting) and never changes.
+// Only for the developer demo screen (DemoScreen), which shows the top bar without a real
+// SyncService; the app itself uses SyncStatusFeed. It always reports the same thing.
 public final class FixedStatusFeed implements StatusFeed {
     private final boolean _online;
     private final int _pending;

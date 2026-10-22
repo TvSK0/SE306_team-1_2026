@@ -1,7 +1,6 @@
 // AI-assisted.
-package lavs.ui;
+package lavs.logic;
 
-import lavs.logic.SyncService;
 import lavs.model.PendingChange;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

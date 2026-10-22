@@ -13,8 +13,8 @@ The project specification is available [on Canvas](https://canvas.auckland.ac.nz
 Update this readme file to contain the names of each team member and your GitHub login.
 
 * Taranveer Singh - TvSK0
-* [Gabriel full name] - Gabeliu
-* [Aum full name] - aumiieee
+* Gabriel Liu - Gabeliu
+* Aum Patel - aumiieee
 * Yu Tokuda - silucksi
 * [Scott full name] - [Scott's login]
 
