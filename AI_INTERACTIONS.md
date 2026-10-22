@@ -10,6 +10,38 @@ Add an entry per session/PR, newest first.
 
 ## 2026-10-22 - Taran, Claude Code (Sonnet 5.5)
 
+**Prompt (summarised):** build US2, customer search: a service over the
+mainframe search, the search screen from Figma 02 with loading, Cancel,
+paging and the offline state, select mode from Figma 10 for the Borrowers
+tab to reuse, and replace the temporary search in `LavsApp`. A requirement ID
+list (US2-R1 to R8, US2-S1 to S4) was the spec, with one test per ID.
+
+**What it produced** on `feature/us2-customer-search`:
+
+- `CustomerSearchService` and `CustomerSearchResult`: search by name or
+  number, ten rows a page; outcomes success, network failure, rejected and
+  invalid (a blank query, nothing sent). Returns the existing `Customer`.
+- `CustomerSearchText` and `CustomerSearchState` (no JavaFX, unit tested):
+  the count line, empty-state text, status tags, dd/MM/yyyy dates, the
+  "Show more" button, and the rules for replacing or appending rows.
+- `CustomerSearchScreen` (thin JavaFX) with two modes behind
+  `CustomerSearchMode`: `NormalSearchMode` and `SelectSearchMode`.
+- Select mode: `CustomerSelectRequest` (what a caller passes), a Contact
+  details column filled by a second background pass (`CustomerContactService`,
+  `ContactDetailsColumn`), and the caller's own top bar title through
+  `TitledParameter`.
+- In `LavsApp`: the real search and select screens replace the temporary
+  search, and its loan stand-ins moved into the temporary customer record.
+- Unit tests for every service and decision, with the requirement ID above
+  each test. Also checked once by building the screens under the JavaFX
+  toolkit with a scripted connection (not committed).
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
+## 2026-10-22 - Taran, Claude Code (Sonnet 5.5)
+
 **Prompt (summarised):** build US1, log in and log out: a service over the
 mainframe login, the login screen from Figma 01 with its error states, and
 replace the temporary login in `LavsApp`. A requirement ID list (US1-R1 to
