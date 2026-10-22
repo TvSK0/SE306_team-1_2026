@@ -5,7 +5,7 @@ package lavs.ui;
 // The parameter passed to the factory depends on the screen:
 //   CUSTOMER_RECORD  - the customer number, or null for a new customer
 //   LOAN             - whatever Yu's loan screen needs to open a loan
-//   CUSTOMER_SELECT  - the select-mode options (title, subtitle, extra controls, callback)
+//   CUSTOMER_SELECT  - a CustomerSelectRequest (title, subtitle, extra controls, callbacks)
 public enum Screen {
     LOGIN,
     CUSTOMER_SEARCH,

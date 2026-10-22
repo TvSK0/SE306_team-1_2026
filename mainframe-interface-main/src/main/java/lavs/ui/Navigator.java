@@ -5,7 +5,7 @@ import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
 
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 // Thin control: the rules are in NavigatorState and ScreenRegistry (unit tested).
@@ -16,7 +16,7 @@ public class Navigator {
     private final NavigatorState<Node> _state;
     private final ScreenRegistry<Node> _registry = new ScreenRegistry<>(Navigator::placeholder);
     private final StackPane _content = new StackPane();
-    private Consumer<Screen> _onScreenChanged = screen -> { };
+    private BiConsumer<Screen, Object> _onScreenChanged = (screen, parameter) -> { };
 
     public Navigator(Screen first) {
         _state = new NavigatorState<>(first, null, null);
@@ -31,8 +31,10 @@ public class Navigator {
         _registry.register(screen, factory);
     }
 
-    // MainWindow uses this to update the top bar title and hide the top bar on Login
-    public void setOnScreenChanged(Consumer<Screen> listener) {
+    // MainWindow uses this to update the top bar title and hide the top bar on Login. The
+    // listener gets the screen and the parameter it was opened with (a select-mode request
+    // names its own title).
+    public void setOnScreenChanged(BiConsumer<Screen, Object> listener) {
         _onScreenChanged = listener;
     }
 
@@ -70,7 +72,7 @@ public class Navigator {
 
     private void show() {
         _content.getChildren().setAll(_state.getView());
-        _onScreenChanged.accept(_state.getScreen());
+        _onScreenChanged.accept(_state.getScreen(), _state.getParameter());
     }
 
     private static Node placeholder(Screen screen) {

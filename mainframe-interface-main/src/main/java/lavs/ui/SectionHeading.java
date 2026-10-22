@@ -43,6 +43,17 @@ public class SectionHeading extends HBox {
 
     // shows the primary button, e.g. "+ Add New Customer"
     public void setAction(String text, Runnable onClick) {
+        _action.getStyleClass().setAll("button", "lavs-button-primary");
+        show(text, onClick);
+    }
+
+    // shows a secondary button instead, e.g. "+ Add New Customer" in select mode (Figma 10)
+    public void setSecondaryAction(String text, Runnable onClick) {
+        _action.getStyleClass().setAll("button", "lavs-button-secondary");
+        show(text, onClick);
+    }
+
+    private void show(String text, Runnable onClick) {
         _action.setText(text);
         _action.setOnAction(event -> onClick.run());
         _action.setVisible(true);

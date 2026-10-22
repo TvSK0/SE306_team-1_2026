@@ -158,6 +158,28 @@ class TopBarStateTests {
         assertEquals("Select customer", TopBarState.defaultTitleFor(Screen.CUSTOMER_SELECT));
     }
 
+    // US2-S1
+    @Test
+    void theTitleComesFromAParameterThatNamesOne() {
+        TitledParameter titled = () -> "Loan L-5521 · Adding a co-borrower or guarantor";
+
+        assertEquals("Loan L-5521 · Adding a co-borrower or guarantor",
+                TopBarState.titleFor(Screen.CUSTOMER_SELECT, titled));
+    }
+
+    // US2-S1
+    @Test
+    void theDefaultTitleIsUsedWhenTheParameterNamesNone() {
+        assertEquals("Select customer", TopBarState.titleFor(Screen.CUSTOMER_SELECT, (TitledParameter) () -> null));
+        assertEquals("Select customer", TopBarState.titleFor(Screen.CUSTOMER_SELECT, (TitledParameter) () -> "  "));
+    }
+
+    @Test
+    void theDefaultTitleIsUsedForAParameterThatIsNotTitled() {
+        assertEquals("Customer", TopBarState.titleFor(Screen.CUSTOMER_RECORD, "C-10234"));
+        assertEquals("Customer", TopBarState.titleFor(Screen.CUSTOMER_RECORD, null));
+    }
+
     @Test
     void theTopBarIsHiddenOnLoginAndShownEverywhereElse() {
         assertFalse(TopBarState.isShownOn(Screen.LOGIN));

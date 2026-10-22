@@ -21,8 +21,8 @@ public class MainWindow extends BorderPane {
 
     // Runs each time the Navigator shows a screen. A screen that wants a more specific title
     // (the customer record) sets it on the top bar after this.
-    private void onScreenChanged(Screen screen) {
-        _topBar.setTitle(TopBarState.defaultTitleFor(screen));
+    private void onScreenChanged(Screen screen, Object parameter) {
+        _topBar.setTitle(TopBarState.titleFor(screen, parameter));
         boolean shown = TopBarState.isShownOn(screen);
         _topBar.setVisible(shown);
         // not managed when hidden, so the login card is centred without an empty strip above it

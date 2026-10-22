@@ -77,6 +77,15 @@ public final class TopBarState {
         };
     }
 
+    // The title to show: the one the screen's parameter names (select mode's caller does), or
+    // the screen's default title when the parameter has none.
+    public static String titleFor(Screen screen, Object parameter) {
+        if (parameter instanceof TitledParameter titled && UiText.hasText(titled.topBarTitle())) {
+            return titled.topBarTitle();
+        }
+        return defaultTitleFor(screen);
+    }
+
     // the login screen is a card on its own, with no top bar
     public static boolean isShownOn(Screen screen) {
         return screen != Screen.LOGIN;
