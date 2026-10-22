@@ -14,6 +14,7 @@ public final class SyncStep {
     private final PendingChange change;
     private final Outcome outcome;
     private final String message;
+    private mainframe.client.MessageResponse response;
 
     public SyncStep(PendingChange change, Outcome outcome, String message) {
         this.change = change;
@@ -24,6 +25,10 @@ public final class SyncStep {
     public PendingChange getChange() {
         return change;
     }
+
+    // AI-assisted: preserve the actual upload reply for the service that queued this save.
+    public SyncStep withResponse(mainframe.client.MessageResponse value) { response = value; return this; }
+    public mainframe.client.MessageResponse getResponse() { return response; }
 
     public Outcome getOutcome() {
         return outcome;

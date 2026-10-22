@@ -5,6 +5,7 @@ import lavs.validation.FieldError;
 import lavs.validation.ValidationResult;
 import lavs.validation.Validators;
 import mainframe.client.Connection;
+import lavs.data.MainframeGateway;
 import mainframe.client.Status;
 import mainframe.client.messages.loan.AddCoborrower;
 import mainframe.client.messages.loan.DeleteCoborrower;
@@ -26,10 +27,15 @@ public final class LoanBorrowerService {
 
     static final long PAGE_SIZE = 50;
 
-    private final Connection _connection;
+    private final MainframeGateway _gateway;
+
+    // AI-assisted: all application traffic uses the shared gateway.
+    public LoanBorrowerService(MainframeGateway gateway) {
+        _gateway = gateway;
+    }
 
     public LoanBorrowerService(Connection connection) {
-        _connection = connection;
+        _gateway = new MainframeGateway(connection);
     }
 
     // AI-assisted: every co-borrower and guarantor on a loan, using
@@ -50,7 +56,7 @@ public final class LoanBorrowerService {
             // a new message per page, because message objects keep the items from earlier sends
             mainframe.client.messages.loanCoborrower.List message =
                     new mainframe.client.messages.loanCoborrower.List(loanNumber, page, PAGE_SIZE);
-            Status status = message.send(_connection);
+            Status status = _gateway.send(message).getStatus();
             if (!status.getWasSuccessful()) {
                 return LoanBorrowerListResult.fromStatus(status, List.of());
             }
@@ -109,6 +115,20 @@ public final class LoanBorrowerService {
             return LoanBorrowerResult.invalid(validation);
         }
 
+        if (_gateway.queuesWrites()) {
+            return LoanBorrowerResult.fromStatus(_gateway.send(connection -> {
+                var request = new mainframe.client.MessageRequest(
+                        mainframe.client.MessageRequest.UPDATE, "loan.replaceCoborrower");
+                request.setValue("loanNumber", loanNumber);
+                request.setValue("id", Long.toString(existing.getId()));
+                request.setValue("coborrowerNumber", customerNumber);
+                request.setValue("type", type);
+                request.setValue("previousCustomer", existing.getCoborrowerNumber());
+                request.setValue("previousType", existing.getType());
+                return connection.send(request).getStatus();
+            }).getStatus());
+        }
+
         Status deleteStatus = sendDelete(existing.getId(), loanNumber);
         if (!deleteStatus.getWasSuccessful()) {
             return LoanBorrowerResult.fromStatus(deleteStatus);
@@ -135,10 +155,10 @@ public final class LoanBorrowerService {
     }
 
     private Status sendAdd(String loanNumber, String customerNumber, String type) throws IOException {
-        return new AddCoborrower(customerNumber, loanNumber, type).send(_connection);
+        return _gateway.send(new AddCoborrower(customerNumber, loanNumber, type)).getStatus();
     }
 
     private Status sendDelete(long id, String loanNumber) throws IOException {
-        return new DeleteCoborrower(id, loanNumber).send(_connection);
+        return _gateway.send(new DeleteCoborrower(id, loanNumber)).getStatus();
     }
 }

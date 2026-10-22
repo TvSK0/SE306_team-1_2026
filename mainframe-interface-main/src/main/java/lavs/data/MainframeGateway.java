@@ -30,6 +30,11 @@ public class MainframeGateway implements UploadGateway {
             "loan.create", "loanNumber");
 
     private final Connection _connection;
+    private volatile WriteDispatcher writes;
+    private volatile java.util.function.UnaryOperator<String> resolveNumber = java.util.function.UnaryOperator.identity();
+    private volatile java.util.function.Function<MessageRequest, MessageResponse> localReads = request -> null;
+    public void setNumberResolver(java.util.function.UnaryOperator<String> resolver) { resolveNumber = resolver; }
+    public void setLocalReads(java.util.function.Function<MessageRequest, MessageResponse> reads) { localReads = reads; }
 
     public MainframeGateway(Connection connection) {
         _connection = connection;
@@ -37,18 +42,54 @@ public class MainframeGateway implements UploadGateway {
 
     // Sends a message now and says how it went. The message keeps what the mainframe sent
     // back, so read it from the message after a SUCCESS.
+    // AI-assisted: the same gateway handles queries and durable application writes.
+    // Queue uploads use send(PendingChange), which deliberately bypasses this dispatcher.
+    public void setWriteDispatcher(WriteDispatcher dispatcher) { writes = dispatcher; }
+    public boolean queuesWrites() { return writes != null; }
+
     public GatewayResult send(Message message) {
+        final MessageResponse[] reply = new MessageResponse[1];
+        Connection exchange = new Connection() {
+            public MessageResponse send(MessageRequest request) {
+                for (String key : java.util.List.of("number", "customer", "customerNumber", "loanNumber", "coborrowerNumber")) {
+                    String value = request.getValue(key);
+                    if (value != null) request.setValue(key, resolveNumber.apply(value));
+                }
+                if (MessageRequest.QUERY.equals(request.getMessageType())) {
+                    reply[0] = localReads.apply(request);
+                    if (reply[0] != null) return reply[0];
+                }
+                WriteDispatcher dispatcher = writes;
+                reply[0] = MessageRequest.UPDATE.equals(request.getMessageType()) && dispatcher != null
+                        ? dispatcher.send(request) : sendRequest(request);
+                return reply[0];
+            }
+            public boolean isConnected() { return MainframeGateway.this.isConnected(); }
+            public mainframe.client.Status Login(String user, String password) throws IOException {
+                return _connection.Login(user, password);
+            }
+            public void Logout() { _connection.Logout(); }
+            public void close() { /* The app owns the shared connection. */ }
+        };
         try {
-            return GatewayResult.from(message.send(_connection));
+            return GatewayResult.from(message.send(exchange)).withResponse(reply[0]);
         } catch (IOException e) {
             return GatewayResult.networkFailure(e.getMessage());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            // Malformed replies from the supplied message parsers are read failures.
+            return GatewayResult.from(new mainframe.client.Status(
+                    mainframe.client.StatusMessage.UNABLE_TO_PARSE.getCode(), "Could not read the mainframe reply", 0));
         }
+    }
+
+    private MessageResponse sendRequest(MessageRequest request) {
+        synchronized (_connection) { return _connection.send(request); }
     }
 
     // Signs in; the Connection keeps the token for every later message.
     public GatewayResult login(String username, String password) {
         try {
-            return GatewayResult.from(_connection.Login(username, password));
+            synchronized (_connection) { return GatewayResult.from(_connection.Login(username, password)); }
         } catch (IOException e) {
             return GatewayResult.networkFailure(e.getMessage());
         }
@@ -56,7 +97,7 @@ public class MainframeGateway implements UploadGateway {
 
     // Forgets the token, so nothing more is sent as this user.
     public void logout() {
-        _connection.Logout();
+        synchronized (_connection) { _connection.Logout(); }
     }
 
     @Override
@@ -71,12 +112,12 @@ public class MainframeGateway implements UploadGateway {
     public SendResult send(PendingChange change) {
         MessageRequest request = new MessageRequest(MessageRequest.UPDATE, change.getMessageType());
         change.getFields().forEach(request::setValue);
-        MessageResponse response = _connection.send(request);
+        MessageResponse response = sendRequest(request);
         GatewayResult result = GatewayResult.from(response.getStatus());
         switch (result.getOutcome()) {
             case SUCCESS:
                 String numberField = CREATED_NUMBER_FIELD.get(change.getMessageType());
-                return SendResult.success(numberField == null ? null : response.getValue(numberField));
+                return SendResult.success(numberField == null ? null : response.getValue(numberField), response);
             case NETWORK_FAILURE:
                 return SendResult.networkFailure(result.getMessage());
             default:

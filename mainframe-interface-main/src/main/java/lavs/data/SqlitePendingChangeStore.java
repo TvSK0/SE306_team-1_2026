@@ -107,6 +107,61 @@ public class SqlitePendingChangeStore implements ChangeQueue {
         }
     }
 
+    // AI-assisted: deleting the create and rewriting its dependants must survive crashes together.
+    @Override
+    public synchronized void commit(List<PendingChange> updates, List<Long> removed, Map<String, String> numbers) {
+        try (Connection connection = database.connect()) {
+            connection.setAutoCommit(false);
+            try {
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "UPDATE PendingChange SET customerNumber=?, fields=?, status=?, statusMessage=?, skipDuplicateCheck=? WHERE id=?")) {
+                    for (PendingChange change : updates) {
+                        statement.setString(1, change.getCustomerNumber());
+                        statement.setString(2, JSONValue.toJSONString(change.getFields()));
+                        statement.setString(3, change.getStatus().name());
+                        statement.setString(4, change.getStatusMessage());
+                        statement.setInt(5, change.isSkipDuplicateCheck() ? 1 : 0);
+                        statement.setLong(6, change.getId());
+                        statement.executeUpdate();
+                    }
+                }
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "INSERT OR REPLACE INTO NumberMapping (temporary, actual) VALUES (?, ?)")) {
+                    for (var entry : numbers.entrySet()) {
+                        statement.setString(1, entry.getKey());
+                        statement.setString(2, entry.getValue());
+                        statement.executeUpdate();
+                    }
+                }
+                try (PreparedStatement statement = connection.prepareStatement("DELETE FROM PendingChange WHERE id=?")) {
+                    for (long id : removed) {
+                        statement.setLong(1, id);
+                        statement.executeUpdate();
+                    }
+                }
+                connection.commit();
+            } catch (SQLException | RuntimeException error) {
+                connection.rollback();
+                throw error;
+            }
+        } catch (SQLException error) {
+            throw new LocalStoreException("Could not finish the uploaded change", error);
+        }
+    }
+
+    @Override
+    public synchronized Map<String, String> knownNumbers() {
+        try (Connection connection = database.connect();
+             Statement statement = connection.createStatement();
+             ResultSet rows = statement.executeQuery("SELECT temporary, actual FROM NumberMapping")) {
+            Map<String, String> result = new LinkedHashMap<>();
+            while (rows.next()) result.put(rows.getString(1), rows.getString(2));
+            return result;
+        } catch (SQLException error) {
+            throw new LocalStoreException("Could not read accepted record numbers", error);
+        }
+    }
+
     private List<PendingChange> query(String sql) {
         try (Connection connection = database.connect();
              Statement statement = connection.createStatement();

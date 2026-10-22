@@ -38,6 +38,7 @@ public final class RelationshipsText {
             return doneText;
         }
         Status status = result.getMainframeStatus();
+        if (lavs.logic.SaveStatus.isQueued(status)) return lavs.logic.SaveStatus.message(status);
         // no status means the field checks stopped the change before the mainframe was contacted
         if (status == null) {
             return "Please fix the highlighted fields.";

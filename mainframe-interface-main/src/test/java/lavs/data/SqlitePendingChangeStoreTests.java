@@ -181,4 +181,30 @@ class SqlitePendingChangeStoreTests {
 
         assertTrue(store.all().get(0).getFields().isEmpty());
     }
+    @Test
+    void acceptedNumbersAndDependantsSurviveRestartTogether() {
+        PendingChange create = store.add(new PendingChange("customer.create", "TMP-1", "TMP-1", Map.of()));
+        PendingChange address = store.add(change("customer.addAddress", "TMP-1"));
+        address.replaceNumber("TMP-1", "C1");
+        store.commit(List.of(address), List.of(create.getId()), Map.of("TMP-1", "C1"));
+        var reopened = new SqlitePendingChangeStore(new LocalDatabase(folder.resolve("lavs.db")));
+        assertEquals(Map.of("TMP-1", "C1"), reopened.knownNumbers());
+        assertEquals(1, reopened.all().size());
+        assertEquals("C1", reopened.all().get(0).getFields().get("customer"));
+    }
+
+    @Test
+    void failedCommitRollsBackEveryUpdate() throws Exception {
+        PendingChange create = store.add(new PendingChange("customer.create", "TMP-1", "TMP-1", Map.of()));
+        PendingChange address = store.add(change("customer.addAddress", "TMP-1"));
+        address.replaceNumber("TMP-1", "C1");
+        try (var connection = database.connect(); var statement = connection.createStatement()) {
+            statement.executeUpdate("CREATE TRIGGER fail_delete BEFORE DELETE ON PendingChange BEGIN SELECT RAISE(ABORT, 'test failure'); END");
+        }
+        assertThrows(LocalStoreException.class, () -> store.commit(List.of(address), List.of(create.getId()), Map.of("TMP-1", "C1")));
+        assertEquals(2, store.all().size());
+        assertEquals("TMP-1", store.all().get(1).getFields().get("customer"));
+        assertTrue(store.knownNumbers().isEmpty());
+    }
+
 }

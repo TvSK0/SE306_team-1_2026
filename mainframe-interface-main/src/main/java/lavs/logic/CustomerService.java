@@ -23,7 +23,7 @@ import java.util.Optional;
 //
 // TEMPORARY: saves go straight to the mainframe until SyncService is composed in LavsApp;
 // then a new customer made offline should be queued with a temporary number instead.
-public class CustomerService {
+public class CustomerService implements CustomerOperations {
     public static final String CUSTOMER_NUMBER = "customerNumber";
 
     private final MainframeGateway _gateway;
@@ -83,6 +83,10 @@ public class CustomerService {
         Create message = new Create(input.getDateOfBirth().trim(), input.getFamilyName().trim(),
                 input.getFirstName().trim(), optional(input.getNationality()), _organisation, optional(input.getTitle()));
         GatewayResult result = _gateway.send(message);
+        if (result.isQueued()) {
+            return ServiceResult.from(result, toCustomer(result.getValue("number"), input.getTitle(), input.getFirstName().trim(),
+                    input.getFamilyName().trim(), input.getDateOfBirth().trim(), input.getNationality(), "Waiting to upload"));
+        }
         return ServiceResult.from(result, toCustomer(message.getNumber(), message.getTitle(), message.getFirstName(),
                 message.getFamilyName(), message.getDateOfBirth(), message.getNationality(), message.getStatus()));
     }
@@ -97,6 +101,10 @@ public class CustomerService {
         Update message = new Update(input.getDateOfBirth().trim(), input.getFamilyName().trim(),
                 input.getFirstName().trim(), optional(input.getNationality()), number.trim(), optional(input.getTitle()));
         GatewayResult result = _gateway.send(message);
+        if (result.isQueued()) {
+            return ServiceResult.from(result, toCustomer(number.trim(), input.getTitle(), input.getFirstName().trim(),
+                    input.getFamilyName().trim(), input.getDateOfBirth().trim(), input.getNationality(), "Waiting to upload"));
+        }
         return ServiceResult.from(result, toCustomer(message.getNumber(), message.getTitle(), message.getFirstName(),
                 message.getFamilyName(), message.getDateOfBirth(), message.getNationality(), message.getStatus()));
     }

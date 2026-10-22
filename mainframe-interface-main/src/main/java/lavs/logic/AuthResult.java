@@ -6,7 +6,6 @@ import lavs.validation.ValidationResult;
 // The outcome of AuthService.login: INVALID when the form was incomplete and nothing was sent,
 // or one of the three outcomes every service result has. It carries no UI text (the login
 // screen picks the copy) and no token (that stays inside Connection).
-// TEMPORARY: swap this for Scott's gateway result type once it exists.
 public final class AuthResult {
     // REJECTED is only for the mainframe's refusals; INVALID means nothing was sent
     public enum Outcome { SUCCESS, NETWORK_FAILURE, REJECTED, INVALID }

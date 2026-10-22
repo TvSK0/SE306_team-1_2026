@@ -15,7 +15,7 @@ import java.util.Map;
 //
 // Each successful refresh is also saved to a ConstantsCache (the SQLite file), and
 // loadSaved() reads it back, so the dropdowns still have values when the app starts offline.
-public class ConstantsService {
+public class ConstantsService implements CategoryValues {
     private final ConstantsSource _source;
     private final ConstantsCache _cache;
 
@@ -52,7 +52,6 @@ public class ConstantsService {
     }
 
     // Loads the constants again. On failure the previous values are kept.
-    // TEMPORARY: swap ConstantsLoadResult for Scott's gateway result type once it exists.
     public ConstantsLoadResult refresh() {
         ConstantsLoadResult result = _source.load();
         if (result.getOutcome() == ConstantsLoadResult.Outcome.SUCCESS) {

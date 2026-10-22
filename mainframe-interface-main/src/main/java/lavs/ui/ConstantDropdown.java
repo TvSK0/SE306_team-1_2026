@@ -1,7 +1,7 @@
 package lavs.ui;
 
 import javafx.scene.control.ComboBox;
-import lavs.logic.ConstantsService;
+import lavs.logic.CategoryValues;
 
 // A dropdown filled from one category of mainframe constants. Use it in FXML as
 //   <ConstantDropdown fx:id="rateType" category="LoanRateType"/>
@@ -21,7 +21,7 @@ public class ConstantDropdown extends ComboBox<String> {
 
     // Fills the dropdown from the cached constants and selects currentValue, the value
     // saved on the record being edited (null or blank for a new record).
-    public void show(ConstantsService service, String currentValue) {
+    public void show(CategoryValues service, String currentValue) {
         DropdownOptions options = DropdownOptions.forCategory(service, _category, currentValue);
         getItems().setAll(options.getItems());
         setValue(options.getSelected());

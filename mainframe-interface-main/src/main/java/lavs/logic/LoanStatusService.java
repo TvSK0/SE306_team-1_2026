@@ -4,6 +4,7 @@ import lavs.validation.FieldError;
 import lavs.validation.ValidationResult;
 import lavs.validation.Validators;
 import mainframe.client.Connection;
+import lavs.data.MainframeGateway;
 import mainframe.client.Message;
 import mainframe.client.Status;
 import mainframe.client.messages.loan.Retrieve;
@@ -11,24 +12,6 @@ import mainframe.client.messages.loan.UpdateStatus;
 
 import java.io.IOException;
 
-// TEMPORARY: swap direct Connection use for Scott's gateway once it exists.
-//
-// US9: change a loan's status to Pending ("submit for verification"), using
-// loan.UpdateStatus. Depends on US8 (a loan's co-borrowers/guarantors are in
-// place before it's submitted) and on the shared EligibilityChecker.
-//
-// Everything is looked up from the loan number, so a screen cannot get a
-// check wrong by passing in the wrong customer or stale contact details:
-// loan.Retrieve gives the main borrower and the current status, and the
-// customer's addresses, phone numbers, emails and employers are read fresh.
-//
-// Guarantor rule (decided by the team, from the Data Schema): a main borrower
-// with no employer needs a guarantor on the loan before it can become Pending.
-// It is checked here rather than in EligibilityChecker, because US6 uses that
-// shared rule to start a loan and a new loan has no guarantors yet.
-//
-// Not queued while offline: the checks need the mainframe, so a network
-// failure is returned for the screen to report.
 public final class LoanStatusService {
     // loan statuses, so the screen never has to import the mainframe message classes
     public static final String NEW = UpdateStatus.STATUS_NEW;
@@ -45,11 +28,17 @@ public final class LoanStatusService {
     // how customerAddress.list marks a mailing address
     private static final String MAILING = "y";
 
-    private final Connection _connection;
+    private final MainframeGateway _gateway;
     private final LoanBorrowerService _borrowers;
 
+    // AI-assisted: all application traffic uses the shared gateway.
+    public LoanStatusService(MainframeGateway gateway) {
+        _gateway = gateway;
+        _borrowers = new LoanBorrowerService(gateway);
+    }
+
     public LoanStatusService(Connection connection) {
-        _connection = connection;
+        _gateway = new MainframeGateway(connection);
         _borrowers = new LoanBorrowerService(connection);
     }
 
@@ -60,6 +49,16 @@ public final class LoanStatusService {
     // lookup the mainframe refuses (or a network failure) is returned as its
     // Status, and the loan is left as it was.
     public LoanStatusResult submitForVerification(String loanNumber) throws IOException {
+        LoanStatusResult checked = checkForVerification(loanNumber);
+        if (!checked.isSuccessful()) return checked;
+        UpdateStatus message = new UpdateStatus(loanNumber, PENDING);
+        Status status = _gateway.send(message).getStatus();
+        if (!status.getWasSuccessful()) return LoanStatusResult.fromStatus(status);
+        return LoanStatusResult.changed(status, message.getStatus());
+    }
+
+    // Shared by initial submission and the retry worker; performs no writes.
+    LoanStatusResult checkForVerification(String loanNumber) throws IOException {
         ValidationResult validation = new ValidationResult();
         validation.addIfPresent(Validators.required(LOAN_NUMBER, loanNumber));
         if (!validation.isValid()) {
@@ -83,12 +82,7 @@ public final class LoanStatusService {
             return LoanStatusResult.invalid(validation);
         }
 
-        UpdateStatus message = new UpdateStatus(loanNumber, PENDING);
-        Status status = message.send(_connection);
-        if (!status.getWasSuccessful()) {
-            return LoanStatusResult.fromStatus(status);
-        }
-        return LoanStatusResult.changed(status, message.getStatus());
+        return LoanStatusResult.fromStatus(new Status(0));
     }
 
     // Adds a field error for each missing piece, so the screen can say exactly what to add.
@@ -174,7 +168,7 @@ public final class LoanStatusService {
     }
 
     private void lookUp(Message message) throws IOException, LookupFailed {
-        Status status = message.send(_connection);
+        Status status = _gateway.send(message).getStatus();
         if (!status.getWasSuccessful()) {
             throw new LookupFailed(status);
         }

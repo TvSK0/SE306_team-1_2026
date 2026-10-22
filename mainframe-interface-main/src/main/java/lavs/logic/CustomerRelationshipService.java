@@ -5,6 +5,7 @@ import lavs.validation.FieldError;
 import lavs.validation.ValidationResult;
 import lavs.validation.Validators;
 import mainframe.client.Connection;
+import lavs.data.MainframeGateway;
 import mainframe.client.Status;
 
 import java.io.IOException;
@@ -13,16 +14,19 @@ import java.util.List;
 
 // Optional component: a customer's relationships to other customers (spouse, parent,
 // legal authority or other). Lists, adds, updates and deletes them.
-// TEMPORARY: swap direct Connection use for Scott's gateway (and Aum's sync queue for
-// offline saves) once they exist.
 public class CustomerRelationshipService {
     public static final String CUSTOMER_NUMBER = "customerNumber";
     static final long PAGE_SIZE = 50;
 
-    private final Connection _connection;
+    private final MainframeGateway _gateway;
+
+    // AI-assisted: all application traffic uses the shared gateway.
+    public CustomerRelationshipService(MainframeGateway gateway) {
+        _gateway = gateway;
+    }
 
     public CustomerRelationshipService(Connection connection) {
-        _connection = connection;
+        _gateway = new MainframeGateway(connection);
     }
 
     // Checks the form without contacting the mainframe: the other customer and the type
@@ -60,7 +64,7 @@ public class CustomerRelationshipService {
             // a new message per page, because message objects keep the items from earlier sends
             mainframe.client.messages.customerRelationship.List message =
                     new mainframe.client.messages.customerRelationship.List(customerNumber, page, PAGE_SIZE);
-            Status status = message.send(_connection);
+            Status status = _gateway.send(message).getStatus();
             if (!status.getWasSuccessful()) {
                 return RelationshipListResult.fromStatus(status, List.of());
             }
@@ -68,7 +72,7 @@ public class CustomerRelationshipService {
             for (mainframe.client.messages.customerRelationship.List.Item item : items) {
                 mainframe.client.messages.customerRelationship.Retrieve details =
                         new mainframe.client.messages.customerRelationship.Retrieve(item.getId(), customerNumber);
-                Status detailsStatus = details.send(_connection);
+                Status detailsStatus = _gateway.send(details).getStatus();
                 if (!detailsStatus.getWasSuccessful()) {
                     return RelationshipListResult.fromStatus(detailsStatus, List.of());
                 }
@@ -94,7 +98,7 @@ public class CustomerRelationshipService {
 
         mainframe.client.messages.customer.AddRelationship message = new mainframe.client.messages.customer.AddRelationship(
                 customerNumber, otherTypeToSend(input), input.getOtherCustomerNumber().trim(), input.getType());
-        Status status = message.send(_connection);
+        Status status = _gateway.send(message).getStatus();
         if (!status.getWasSuccessful()) {
             return RelationshipResult.fromStatus(status, null);
         }
@@ -113,7 +117,7 @@ public class CustomerRelationshipService {
         mainframe.client.messages.customer.UpdateRelationship message =
                 new mainframe.client.messages.customer.UpdateRelationship(customerNumber, id,
                         otherTypeToSend(input), input.getOtherCustomerNumber().trim(), input.getType());
-        Status status = message.send(_connection);
+        Status status = _gateway.send(message).getStatus();
         if (!status.getWasSuccessful()) {
             return RelationshipResult.fromStatus(status, null);
         }
@@ -131,7 +135,7 @@ public class CustomerRelationshipService {
 
         mainframe.client.messages.customer.DeleteRelationship message =
                 new mainframe.client.messages.customer.DeleteRelationship(customerNumber, id);
-        return RelationshipResult.fromStatus(message.send(_connection), null);
+        return RelationshipResult.fromStatus(_gateway.send(message).getStatus(), null);
     }
 
     private static boolean isOther(RelationshipInput input) {

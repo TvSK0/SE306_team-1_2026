@@ -5,10 +5,11 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
-import lavs.logic.ConstantsService;
+import lavs.logic.CategoryValues;
 import lavs.logic.LoanDetailsInput;
 import lavs.logic.LoanSaveResult;
 import lavs.logic.LoanService;
+import lavs.logic.LoanOperations;
 import lavs.model.Loan;
 import lavs.validation.FieldError;
 
@@ -58,8 +59,8 @@ public class LoanDetailsController {
 
     private BackgroundTasks _tasks;
     private LoadingView _saving;
-    private LoanService _loanService;
-    private ConstantsService _constantsService;
+    private LoanOperations _loanService;
+    private CategoryValues _constantsService;
     private String _customerNumber;
     // told about the loan each time a save works
     private Consumer<Loan> _onSaved;
@@ -85,7 +86,7 @@ public class LoanDetailsController {
     }
 
     // Pass existingLoan to edit it, or null to start a new loan.
-    public void show(LoanService loanService, ConstantsService constantsService, BackgroundTasks tasks,
+    public void show(LoanOperations loanService, CategoryValues constantsService, BackgroundTasks tasks,
                      String customerNumber, Loan existingLoan, Consumer<Loan> onSaved) {
         _tasks = tasks;
         _loanService = loanService;
@@ -139,17 +140,15 @@ public class LoanDetailsController {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        showMessage(LoanSaveMessage.forResult(result), !result.isSuccessful());
+        showMessage(LoanSaveMessage.forResult(result), !result.isSuccessful() && !result.isQueued());
 
-        if (result.isSuccessful()) {
+        if (result.isSuccessful() || result.isQueued()) {
             _savedLoan = result.getLoan();
             showSavedState();
             _onSaved.accept(_savedLoan);
         }
     }
 
-    // TEMPORARY: swap this for going back to the customer record once Taran's
-    // navigation exists. Until then Cancel puts back the last saved values.
     @FXML
     private void onCancel() {
         clearErrors();
@@ -167,7 +166,7 @@ public class LoanDetailsController {
         if (_savedLoan == null) {
             _savedStateLabel.setText("Not saved yet");
         } else {
-            _savedStateLabel.setText("Saved to mainframe");
+            _savedStateLabel.setText("Waiting to upload".equals(_savedLoan.getStatus()) ? "Saved locally; waiting to upload" : "Saved to mainframe");
             _savedStateLabel.getStyleClass().add(SAVED);
         }
     }

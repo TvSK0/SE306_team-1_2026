@@ -69,6 +69,7 @@ public final class BorrowersText {
             return successText;
         }
         Status status = result.getMainframeStatus();
+        if (lavs.logic.SaveStatus.isQueued(status)) return lavs.logic.SaveStatus.message(status);
         // no status means the field checks stopped it before the mainframe was contacted
         if (status == null) {
             return "Please fix the highlighted fields.";

@@ -20,6 +20,7 @@ public class LoanSaveMessageTests {
     void namesTheSavedLoanAndItsStatus() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
+        scriptEligibility(connection);
         connection.whenRequested("loan.create", FakeConnection.success(savedLoanReply()));
 
         // Act
@@ -60,6 +61,7 @@ public class LoanSaveMessageTests {
     void passesOnTheMainframesReasonForARejection() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
+        scriptEligibility(connection);
         connection.whenRequested("loan.create", FakeConnection.rejected("Unknown rate type"));
 
         // Act
@@ -69,6 +71,14 @@ public class LoanSaveMessageTests {
         Assertions.assertEquals(
                 "The mainframe rejected the loan: Unknown rate type",
                 LoanSaveMessage.forResult(result));
+    }
+
+    // AI-assisted: a loan may only be created for an eligible customer.
+    private static void scriptEligibility(FakeConnection connection) {
+        connection.whenRequested("customerAddress.list", FakeConnection.success(Map.of(
+                "items", "1", "total", "1", "1:id", "1", "1:isMailing", "y")));
+        connection.whenRequested("customerPhoneNumber.list", FakeConnection.success(Map.of(
+                "items", "1", "total", "1", "1:id", "2")));
     }
 
     private static Map<String, String> savedLoanReply() {

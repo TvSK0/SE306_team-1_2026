@@ -5,6 +5,7 @@ import lavs.validation.FieldError;
 import lavs.validation.ValidationResult;
 import lavs.validation.Validators;
 import mainframe.client.Connection;
+import lavs.data.MainframeGateway;
 import mainframe.client.messages.customer.AddEmployer;
 import mainframe.client.messages.customer.DeleteEmployer;
 import mainframe.client.messages.customer.UpdateEmployer;
@@ -20,10 +21,15 @@ import java.io.IOException;
 // parsing. Validators.currency() checks the shape; a blank salary is fine
 // (the field is optional - defaults to 0 when not provided).
 public final class EmployerService {
-    private final Connection _connection;
+    private final MainframeGateway _gateway;
+
+    // AI-assisted: all application traffic uses the shared gateway.
+    public EmployerService(MainframeGateway gateway) {
+        _gateway = gateway;
+    }
 
     public EmployerService(Connection connection) {
-        _connection = connection;
+        _gateway = new MainframeGateway(connection);
     }
 
     // Adds an employer record for a customer using customer.addEmployer.
@@ -42,7 +48,7 @@ public final class EmployerService {
         }
         AddEmployer message = new AddEmployer(
                 customerNumber, name, position, parseSalary(salary), type);
-        return EmployerResult.fromStatus(message.send(_connection));
+        return EmployerResult.fromStatus(_gateway.send(message).getStatus());
     }
 
     // Updates an existing employer record using customer.updateEmployer.
@@ -60,7 +66,7 @@ public final class EmployerService {
         }
         UpdateEmployer message = new UpdateEmployer(
                 customerNumber, id, name, position, parseSalary(salary), type);
-        return EmployerResult.fromStatus(message.send(_connection));
+        return EmployerResult.fromStatus(_gateway.send(message).getStatus());
     }
 
     // Removes an employer record using customer.deleteEmployer.
@@ -70,7 +76,31 @@ public final class EmployerService {
         if (!validation.isValid()) {
             return EmployerResult.invalid(validation);
         }
-        return EmployerResult.fromStatus(new DeleteEmployer(customerNumber, id).send(_connection));
+        return EmployerResult.fromStatus(_gateway.send(new DeleteEmployer(customerNumber, id)).getStatus());
+    }
+
+    // AI-assisted: all pages, including the position and salary absent from list rows.
+    public ServiceResult<java.util.List<lavs.model.Employer>> listEmployers(String customerNumber) {
+        ValidationResult validation = new ValidationResult();
+        validation.addIfPresent(Validators.required("customerNumber", customerNumber));
+        if (!validation.isValid()) return ServiceResult.invalid(validation);
+        var employers = new java.util.ArrayList<lavs.model.Employer>();
+        for (long page = 1; ; page++) {
+            var message = new mainframe.client.messages.customerEmployer.List(customerNumber, page, 50);
+            var result = _gateway.send(message);
+            if (!result.isSuccess()) return ServiceResult.from(result, null);
+            for (var item : message.getItems()) {
+                var details = new mainframe.client.messages.customerEmployer.Retrieve(item.getId(), customerNumber);
+                var read = _gateway.send(details);
+                if (!read.isSuccess()) return ServiceResult.from(read, null);
+                var employer = new lavs.model.Employer(customerNumber, details.getType(), details.getName(),
+                        details.getPosition(), java.math.BigDecimal.valueOf(details.getSalary()));
+                employer.setId(item.getId());
+                employers.add(employer);
+            }
+            if (message.getItems().length == 0 || employers.size() >= message.getTotal())
+                return ServiceResult.from(result, java.util.List.copyOf(employers));
+        }
     }
 
     private ValidationResult validateEmployer(

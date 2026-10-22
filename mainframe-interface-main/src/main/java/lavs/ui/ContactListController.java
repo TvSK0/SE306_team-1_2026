@@ -2,14 +2,12 @@ package lavs.ui;
 
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.fxml.FXML;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
-import lavs.logic.ConstantsService;
+import lavs.logic.CategoryValues;
 import lavs.logic.ServiceResult;
 import lavs.validation.FieldError;
 
@@ -36,15 +34,14 @@ public abstract class ContactListController<T, I> {
     @FXML private Label _formTitle;
     @FXML private Button _saveButton;
 
-    private ConstantsService _constants;
+    private CategoryValues _constants;
     private BackgroundTasks _tasks;
     private String _customerNumber;
     // the record being edited, or null while the form adds a new one
     private T _editing;
     // the list load still running, if any; a newer one replaces it
     private BackgroundTasks.Handle _loading;
-    // TEMPORARY: swap the Alert for Taran's shared confirm dialog once it exists
-    private Predicate<String> _confirm = ContactListController::askToConfirm;
+    private Predicate<String> _confirm = this::askToConfirm;
 
     // --- what each tab supplies ---
 
@@ -57,7 +54,7 @@ public abstract class ContactListController<T, I> {
     protected abstract void setUpForm();
 
     // fills the form from a saved record, or empties it (with any defaults) for a new one
-    protected abstract void fillForm(T record, ConstantsService constants);
+    protected abstract void fillForm(T record, CategoryValues constants);
 
     protected abstract I readForm();
 
@@ -91,7 +88,7 @@ public abstract class ContactListController<T, I> {
     }
 
     // Shows the customer's records and an empty form for adding one.
-    protected void start(ConstantsService constants, BackgroundTasks tasks, String customerNumber) {
+    protected void start(CategoryValues constants, BackgroundTasks tasks, String customerNumber) {
         _constants = constants;
         _tasks = tasks;
         _customerNumber = customerNumber;
@@ -169,7 +166,7 @@ public abstract class ContactListController<T, I> {
                 result -> {
                     removing.finish();
                     bindRemove();
-                    showMessage(ResultText.forChange(result, ContactText.removed(kind())), !result.isSuccessful());
+                    showMessage(ResultText.forChange(result, ContactText.removed(kind())), !result.isSuccessful() && !result.isQueued());
                     if (result.isSuccessful()) {
                         // the form may still hold the record that was just removed
                         if (_editing == selected) {
@@ -221,7 +218,8 @@ public abstract class ContactListController<T, I> {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        showMessage(ResultText.forChange(result, doneText), !result.isSuccessful());
+        showMessage(ResultText.forChange(result, doneText), !result.isSuccessful() && !result.isQueued());
+        if (result.isQueued()) startAdding();
         if (result.isSuccessful()) {
             startAdding();
             load();
@@ -276,9 +274,8 @@ public abstract class ContactListController<T, I> {
         _messageLabel.setVisible(false);
     }
 
-    private static boolean askToConfirm(String question) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, question, ButtonType.OK, ButtonType.CANCEL);
-        alert.setHeaderText(null);
-        return alert.showAndWait().filter(ButtonType.OK::equals).isPresent();
+    private boolean askToConfirm(String question) {
+        return ConfirmDialog.confirm(_table.getScene().getWindow(),
+                new ConfirmContent("Remove record?", question, "Remove"));
     }
 }

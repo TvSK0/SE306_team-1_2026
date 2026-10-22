@@ -5,6 +5,7 @@ import lavs.validation.FieldError;
 import lavs.validation.ValidationResult;
 import lavs.validation.Validators;
 import mainframe.client.Connection;
+import lavs.data.MainframeGateway;
 import mainframe.client.Status;
 
 import java.io.IOException;
@@ -15,9 +16,8 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 // US6: start, create and edit a loan.
-// TEMPORARY: swap direct Connection use for Scott's gateway (and Aum's sync queue for
-// offline saves) once they exist.
-public class LoanService {
+public class LoanService implements LoanOperations {
+    public boolean canSaveLocally() { return _gateway.queuesWrites(); }
     public static final String MAILING_ADDRESS = "mailingAddress";
     public static final String CONTACT_DETAILS = "contactDetails";
     public static final String CUSTOMER_NUMBER = "customerNumber";
@@ -26,10 +26,15 @@ public class LoanService {
     // a non-negative number with any number of decimal places, e.g. "6.29" or "5.875"
     private static final Pattern RATE = Pattern.compile("^\\d+(\\.\\d+)?$");
 
-    private final Connection _connection;
+    private final MainframeGateway _gateway;
+
+    // AI-assisted: all application traffic uses the shared gateway.
+    public LoanService(MainframeGateway gateway) {
+        _gateway = gateway;
+    }
 
     public LoanService(Connection connection) {
-        _connection = connection;
+        _gateway = new MainframeGateway(connection);
     }
 
     // Whether the customer may start a loan: they need a mailing address and a phone
@@ -112,13 +117,29 @@ public class LoanService {
             return LoanSaveResult.invalid(validation);
         }
 
+        // AI-assisted: enforce eligibility here as well as on the New loan button.
+        ServiceResult<Void> eligible = new CustomerEligibilityService(_gateway).check(customerNumber);
+        if (!eligible.isSuccessful() && !(_gateway.queuesWrites()
+                && eligible.getOutcome() == ServiceResult.Outcome.NETWORK_FAILURE)) {
+            return eligible.getMainframeStatus() == null
+                    ? LoanSaveResult.invalid(eligible.getValidationErrors())
+                    : LoanSaveResult.failed(eligible.getMainframeStatus());
+        }
+
         mainframe.client.messages.loan.Create message = new mainframe.client.messages.loan.Create(
                 customerNumber,
                 Double.parseDouble(input.getPaymentAmount()), input.getPaymentFrequency(),
                 Double.parseDouble(input.getPrincipal()),
                 Double.parseDouble(input.getRateAmount()), input.getRateFrequency(), input.getRateType(),
                 blankToNull(input.getRenewalDate()), input.getStartDate());
-        Status status = message.send(_connection);
+        var sent = _gateway.send(message);
+        Status status = sent.getStatus();
+        if (sent.isQueued()) {
+            return LoanSaveResult.saved(status, toLoan(sent.getValue("loanNumber"), customerNumber, "Waiting to upload",
+                    Double.parseDouble(input.getPrincipal()), input.getRateType(), Double.parseDouble(input.getRateAmount()),
+                    input.getRateFrequency(), Double.parseDouble(input.getPaymentAmount()), input.getPaymentFrequency(),
+                    input.getStartDate(), blankToNull(input.getRenewalDate())));
+        }
         if (!status.getWasSuccessful()) {
             return LoanSaveResult.failed(status);
         }
@@ -145,7 +166,14 @@ public class LoanService {
                 Double.parseDouble(input.getPrincipal()),
                 Double.parseDouble(input.getRateAmount()), input.getRateFrequency(), input.getRateType(),
                 blankToNull(input.getRenewalDate()), input.getStartDate());
-        Status status = message.send(_connection);
+        var sent = _gateway.send(message);
+        Status status = sent.getStatus();
+        if (sent.isQueued()) {
+            return LoanSaveResult.saved(status, toLoan(loanNumber, customerNumber, "Waiting to upload",
+                    Double.parseDouble(input.getPrincipal()), input.getRateType(), Double.parseDouble(input.getRateAmount()),
+                    input.getRateFrequency(), Double.parseDouble(input.getPaymentAmount()), input.getPaymentFrequency(),
+                    input.getStartDate(), blankToNull(input.getRenewalDate())));
+        }
         if (!status.getWasSuccessful()) {
             return LoanSaveResult.failed(status);
         }
@@ -166,7 +194,7 @@ public class LoanService {
         }
 
         mainframe.client.messages.loan.Retrieve message = new mainframe.client.messages.loan.Retrieve(loanNumber);
-        Status status = message.send(_connection);
+        Status status = _gateway.send(message).getStatus();
         if (!status.getWasSuccessful()) {
             return LoanSaveResult.failed(status);
         }

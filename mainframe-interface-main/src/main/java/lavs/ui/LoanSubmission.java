@@ -32,6 +32,7 @@ public final class LoanSubmission {
             return "Submitted for verification. Status: " + result.getLoanStatus();
         }
         Status status = result.getMainframeStatus();
+        if (lavs.logic.SaveStatus.isQueued(status)) return lavs.logic.SaveStatus.message(status);
         // no status means a check stopped it before the mainframe was asked to change anything
         if (status == null) {
             return "This loan can't be submitted yet:\n" + result.getValidationErrors().getErrors().stream()

@@ -11,7 +11,7 @@ import mainframe.client.Status;
 public final class ServiceResult<T> {
     // the gateway's three outcomes, repeated here so a screen can check them without
     // importing the data layer
-    public enum Outcome { SUCCESS, NETWORK_FAILURE, REJECTED }
+    public enum Outcome { SUCCESS, NETWORK_FAILURE, REJECTED, WAITING, PAUSED }
 
     private final ValidationResult validationErrors;
     private final GatewayResult gatewayResult;
@@ -29,10 +29,12 @@ public final class ServiceResult<T> {
 
     // value is what a successful call produced; it is dropped for any other outcome
     static <T> ServiceResult<T> from(GatewayResult gatewayResult, T value) {
-        return new ServiceResult<>(new ValidationResult(), gatewayResult, gatewayResult.isSuccess() ? value : null);
+        return new ServiceResult<>(new ValidationResult(), gatewayResult, (gatewayResult.isSuccess() || gatewayResult.isQueued()) ? value : null);
     }
 
     // true only when there were no field errors and the mainframe accepted the request
+    public boolean isQueued() { return gatewayResult != null && gatewayResult.isQueued(); }
+
     public boolean isSuccessful() {
         return gatewayResult != null && gatewayResult.isSuccess();
     }

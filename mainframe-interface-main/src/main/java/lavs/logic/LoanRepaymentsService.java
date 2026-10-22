@@ -1,6 +1,7 @@
 package lavs.logic;
 
 import mainframe.client.Connection;
+import lavs.data.MainframeGateway;
 import mainframe.client.Status;
 import mainframe.client.StatusMessage;
 
@@ -13,19 +14,23 @@ import java.util.List;
 // US7: fetches a loan's summary and its full repayment schedule from the mainframe.
 // The load is all-or-nothing: if any request fails, nothing is returned, so the screen
 // never shows part of a schedule as if it were the whole thing.
-// TEMPORARY: swap direct Connection use for Scott's gateway once it exists.
 public class LoanRepaymentsService {
     public static final long DEFAULT_PAGE_SIZE = 100;
 
-    private final Connection _connection;
+    private final MainframeGateway _gateway;
     private final long _pageSize;
 
     public LoanRepaymentsService(Connection connection) {
         this(connection, DEFAULT_PAGE_SIZE);
     }
 
+    public LoanRepaymentsService(MainframeGateway gateway) {
+        _gateway = gateway;
+        _pageSize = DEFAULT_PAGE_SIZE;
+    }
+
     public LoanRepaymentsService(Connection connection, long pageSize) {
-        _connection = connection;
+        _gateway = new MainframeGateway(connection);
         _pageSize = pageSize;
     }
 
@@ -46,7 +51,7 @@ public class LoanRepaymentsService {
     private LoanRepaymentsResult loadSummaryAndSchedule(String loanNumber) throws IOException {
         mainframe.client.messages.loanSummary.Retrieve summaryMessage =
                 new mainframe.client.messages.loanSummary.Retrieve(loanNumber);
-        Status status = summaryMessage.send(_connection);
+        Status status = _gateway.send(summaryMessage).getStatus();
         if (!status.getWasSuccessful()) {
             return LoanRepaymentsResult.failed(status);
         }
@@ -63,7 +68,7 @@ public class LoanRepaymentsService {
             // a new message per page: the starter messages keep the items from earlier sends
             mainframe.client.messages.loanRepaymentSchedule.List pageMessage =
                     new mainframe.client.messages.loanRepaymentSchedule.List(loanNumber, page, _pageSize);
-            status = pageMessage.send(_connection);
+            status = _gateway.send(pageMessage).getStatus();
             if (!status.getWasSuccessful()) {
                 return LoanRepaymentsResult.failed(status);
             }

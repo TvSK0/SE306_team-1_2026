@@ -188,6 +188,7 @@ public class LoanServiceTests {
     void createsTheLoanAndReturnsItWithItsNumberAndStatus() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
+        scriptEligibility(connection);
         connection.whenRequested("loan.create", FakeConnection.success(savedLoanReply(VALID)));
         LoanService service = new LoanService(connection);
 
@@ -196,7 +197,7 @@ public class LoanServiceTests {
 
         // Assert
         Loan loan = result.getLoan();
-        MessageRequest sent = connection.getSentRequests().get(0);
+        MessageRequest sent = connection.getSentRequests().get(2);
         Assertions.assertAll(
                 () -> Assertions.assertTrue(result.isSuccessful()),
                 () -> Assertions.assertEquals(LOAN_NUMBER, loan.getLoanNumber()),
@@ -221,6 +222,7 @@ public class LoanServiceTests {
         Map<String, String> reply = savedLoanReply(input);
         reply.remove("renewalDate");
         FakeConnection connection = new FakeConnection();
+        scriptEligibility(connection);
         connection.whenRequested("loan.create", FakeConnection.success(reply));
         LoanService service = new LoanService(connection);
 
@@ -231,7 +233,7 @@ public class LoanServiceTests {
         Assertions.assertAll(
                 () -> Assertions.assertTrue(result.isSuccessful()),
                 () -> Assertions.assertNull(result.getLoan().getRenewalDate()),
-                () -> Assertions.assertNull(connection.getSentRequests().get(0).getValue("renewalDate"))
+                () -> Assertions.assertNull(connection.getSentRequests().get(2).getValue("renewalDate"))
         );
     }
 
@@ -275,6 +277,7 @@ public class LoanServiceTests {
     void reportsAMainframeRejection() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
+        scriptEligibility(connection);
         connection.whenRequested("loan.create", FakeConnection.rejected("Unknown rate type"));
         LoanService service = new LoanService(connection);
 
@@ -535,6 +538,14 @@ public class LoanServiceTests {
                 () -> Assertions.assertEquals(
                         StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode(), result.getMainframeStatus().getErrorCode())
         );
+    }
+
+    // AI-assisted: a loan may only be created for an eligible customer.
+    private static void scriptEligibility(FakeConnection connection) {
+        connection.whenRequested("customerAddress.list", FakeConnection.success(Map.of(
+                "items", "1", "total", "1", "1:id", "1", "1:isMailing", "y")));
+        connection.whenRequested("customerPhoneNumber.list", FakeConnection.success(Map.of(
+                "items", "1", "total", "1", "1:id", "2")));
     }
 
     private static Map<String, String> savedLoanReply(LoanDetailsInput input) {

@@ -9,6 +9,9 @@ import java.util.function.Supplier;
 // JavaFX so it can be unit tested: the app passes a background executor and
 // Platform::runLater, tests pass Runnable::run (or a queue they drain by hand).
 public final class BackgroundTasks {
+    private final java.util.Set<Handle> active = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    public boolean isBusy() { return !active.isEmpty(); }
+
     private final Executor _background;
     private final Consumer<Runnable> _uiThread;
 
@@ -23,9 +26,12 @@ public final class BackgroundTasks {
     public <T> Handle run(Supplier<T> work, Runnable onStart, Consumer<T> onDone, Consumer<Throwable> onError) {
         Handle handle = new Handle();
         onStart.run();
+        active.add(handle);
+        try {
         _background.execute(() -> {
             // cancelled while still waiting for a free thread: do not even start
             if (handle.isCancelled()) {
+                active.remove(handle);
                 return;
             }
             try {
@@ -35,6 +41,10 @@ public final class BackgroundTasks {
                 deliver(handle, () -> onError.accept(e));
             }
         });
+        } catch (RuntimeException failure) {
+            active.remove(handle);
+            throw failure;
+        }
         return handle;
     }
 
@@ -46,9 +56,9 @@ public final class BackgroundTasks {
     // finished but before the callback runs still wins.
     private void deliver(Handle handle, Runnable callback) {
         _uiThread.accept(() -> {
-            if (!handle.isCancelled()) {
-                callback.run();
-            }
+            try {
+                if (!handle.isCancelled()) callback.run();
+            } finally { active.remove(handle); }
         });
     }
 

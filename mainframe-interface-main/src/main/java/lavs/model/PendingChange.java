@@ -88,6 +88,9 @@ public class PendingChange {
         return Collections.unmodifiableMap(fields);
     }
 
+    /** Stores upload progress in the durable queue before the next request. */
+    public void setField(String name, String value) { fields.put(name, value); }
+
     public Status getStatus() {
         return status;
     }

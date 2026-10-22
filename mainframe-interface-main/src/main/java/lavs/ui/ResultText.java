@@ -15,6 +15,7 @@ public final class ResultText {
 
     // after a save or a delete; doneText is what worked, e.g. "Customer created."
     public static String forChange(ServiceResult<?> result, String doneText) {
+        if (result.isQueued()) return lavs.logic.SaveStatus.message(result.getMainframeStatus());
         if (result.isSuccessful()) {
             return doneText;
         }

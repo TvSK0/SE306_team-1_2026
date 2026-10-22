@@ -7,7 +7,6 @@ import mainframe.client.Status;
 // The outcome of adding, updating or deleting a relationship: field errors caught before
 // the mainframe was contacted, or the Status it returned, plus the saved relationship when
 // an add or update worked.
-// TEMPORARY: swap this for Scott's gateway result type once it exists.
 public final class RelationshipResult {
     private final ValidationResult _validationErrors;
     private final Status _mainframeStatus;

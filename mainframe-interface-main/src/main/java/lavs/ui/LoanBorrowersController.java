@@ -2,9 +2,7 @@ package lavs.ui;
 
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.fxml.FXML;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Control;
 import javafx.scene.control.Label;
@@ -63,8 +61,7 @@ public class LoanBorrowersController {
     private String _loanNumber;
     // true while an add, change or remove is running, so no second one can start
     private boolean _changing;
-    // TEMPORARY: swap the Alert for Taran's shared confirm dialog once it exists
-    private Predicate<String> _confirm = LoanBorrowersController::askToConfirm;
+    private Predicate<String> _confirm = this::askToConfirm;
 
     // called by FXMLLoader once the @FXML fields are filled in
     @FXML
@@ -99,6 +96,18 @@ public class LoanBorrowersController {
     public void show(LoanBorrowerService service, BackgroundTasks tasks) {
         _service = service;
         _tasks = tasks;
+    }
+
+    // AI-assisted: pick a verified search result instead of typing an unchecked number.
+    private java.util.function.Consumer<java.util.function.Consumer<lavs.model.Customer>> selectCustomer;
+
+    public void setSelectCustomer(java.util.function.Consumer<java.util.function.Consumer<lavs.model.Customer>> select) {
+        selectCustomer = select;
+        _customerNumber.setEditable(false);
+    }
+
+    @FXML private void onSelectCustomer() {
+        if (!_changing && selectCustomer != null) selectCustomer.accept(customer -> _customerNumber.setText(customer.getNumber()));
     }
 
     // for checks that can't answer an Alert; true means the MMM confirmed
@@ -217,12 +226,12 @@ public class LoanBorrowersController {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        showMessage(BorrowersText.forChange(result, successText), !result.isSuccessful());
-        if (result.isSuccessful()) {
+        showMessage(BorrowersText.forChange(result, successText), !result.isSuccessful() && !lavs.logic.SaveStatus.isQueued(result.getMainframeStatus()));
+        if (result.isSuccessful() || lavs.logic.SaveStatus.isQueued(result.getMainframeStatus())) {
             onSuccess.run();
         }
         // only the field checks stop a change before the mainframe is contacted
-        if (result.getMainframeStatus() != null) {
+        if (result.getMainframeStatus() != null && !lavs.logic.SaveStatus.isQueued(result.getMainframeStatus())) {
             load(_loanNumber);
         }
     }
@@ -289,10 +298,9 @@ public class LoanBorrowersController {
         column.setCellValueFactory(cell -> new ReadOnlyStringWrapper(text.apply(cell.getValue())));
     }
 
-    private static boolean askToConfirm(String question) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, question, ButtonType.OK, ButtonType.CANCEL);
-        alert.setHeaderText(null);
-        return alert.showAndWait().filter(ButtonType.OK::equals).isPresent();
+    private boolean askToConfirm(String question) {
+        return ConfirmDialog.confirm(_table.getScene().getWindow(),
+                new ConfirmContent("Remove record?", question, "Remove"));
     }
 
     // a LoanBorrowerService call that may fail to reach the mainframe

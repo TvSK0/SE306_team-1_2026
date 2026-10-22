@@ -36,6 +36,8 @@ public class SyncService implements AutoCloseable {
     private volatile RuntimeException lastError;
     // AI-assisted: UI reads the last background result, never a network probe.
     private volatile boolean connected;
+    private volatile int pendingCount;
+    private volatile boolean closing;
 
     // How long close() waits for the sync thread before stopping it.
     static final long CLOSE_WAIT_SECONDS = 5;
@@ -60,7 +62,10 @@ public class SyncService implements AutoCloseable {
     /** Sends anything left from last time, then retries every interval while changes are waiting. */
     public void start(Duration retryInterval) {
         long millis = retryInterval.toMillis();
-        executor.execute(this::retryIfConnected);
+        executor.execute(() -> {
+            notifyListeners();
+            retryIfConnected();
+        });
         executor.scheduleWithFixedDelay(this::retryIfConnected, millis, millis, TimeUnit.MILLISECONDS);
     }
 
@@ -113,6 +118,21 @@ public class SyncService implements AutoCloseable {
         return runOnSyncThread(() -> processor.confirmNewCustomer(temporaryNumber));
     }
 
+    // AI-assisted: validate a current paused create before accepting a panel action.
+    public CompletableFuture<Void> resolveDuplicate(long id, String existingNumber) {
+        return runOnSyncThread(() -> {
+            PendingChange change = queue.all().stream().filter(item -> item.getId() == id).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("This change is no longer waiting"));
+            List<String> choices = DuplicateCandidates.forChange(change);
+            if (choices.isEmpty()) throw new IllegalArgumentException("This change is not a duplicate decision");
+            if (existingNumber == null) processor.confirmNewCustomer(change.getCreatesNumber());
+            else {
+                if (!choices.contains(existingNumber)) throw new IllegalArgumentException("Choose one of the matching customers");
+                processor.useExistingCustomer(change.getCreatesNumber(), existingNumber);
+            }
+        });
+    }
+
     /** Every queued change in creation order, for the pending uploads panel. */
     public List<PendingChange> getChanges() {
         return queue.all();
@@ -120,13 +140,7 @@ public class SyncService implements AutoCloseable {
 
     /** How many changes are still to be uploaded (pending or paused), for the top bar. */
     public int getPendingCount() {
-        int count = 0;
-        for (PendingChange change : queue.all()) {
-            if (change.getStatus() != PendingChange.Status.REJECTED) {
-                count++;
-            }
-        }
-        return count;
+        return pendingCount;
     }
 
     /** The real number for a temporary one once the mainframe has assigned it. */
@@ -154,6 +168,7 @@ public class SyncService implements AutoCloseable {
     /** Stops the sync thread after it finishes what it was given, waiting up to CLOSE_WAIT_SECONDS. */
     @Override
     public void close() {
+        closing = true;
         executor.shutdown();
         try {
             if (!executor.awaitTermination(CLOSE_WAIT_SECONDS, TimeUnit.SECONDS)) {
@@ -190,7 +205,7 @@ public class SyncService implements AutoCloseable {
     /** Sends changes oldest first until the queue is empty or the mainframe is unreachable. */
     void drain() {
         try {
-            while (true) {
+            while (!closing) {
                 Optional<SyncStep> step = processor.processNext();
                 if (step.isEmpty()) {
                     break;
@@ -200,8 +215,8 @@ public class SyncService implements AutoCloseable {
                 } else if (step.get().getOutcome() == SyncStep.Outcome.SENT) {
                     updateConnected(true);
                 }
-                complete(step.get().getChange().getId(), step.get());
                 notifyListeners();
+                complete(step.get().getChange().getId(), step.get());
                 if (step.get().getOutcome() == SyncStep.Outcome.WAITING) {
                     break;
                 }
@@ -267,9 +282,16 @@ public class SyncService implements AutoCloseable {
         return done;
     }
 
+    private void refreshPendingCount() {
+        pendingCount = (int) queue.all().stream()
+                .filter(change -> change.getStatus() != PendingChange.Status.REJECTED).count();
+    }
+
     private void notifyListeners() {
+        // AI-assisted: UI reads a cached count; listeners cannot stop future upload retries.
+        try { refreshPendingCount(); } catch (RuntimeException error) { lastError = error; }
         for (Runnable listener : listeners) {
-            listener.run();
+            try { listener.run(); } catch (RuntimeException error) { lastError = error; }
         }
     }
 }

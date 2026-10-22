@@ -13,7 +13,7 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
-import lavs.logic.ConstantsService;
+import lavs.logic.CategoryValues;
 import lavs.logic.CustomerRelationshipService;
 import lavs.logic.RelationshipInput;
 import lavs.logic.RelationshipListResult;
@@ -61,7 +61,7 @@ public class RelationshipsController {
     private final Map<String, Label> _errorLabels = new HashMap<>();
 
     private CustomerRelationshipService _service;
-    private ConstantsService _constantsService;
+    private CategoryValues _constantsService;
     private BackgroundTasks _tasks;
     private String _customerNumber;
     // the relationship being edited, or null while the form adds a new one
@@ -70,7 +70,7 @@ public class RelationshipsController {
     private BackgroundTasks.Handle _loading;
 
     // Loads the view on its own, for a screen that does not include it with fx:include.
-    public static Parent open(CustomerRelationshipService service, ConstantsService constantsService,
+    public static Parent open(CustomerRelationshipService service, CategoryValues constantsService,
                               BackgroundTasks tasks, String customerNumber) throws IOException {
         FXMLLoader loader = new FXMLLoader(RelationshipsController.class.getResource("customer-relationships.fxml"));
         Parent root = loader.load();
@@ -99,7 +99,7 @@ public class RelationshipsController {
         _type.valueProperty().addListener((property, oldValue, newValue) -> showOtherTypeBox());
     }
 
-    public void show(CustomerRelationshipService service, ConstantsService constantsService,
+    public void show(CustomerRelationshipService service, CategoryValues constantsService,
                      BackgroundTasks tasks, String customerNumber) {
         _service = service;
         _constantsService = constantsService;
@@ -233,10 +233,10 @@ public class RelationshipsController {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        showMessage(RelationshipsText.forResult(result, doneText), !result.isSuccessful());
-        if (result.isSuccessful()) {
+        showMessage(RelationshipsText.forResult(result, doneText), !result.isSuccessful() && !lavs.logic.SaveStatus.isQueued(result.getMainframeStatus()));
+        if (result.isSuccessful() || lavs.logic.SaveStatus.isQueued(result.getMainframeStatus())) {
             startAdding();
-            load();
+            if (result.isSuccessful()) load();
         }
     }
 

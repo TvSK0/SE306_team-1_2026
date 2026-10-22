@@ -6,7 +6,6 @@ import mainframe.client.Status;
 
 // The outcome of saving or loading a loan: field errors caught before the mainframe was contacted,
 // or the Status it returned, plus the loan when it worked.
-// TEMPORARY: swap this for Scott's gateway result type once it exists.
 public final class LoanSaveResult {
     private final ValidationResult _validationErrors;
     private final Status _mainframeStatus;
@@ -31,8 +30,10 @@ public final class LoanSaveResult {
     }
 
     // True only when there were no field errors and the mainframe accepted the loan.
+    public boolean isQueued() { return SaveStatus.isQueued(_mainframeStatus); }
+
     public boolean isSuccessful() {
-        return _loan != null;
+        return _loan != null && _mainframeStatus.getWasSuccessful();
     }
 
     public ValidationResult getValidationErrors() {

@@ -1,6 +1,6 @@
 package lavs.ui;
 
-import lavs.logic.ConstantsService;
+import lavs.logic.CategoryValues;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +25,7 @@ public final class DropdownOptions {
 
     // Builds the options for a category. currentValue is the value already saved on the
     // record being edited, or null/blank for a new record.
-    public static DropdownOptions forCategory(ConstantsService service, String category, String currentValue) {
+    public static DropdownOptions forCategory(CategoryValues service, String category, String currentValue) {
         List<String> items = new ArrayList<>(service.getValues(category));
         String selected = currentValue == null || currentValue.isBlank() ? null : currentValue;
 

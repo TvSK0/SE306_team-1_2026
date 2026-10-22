@@ -10,6 +10,7 @@ public final class LoanSaveMessage {
     private LoanSaveMessage() {}
 
     public static String forResult(LoanSaveResult result) {
+        if (result.isQueued()) return lavs.logic.SaveStatus.message(result.getMainframeStatus());
         if (result.isSuccessful()) {
             return "Loan " + result.getLoan().getLoanNumber() + " saved. Status: " + result.getLoan().getStatus();
         }

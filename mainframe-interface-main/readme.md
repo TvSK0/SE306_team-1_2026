@@ -31,7 +31,7 @@ This repository initially contains the code for the mainframe interface and the 
 <!-- AI-assisted: drafted from the code and the task delegation document; checked by Taran. -->
 The five decisions we settled before coding, from our task delegation document.
 
-1. **How a save reaches the mainframe.** Every save is queued first in the local SQLite store, then sent straight away if the mainframe is reachable (`SyncService.queue`). If it is not reachable the change stays queued and is retried on a timer. One background thread sends changes in order, so the screen never waits on the network. A change the mainframe rejects is marked rejected, shown with the mainframe's message and never retried. Some screens still send directly to the mainframe through TEMPORARY services until SyncService is connected to the app; those move onto the queue when it is.
+1. **How a save reaches the mainframe.** Every save is queued first in the local SQLite store, then sent straight away if the mainframe is reachable (`SyncService.queue`). If it is not reachable the change stays queued and is retried on a timer. One background thread sends changes in order, so the screen never waits on the network. A change the mainframe rejects is marked rejected, shown with the mainframe's message and never retried. Application services use one gateway with durable writes; queries go directly to the mainframe, with local reads for unsent customers and loans.
 2. **Layer names.** We use the System Model's three layer names: `ui` is the User Interface, `logic` the Business Logic and `data` the Database. Two supporting packages sit beside them: `model` (plain records) and `validation` (`ValidationResult` / `FieldError`). `ui` never imports `Connection`, the mainframe message classes or JDBC, `logic` never imports JavaFX or JDBC, and only `logic` calls `data` (`LavsApp` is the exception, as it builds the services).
 3. **UI framework and build tool.** JavaFX for the interface and Maven (with the Maven Wrapper) for the build, with JUnit 5 for tests and a JaCoCo gate of 95% branch coverage.
 4. **The guarantor rule.** A main borrower with no employer needs a guarantor on the loan before it can move from New to Pending. It is checked when a loan is submitted for verification (`LoanStatusService`), not when a loan is started, because a new loan has no guarantors yet. Starting a loan only needs a mailing address and a phone number or an email (`EligibilityChecker`).
@@ -86,7 +86,31 @@ mvnw.cmd javafx:run
 
 Maven downloads JavaFX for your operating system automatically; you only need JDK 17 or later.
 
-The app talks to the shared class mainframe server set in `LavsApp` (the same one as `TestConstants`). It keeps the dropdown values in a small SQLite file at `~/.lavs/lavs.db` in your user folder, so they still load offline; deleting the file is safe.
+The default server is the shared class mainframe. Set `LAVS_SERVER_URL` to override it and `LAVS_ORGANISATION` to the organisation number used for new customers (default `1`). For PowerShell:
+
+```powershell
+$env:LAVS_SERVER_URL = "https://your-mainframe-server/"
+$env:LAVS_ORGANISATION = "1"
+.\mvnw.cmd javafx:run
+```
+
+Dropdown values are cached in `~/.lavs/lavs.db`. Pending saves are stored separately in `~/.lavs/pending-<user-key>.db`. Keep these pending files: they contain unsent work. Each account resumes only its own queue after login. Login still requires the mainframe; the cache does not grant offline authentication.
+
+## Implemented workflow
+
+Search and page through customers, open or create a customer, then manage details, addresses, phones, emails, employers and relationships. The Loans tab lists that customer's loans. New loans require a mailing address and either a phone or email; offline drafts are checked against current records before upload. The loan screen provides details, repayment information, customer selection for borrowers, and submission for verification. Submission rechecks eligibility, current status and the employer/guarantor rule on upload.
+
+Both customer and loan screens include notes and document metadata (type, file name, file type and byte size). Documents contain metadata only. The API has no document-update operation, so edits save the replacement before removing the original. A refused removal leaves both records and a visible rejection for review. Borrower changes persist their remove/add/restore stage so reconnection can resume the operation.
+
+The top bar shows the last background connection result and pending count. Open Pending uploads to review saved fields, resolve duplicate customers, and inspect or dismiss rejections. A local save is labelled "Waiting to upload" rather than reported as a mainframe success. Accepted customer/loan numbers and dependent queued changes are committed in one SQLite transaction.
+
+A connection loss after the server commits but before its response arrives remains ambiguous: the supplied API exposes no idempotency key or cross-request transaction. The local queue retains work, but automatic retries cannot guarantee exactly-once creation. Check the mainframe for duplicates in that situation. If an accepted customer or loan returns no identifier, the queue pauses for review instead of discarding it.
+
+## UI verification and assets
+
+On Windows, `clean verify` also loads the real JavaFX customer/loan screens and renders their tabs. Screenshots are written to `target/ui-smoke/`. Tests use scripted connections and temporary SQLite databases; the default suite does not write to the shared server. Windows CI uses JDK 17, and compilation uses Java's `--release 17` API check.
+
+No downloaded image or icon assets are used by these screens. Their controls, text, CSS and rendered screenshots are repository-owned. Runtime dependencies remain under their own licences: OpenJFX (GPLv2 with the Classpath Exception), OkHttp and SQLite JDBC (Apache 2.0). Retain dependency notices when distributing a packaged application; the Maven dependency files contain the upstream metadata.
 
 ## Working on the code
 

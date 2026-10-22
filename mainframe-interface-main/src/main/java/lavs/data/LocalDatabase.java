@@ -47,6 +47,7 @@ public class LocalDatabase {
         try (Connection connection = connect(); Statement statement = connection.createStatement()) {
             statement.executeUpdate(CREATE_PENDING_CHANGE);
             statement.executeUpdate(CREATE_CATEGORY_CONSTANT);
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS NumberMapping (temporary TEXT PRIMARY KEY, actual TEXT NOT NULL)");
         } catch (SQLException e) {
             throw new LocalStoreException("Could not open the local database at " + url, e);
         }

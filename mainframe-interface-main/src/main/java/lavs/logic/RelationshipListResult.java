@@ -9,7 +9,6 @@ import java.util.List;
 // The outcome of listing a customer's relationships: field errors caught before the
 // mainframe was contacted, or the Status it returned along with every relationship
 // (empty unless successful).
-// TEMPORARY: swap this for Scott's gateway result type once it exists.
 public final class RelationshipListResult {
     private final ValidationResult _validationErrors;
     private final Status _mainframeStatus;

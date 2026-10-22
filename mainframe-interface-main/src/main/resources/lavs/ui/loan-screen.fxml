@@ -33,6 +33,8 @@
         <Tab fx:id="_detailsTab" text="Details">
             <fx:include fx:id="_details" source="loan-details.fxml"/>
         </Tab>
+        <Tab fx:id="_documentsTab" text="Documents"/>
+        <Tab fx:id="_notesTab" text="Notes"/>
         <Tab fx:id="_borrowersTab" text="Borrowers">
             <fx:include fx:id="_borrowers" source="loan-borrowers.fxml"/>
         </Tab>

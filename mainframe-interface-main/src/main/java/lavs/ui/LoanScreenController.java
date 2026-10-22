@@ -29,6 +29,8 @@ public class LoanScreenController {
     @FXML private Label _submitMessage;
     @FXML private TabPane _tabs;
     @FXML private Tab _borrowersTab;
+    @FXML private Tab _notesTab;
+    @FXML private Tab _documentsTab;
     @FXML private Tab _repaymentsTab;
 
     // filled in by FXMLLoader from the fx:include elements
@@ -74,6 +76,14 @@ public class LoanScreenController {
                 showBorrowers();
             }
         });
+        _documentsTab.setOnSelectionChanged(event -> {
+            if (_documentsTab.isSelected() && _loan != null && _documentsTab.getContent() == null) _documentsTab.setContent(new DocumentsPanel(_services.documents(),
+                    lavs.logic.RecordOwner.LOAN, _loan.getLoanNumber(), _services.constants(), _services.tasks()));
+        });
+        _notesTab.setOnSelectionChanged(event -> {
+            if (_notesTab.isSelected() && _loan != null && _notesTab.getContent() == null) _notesTab.setContent(new NotesPanel(_services.notes(),
+                    lavs.logic.RecordOwner.LOAN, _loan.getLoanNumber(), _services.constants(), _services.tasks()));
+        });
         // a status change is never cancelled half way, like a save
         _submitting = new LoadingView(LoadingState.forSave(_submitButton.getText(), "Submitting..."), _submitButton);
     }
@@ -86,6 +96,8 @@ public class LoanScreenController {
         _backLink.setText("← Back to " + (name.isEmpty() ? customer.getNumber() : name));
         _repaymentsController.show(services.repayments(), services.tasks());
         _borrowersController.show(services.borrowers(), services.tasks());
+        _borrowersController.setSelectCustomer(callback -> services.navigator().goTo(
+                Screen.CUSTOMER_SELECT, new CustomerSelection(callback)));
         _detailsController.show(services.loans(), services.constants(), services.tasks(),
                 customer.getNumber(), existingLoan, this::onLoanSaved);
         showHeader();
@@ -112,9 +124,11 @@ public class LoanScreenController {
                     _submitting.finish();
                     if (result.isSuccessful()) {
                         _loan.setStatus(result.getLoanStatus());
+                    } else if (lavs.logic.SaveStatus.isQueued(result.getMainframeStatus())) {
+                        _loan.setStatus("Waiting to submit");
                     }
                     showHeader();
-                    showSubmitMessage(LoanSubmission.messageFor(result), !result.isSuccessful());
+                    showSubmitMessage(LoanSubmission.messageFor(result), !result.isSuccessful() && !lavs.logic.SaveStatus.isQueued(result.getMainframeStatus()));
                 },
                 failure -> {
                     _submitting.finish();
@@ -139,10 +153,9 @@ public class LoanScreenController {
         // an earlier submission message is about the loan as it was before this save
         hideSubmitMessage();
         showHeader();
-        if (_repaymentsTab.isSelected()) {
-            showCurrentRepayments();
-        } else {
-            _tabs.getSelectionModel().select(_repaymentsTab);
+        if (!"Waiting to upload".equals(_loan.getStatus())) {
+            if (_repaymentsTab.isSelected()) showCurrentRepayments();
+            else _tabs.getSelectionModel().select(_repaymentsTab);
         }
     }
 
@@ -172,7 +185,9 @@ public class LoanScreenController {
             _statusLabel.setText("Status: " + _loan.getStatus());
         }
         // a loan has no schedule, and nobody can join it, until the mainframe has it
-        _repaymentsTab.setDisable(_loan == null);
+        _repaymentsTab.setDisable(_loan == null || "Waiting to upload".equals(_loan.getStatus()));
+        _notesTab.setDisable(_loan == null);
+        _documentsTab.setDisable(_loan == null);
         _borrowersTab.setDisable(_loan == null);
         showSubmitButton();
     }
