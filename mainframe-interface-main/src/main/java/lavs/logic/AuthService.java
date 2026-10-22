@@ -1,5 +1,4 @@
 // AI-assisted: logs the MMM in and out over the mainframe Connection.
-// TEMPORARY: swap this package for Scott's logic package once his skeleton is on main.
 package lavs.logic;
 
 import lavs.validation.ValidationResult;

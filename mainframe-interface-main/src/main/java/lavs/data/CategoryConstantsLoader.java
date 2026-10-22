@@ -1,4 +1,3 @@
-// TEMPORARY: swap this package for Scott's data package once his skeleton is on main.
 package lavs.data;
 
 import mainframe.client.Connection;

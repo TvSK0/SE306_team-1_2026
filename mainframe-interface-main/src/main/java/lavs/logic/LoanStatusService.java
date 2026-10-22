@@ -11,8 +11,6 @@ import mainframe.client.messages.loan.UpdateStatus;
 
 import java.io.IOException;
 
-// TEMPORARY: lives in lavs.logic until Scott's logic package skeleton is on
-// main (see the same note on ConstantsService); move/adapt this once it is.
 // TEMPORARY: swap direct Connection use for Scott's gateway once it exists.
 //
 // US9: change a loan's status to Pending ("submit for verification"), using
