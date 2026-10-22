@@ -22,9 +22,8 @@ package skeleton.
   comments ignored). `LavsApp` is the one allowed exception. It also tests
   its own checker.
 - Removed the "swap this package for Scott's package once his skeleton is
-  on main" notes from 31 files. The three in files my US8 branch changes
-  are removed there, and the one in `LavsApp` is left for whoever next
-  changes it (three open PRs do).
+  on main" notes from 34 files, including `LavsApp` and the US1 files. The
+  three in files my US8 branch changes are removed there.
 
 **Marking:** the package-info files and the test carry an `// AI-assisted`
 comment; the removals are comment-only.
