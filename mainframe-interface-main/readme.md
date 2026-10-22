@@ -40,7 +40,7 @@ This repository initially contains the code for the mainframe interface and the 
 mvnw.cmd clean verify
 ```
 
-This compiles the project, runs the test suite with JUnit 5, and fails the build if logic (branch) coverage of the team's own code drops below 95%. Open the human-readable coverage report at:
+This compiles the project, runs the test suite with JUnit 5, and fails the build if branch coverage drops below 95%. The gate counts our own code apart from the JavaFX screens in `lavs.ui` (keep screen rules in small classes with no JavaFX, which are tested) and the starter `mainframe.client` code. Open the human-readable coverage report at:
 
 ```
 target/site/jacoco/index.html
@@ -73,3 +73,16 @@ mvnw.cmd javafx:run
 ```
 
 Maven downloads JavaFX for your operating system automatically; you only need JDK 17 or later.
+
+The app talks to the shared class mainframe server set in `LavsApp` (the same one as `TestConstants`). It keeps the dropdown values in a small SQLite file at `~/.lavs/lavs.db` in your user folder, so they still load offline; deleting the file is safe.
+
+## Working on the code
+
+The plan is in our task delegation document; these are the parts that matter day to day.
+
+- **Packages follow the System Model layers** in `src/main/java/lavs`: `ui` (screens), `logic` (business rules and services), `data` (the local SQLite store and the connection to the mainframe), plus `model` and `validation`. `ui` never imports `Connection`, the mainframe message classes or JDBC, `logic` never imports JavaFX or JDBC, and only `logic` calls `data`.
+- **One branch per card**, named like `feature/us4-addresses`, `test/...`, `chore/...` or `docs/...`. No direct commits to `main`.
+- **Pull requests** are small, need one approval and a green CI run, and get a screenshot when a screen changes. The PR template has the checklist. The reviewer is the owner of any foundation piece the change touches.
+- **Stacked PRs** (a PR whose base is another PR's branch): merge the bottom one first and then delete its branch. GitHub then moves the next PR onto `main` by itself. Merging the top one first lands it in the other branch instead of `main`.
+- **Tests go in the same PR as the logic.** A slice isn't done under 95% branch coverage.
+- **AI use** is logged in [`AI_INTERACTIONS.md`](../AI_INTERACTIONS.md), newest first, and the code it touched is marked `// AI-assisted: [description]`.
