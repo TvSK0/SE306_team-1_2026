@@ -2,12 +2,16 @@ package lavs.ui;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import lavs.data.CategoryConstantsLoader;
@@ -17,6 +21,7 @@ import lavs.data.ConstantsLoadResult;
 import lavs.data.LocalDatabase;
 import lavs.data.LocalStoreException;
 import lavs.logic.ConstantsService;
+import lavs.logic.CustomerRelationshipService;
 import lavs.logic.LoanRepaymentsService;
 import lavs.logic.LoanSaveResult;
 import lavs.logic.LoanBorrowerService;
@@ -83,6 +88,9 @@ public class LavsApp extends Application {
         new LoanScreens(new LoanScreenServices(loanService, new LoanRepaymentsService(connection),
                 constantsService, new LoanStatusService(connection), new LoanBorrowerService(connection), tasks))
                 .register(navigator);
+        CustomerRelationshipService relationshipService = new CustomerRelationshipService(connection);
+        navigator.register(Screen.CUSTOMER_RECORD, parameter ->
+                temporaryCustomerRecord(navigator, relationshipService, constantsService, tasks, (String) parameter));
         navigator.start();
 
         stage.setTitle("LAVS");
@@ -157,8 +165,8 @@ public class LavsApp extends Application {
     }
 
     // TEMPORARY: swap this for the real customer search (US2) once Taran's screen exists. Until
-    // then it opens a new loan for a customer number, or a saved loan by its number, typed in
-    // by hand.
+    // then it opens a customer's relationships or a new loan for a customer number, or a saved
+    // loan by its number, typed in by hand.
     private static Node temporaryCustomerSearch(Navigator navigator, LoanService loanService, BackgroundTasks tasks) {
         Label label = new Label("Customer search: built in US2");
         label.getStyleClass().add("lavs-page-title");
@@ -173,6 +181,10 @@ public class LavsApp extends Application {
             customer.setNumber(customerNumber.getText().trim());
             navigator.goTo(Screen.LOAN, LoanScreenRequest.forNewLoan(customer));
         });
+        Button openCustomer = new Button("Relationships (temporary)");
+        openCustomer.getStyleClass().add("lavs-button-secondary");
+        openCustomer.disableProperty().bind(customerNumber.textProperty().isEmpty());
+        openCustomer.setOnAction(event -> navigator.goTo(Screen.CUSTOMER_RECORD, customerNumber.getText().trim()));
 
         TextField loanNumber = new TextField();
         loanNumber.setPromptText("Loan number");
@@ -207,8 +219,31 @@ public class LavsApp extends Application {
                     error.setText("Could not open the loan: " + failure.getMessage());
                 }));
 
-        VBox box = new VBox(16, label, customerNumber, newLoan, loanNumber, openLoan, error);
+        VBox box = new VBox(16, label, customerNumber, newLoan, openCustomer, loanNumber, openLoan, error);
         box.setAlignment(Pos.CENTER);
+        return box;
+    }
+
+    // TEMPORARY: swap this for the real customer record once Taran's screen exists; it should
+    // include customer-relationships.fxml as its Relationships tab. Until then this shows the
+    // customer number, a Back link and the Relationships view on their own.
+    private static Node temporaryCustomerRecord(Navigator navigator, CustomerRelationshipService relationshipService,
+                                                ConstantsService constantsService, BackgroundTasks tasks,
+                                                String customerNumber) {
+        Hyperlink back = new Hyperlink("← Back to search");
+        back.setOnAction(event -> navigator.back());
+        Label title = new Label("Customer " + customerNumber);
+        title.getStyleClass().add("lavs-page-title");
+        Parent relationships;
+        try {
+            relationships = RelationshipsController.open(relationshipService, constantsService, tasks, customerNumber);
+        } catch (IOException e) {
+            // a missing or broken FXML file: the Navigator reports it and stays where it is
+            throw new UncheckedIOException(e);
+        }
+        VBox box = new VBox(8, back, title, relationships);
+        VBox.setVgrow(relationships, Priority.ALWAYS);
+        box.setPadding(new Insets(20, 24, 20, 24));
         return box;
     }
 
