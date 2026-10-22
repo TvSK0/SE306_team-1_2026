@@ -32,6 +32,59 @@ top bar and the pending-uploads panel that lists queued changes).
 
 **Marking:** all new and modified files carry `// AI-assisted.` comments.
 
+---
+
+## 2026-10-22 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build US1, log in and log out: a service over the
+mainframe login, the login screen from Figma 01 with its error states, and
+replace the temporary login in `LavsApp`. A requirement ID list (US1-R1 to
+R6) was the spec, with one test per ID.
+
+**What it produced** on `feature/us1-login`:
+
+- `AuthService`, `AuthResult` and `LoginForm`: log in and out over the
+  `Connection`; outcomes success, network failure, rejected (with the
+  mainframe's message) and invalid (a blank field, nothing sent); the
+  username is trimmed and the password sent as typed.
+- `LoginFlow` and `LoginAttempt`: logs in, then refreshes the dropdown
+  values; values saved from last run are enough to carry on with.
+- `LoginScreenState` (no JavaFX, unit tested): inline field errors for an
+   incomplete form, and a banner for a rejection, a network failure or missing
+  failure or missing dropdown values, and when to move on.
+- `LoginScreen` (thin JavaFX) and three styles in `lavs.css`: the centred
+  card, run through `BackgroundTasks` with a "Logging in..." button.
+- In `LavsApp`: the login screen replaces `temporaryLogin` and `signIn`,
+  and Log out calls `AuthService.logout()`.
+- Unit tests for every service and decision, with the requirement ID above
+  each test.
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
+## 2026-10-19 - Aum, Claude (Sonnet 4.6) - US5 employer service (partial)
+
+**Prompt (summarised):** assist with parts of the US5 logic layer (employers tab —
+add, update, delete employer records for a customer) and implement the tests.
+
+**What it assisted with** on `feature/us5-employers`:
+
+- `lavs.logic.EmployerResult` - assisted implementing this result type (same
+  shape as `LoanBorrowerResult`; wraps a `ValidationResult` plus a mainframe `Status`).
+- `lavs.logic.EmployerService` - assisted implementing parts of the service:
+  add, update, delete employer records via `customer.addEmployer` /
+  `customer.updateEmployer` / `customer.deleteEmployer`. Validates customerNumber,
+  name, type (Primary or Secondary) and optional salary (currency format).
+- `lavs.logic.EmployerServiceTests` - implemented the tests: 18 tests, 100%
+  branch coverage on `EmployerService` and `EmployerResult`, following the
+  `LoanBorrowerServiceTests` pattern (`@ExtendWith(MockitoExtension.class)`,
+  `argThat`, `successResponse`, `rejectedResponse`).
+
+**Marking:** all three files carry `// AI-assisted` comments.
+
+---
+
 ## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5) - US9 submit button
 
 **Prompt (summarised):** do my US9 and US8 parts with high quality: the
@@ -98,6 +151,30 @@ co-borrowers and guarantors.
 **Marking:** the new method, result class, model field and tests carry an
 `// AI-assisted` comment. Agreed by me as an exception to the hand-written
 rule, like the earlier US8/US9 service work.
+
+---
+
+## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build the shared UI components every screen will
+use: form fields with inline errors, banners, tags, section headings, a
+record table and a delete confirmation, plus a demo screen to compare them
+with Figma.
+
+**What it produced** on `feature/ui-shared-components`:
+
+- `FormField` and `FieldErrorPresenter`: shows a `ValidationResult` on the
+  field named by each `FieldError`, counts fields for the banner title,
+  and keeps errors that have no field so they are not lost.
+- `BannerContent` (the offline, rejection and validation wording from the
+  Figma frames), `Banner`, `Tag`, `SectionHeading`, and the variant enums.
+- `RecordTable` (fixed header over scrolling rows, row links, empty state,
+  Delete always through `ConfirmDialog`), `ColumnWidths`, `ConfirmContent`.
+- `DemoScreen`, shown only when `LAVS_DEMO=true` or `-Dlavs.demo=true`.
+- Unit tests for every decision (presenter, banner wording, column widths,
+  confirm wording, variant-to-CSS mapping, demo switch).
+
+**Marking:** each new file carries an `// AI-assisted` comment.
 
 ---
 
