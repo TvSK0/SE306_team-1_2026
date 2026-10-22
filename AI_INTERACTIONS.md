@@ -8,6 +8,20 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - Quality Report draft
+
+**Prompt (summarised):** draft the Quality Report from what we have so far.
+
+**What it produced** on `docs/quality-report`: `docs/quality-report.md`, with the
+test results, coverage per package, the acceptance criteria mapped to their
+tests, and the metrics baseline. The parts that need the final `main`
+(final metrics, clean-clone redo, walkthrough, responsiveness) are marked TODO.
+
+**Marking:** the numbers come from the build and CK output; the team edits
+the wording.
+
+---
+
 ## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - metrics tooling and baseline
 
 **Prompt (summarised):** complete the remaining work, including the metrics
