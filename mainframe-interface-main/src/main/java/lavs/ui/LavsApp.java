@@ -112,16 +112,18 @@ public class LavsApp extends Application {
         }).create());
         LoanService loanService = new LoanService(gateway);
         CustomerSearchService searchService = new CustomerSearchService(gateway);
-        navigator.register(Screen.CUSTOMER_SEARCH, parameter -> new CustomerSearchScreen(searchService, tasks, navigator, null));
+        navigator.register(Screen.CUSTOMER_SEARCH, parameter -> new CustomerSearchScreen(searchService, tasks, navigator,
+                null, statusFeed));
         navigator.register(Screen.CUSTOMER_SELECT, parameter -> new CustomerSearchScreen(searchService, tasks, navigator,
-                (CustomerSelection) parameter));
+                (CustomerSelection) parameter, statusFeed));
         new LoanScreens(new LoanScreenServices(loanService, new LoanRepaymentsService(gateway),
                 constantsService, new LoanStatusService(gateway), new LoanBorrowerService(gateway), tasks, navigator, new lavs.logic.RecordNotesService(gateway), new lavs.logic.RecordDocumentsService(gateway)))
                 .register(navigator);
         new CustomerScreens(new CustomerScreenServices(new CustomerService(gateway, ORGANISATION),
                 new AddressService(gateway), new PhoneNumberService(gateway), new EmailService(gateway),
                 new CustomerRelationshipService(gateway), constantsService, tasks, new EmployerService(gateway),
-                new CustomerLoansService(gateway), new CustomerEligibilityService(gateway), loanService, navigator, new lavs.logic.RecordNotesService(gateway), new lavs.logic.RecordDocumentsService(gateway)))
+                new CustomerLoansService(gateway), new CustomerEligibilityService(gateway), loanService, navigator, new lavs.logic.RecordNotesService(gateway), new lavs.logic.RecordDocumentsService(gateway)),
+                topBar::setTitle)
                 .register(navigator);
         // developer only: with LAVS_DEMO=true (or -Dlavs.demo=true) start on the component gallery
         if (DemoScreen.isEnabled()) {
