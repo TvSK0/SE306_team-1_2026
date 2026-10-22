@@ -8,7 +8,7 @@ Add an entry per session/PR, newest first.
 
 ---
 
-## 2026-10-23 - Gabeliu, Claude Code (Opus 5.5) - acceptance tests
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - acceptance tests
 
 **Prompt (summarised):** write the Phase 4 acceptance tests from the
 proposal's GIVEN/WHEN/THEN criteria for US6, US9 and US11.
@@ -22,7 +22,7 @@ real SQLite file in a temp folder, going offline, restarting and reconnecting.
 
 ---
 
-## 2026-10-23 - Gabeliu, Claude Code (Opus 5.5) - US9 every co-borrower
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - US9 every co-borrower
 
 **Prompt (summarised):** complete the remaining work; US9's acceptance criteria
 say every borrower needs contact details and the MMM is told who to update.
@@ -38,7 +38,7 @@ in `LoanStatusServiceTests`, `LoanSubmissionTests` and `QueuedWorkflowTests`.
 
 ---
 
-## 2026-10-23 - Gabeliu, Claude Code (Opus 5.5) - handoff fixes on #47
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - handoff fixes on #47
 
 **Prompt (summarised):** fix the problems listed in the team handoff that are
 still there on #47's branch.
