@@ -1,4 +1,3 @@
-// TEMPORARY: swap this package for Scott's data package once his skeleton is on main.
 package lavs.data;
 
 // Where the category constants come from. CategoryConstantsLoader reads them from the

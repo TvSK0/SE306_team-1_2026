@@ -2,9 +2,6 @@ package lavs.logic;
 
 import java.util.Collection;
 
-// TEMPORARY: lives in lavs.logic until Scott's logic package skeleton is on
-// main (see the same note on ConstantsService); move/adapt this once it is.
-//
 // The shared eligibility rule used by both US6 (first working slice) and US9
 // (submit a loan for verification): a customer is eligible once they have a
 // mailing address and at least one way to reach them - a phone number or an
