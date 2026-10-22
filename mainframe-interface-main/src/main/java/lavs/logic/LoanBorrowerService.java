@@ -5,6 +5,7 @@ import lavs.validation.FieldError;
 import lavs.validation.ValidationResult;
 import lavs.validation.Validators;
 import mainframe.client.Connection;
+import lavs.data.MainframeGateway;
 import mainframe.client.Status;
 import mainframe.client.messages.loan.AddCoborrower;
 import mainframe.client.messages.loan.DeleteCoborrower;
@@ -15,9 +16,6 @@ import java.util.List;
 
 // US8: co-borrowers and guarantors on a loan. The Borrowers tab of the loan
 // screen (LoanBorrowersController) calls these.
-//
-// AI-assisted: the list is read from the mainframe; adding, changing and removing go
-// through the upload queue (SyncService), so they work offline (US11).
 public final class LoanBorrowerService {
     // the two kinds of borrower, so screens never have to import the mainframe message classes
     public static final String COBORROWER = AddCoborrower.TYPE_COBORROWER;
@@ -29,12 +27,15 @@ public final class LoanBorrowerService {
 
     static final long PAGE_SIZE = 50;
 
-    private final Connection _connection;
-    private final SyncService _sync;
+    private final MainframeGateway _gateway;
 
-    public LoanBorrowerService(Connection connection, SyncService sync) {
-        _connection = connection;
-        _sync = sync;
+    // AI-assisted: all application traffic uses the shared gateway.
+    public LoanBorrowerService(MainframeGateway gateway) {
+        _gateway = gateway;
+    }
+
+    public LoanBorrowerService(Connection connection) {
+        _gateway = new MainframeGateway(connection);
     }
 
     // AI-assisted: every co-borrower and guarantor on a loan, using
@@ -55,7 +56,7 @@ public final class LoanBorrowerService {
             // a new message per page, because message objects keep the items from earlier sends
             mainframe.client.messages.loanCoborrower.List message =
                     new mainframe.client.messages.loanCoborrower.List(loanNumber, page, PAGE_SIZE);
-            Status status = message.send(_connection);
+            Status status = _gateway.send(message).getStatus();
             if (!status.getWasSuccessful()) {
                 return LoanBorrowerListResult.fromStatus(status, List.of());
             }
@@ -82,7 +83,7 @@ public final class LoanBorrowerService {
         if (!validation.isValid()) {
             return LoanBorrowerResult.invalid(validation);
         }
-        return LoanBorrowerResult.queued(queueAdd(loanNumber, customerNumber, type));
+        return LoanBorrowerResult.fromStatus(sendAdd(loanNumber, customerNumber, type));
     }
 
     // Removes an existing co-borrower/guarantor record from a loan, using
@@ -93,7 +94,7 @@ public final class LoanBorrowerService {
         if (!validation.isValid()) {
             return LoanBorrowerResult.invalid(validation);
         }
-        return LoanBorrowerResult.queued(queueDelete(coborrowerRecordId, loanNumber));
+        return LoanBorrowerResult.fromStatus(sendDelete(coborrowerRecordId, loanNumber));
     }
 
     // US8: "updates remove then re-add" - the mainframe has no update
@@ -107,11 +108,6 @@ public final class LoanBorrowerService {
     // take the person off the loan. That is a best effort - the refusal is
     // what's returned either way, and the screen reloads the list to show
     // what the mainframe now has.
-    //
-    // AI-assisted: both go through the upload queue, which sends them in order. Offline,
-    // both wait and go out together later. The put-back only happens when the mainframe
-    // refuses the replacement straight away; one refused after waiting to upload shows up
-    // as rejected in the pending uploads panel instead.
     public LoanBorrowerResult updateCoborrower(LoanCoborrower existing, String customerNumber, String type) throws IOException {
         String loanNumber = existing.getLoanNumber();
         ValidationResult validation = validateCoborrower(loanNumber, customerNumber, type);
@@ -119,15 +115,29 @@ public final class LoanBorrowerService {
             return LoanBorrowerResult.invalid(validation);
         }
 
-        SyncStep deleted = queueDelete(existing.getId(), loanNumber);
-        if (deleted.getOutcome() == SyncStep.Outcome.REJECTED) {
-            return LoanBorrowerResult.queued(deleted);
+        if (_gateway.queuesWrites()) {
+            return LoanBorrowerResult.fromStatus(_gateway.send(connection -> {
+                var request = new mainframe.client.MessageRequest(
+                        mainframe.client.MessageRequest.UPDATE, "loan.replaceCoborrower");
+                request.setValue("loanNumber", loanNumber);
+                request.setValue("id", Long.toString(existing.getId()));
+                request.setValue("coborrowerNumber", customerNumber);
+                request.setValue("type", type);
+                request.setValue("previousCustomer", existing.getCoborrowerNumber());
+                request.setValue("previousType", existing.getType());
+                return connection.send(request).getStatus();
+            }).getStatus());
         }
-        SyncStep added = queueAdd(loanNumber, customerNumber, type);
-        if (added.getOutcome() == SyncStep.Outcome.REJECTED) {
-            queueAdd(loanNumber, existing.getCoborrowerNumber(), existing.getType());
+
+        Status deleteStatus = sendDelete(existing.getId(), loanNumber);
+        if (!deleteStatus.getWasSuccessful()) {
+            return LoanBorrowerResult.fromStatus(deleteStatus);
         }
-        return LoanBorrowerResult.queued(added);
+        Status addStatus = sendAdd(loanNumber, customerNumber, type);
+        if (!addStatus.getWasSuccessful()) {
+            sendAdd(loanNumber, existing.getCoborrowerNumber(), existing.getType());
+        }
+        return LoanBorrowerResult.fromStatus(addStatus);
     }
 
     private ValidationResult validateCoborrower(String loanNumber, String customerNumber, String type) {
@@ -144,13 +154,11 @@ public final class LoanBorrowerService {
         return validation;
     }
 
-    // AI-assisted: the change belongs to the customer being added, so it waits behind that
-    // customer if they were created offline and are not uploaded yet
-    private SyncStep queueAdd(String loanNumber, String customerNumber, String type) {
-        return QueuedWrites.queue(_sync, new AddCoborrower(customerNumber, loanNumber, type), customerNumber, null);
+    private Status sendAdd(String loanNumber, String customerNumber, String type) throws IOException {
+        return _gateway.send(new AddCoborrower(customerNumber, loanNumber, type)).getStatus();
     }
 
-    private SyncStep queueDelete(long id, String loanNumber) {
-        return QueuedWrites.queue(_sync, new DeleteCoborrower(id, loanNumber), null, null);
+    private Status sendDelete(long id, String loanNumber) throws IOException {
+        return _gateway.send(new DeleteCoborrower(id, loanNumber)).getStatus();
     }
 }

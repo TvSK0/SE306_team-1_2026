@@ -68,11 +68,8 @@ public final class BorrowersText {
         if (result.isSuccessful()) {
             return successText;
         }
-        // AI-assisted: a change kept on the upload queue (US11)
-        if (result.isWaitingToUpload()) {
-            return successText + " " + ResultText.WAITING_TO_UPLOAD;
-        }
         Status status = result.getMainframeStatus();
+        if (lavs.logic.SaveStatus.isQueued(status)) return lavs.logic.SaveStatus.message(status);
         // no status means the field checks stopped it before the mainframe was contacted
         if (status == null) {
             return "Please fix the highlighted fields.";

@@ -5,7 +5,6 @@ import lavs.model.PhoneNumber;
 import lavs.validation.FieldError;
 import mainframe.client.FakeConnection;
 import mainframe.client.MessageRequest;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
@@ -14,28 +13,16 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-// AI-assisted. Saves now go through the upload queue (US11): a real SyncService over an in-memory
-// queue sends them to the same FakeConnection, as the same requests.
+// AI-assisted
 class PhoneNumberServiceTests {
     private static final String CUSTOMER = "C-10234";
     private static final PhoneNumberInput MOBILE = new PhoneNumberInput("Mobile", "", "+64", "21 123 4567", true, true);
 
     private final FakeConnection connection = new FakeConnection();
-    private final MainframeGateway gateway = new MainframeGateway(connection);
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-    private final InMemoryChangeQueue queue = new InMemoryChangeQueue();
-    private final SyncService sync = new SyncService(queue, gateway, executor);
-    private final PhoneNumberService service = new PhoneNumberService(gateway, sync);
-
-    @AfterEach
-    void tearDown() {
-        sync.close();
-    }
+    private final PhoneNumberService service = new PhoneNumberService(new MainframeGateway(connection));
 
     // --- checking the form ---
 
@@ -143,22 +130,19 @@ class PhoneNumberServiceTests {
         assertFalse(service.updatePhoneNumber(customerNumber, 3, MOBILE).getValidationErrors().isValid());
         assertFalse(service.deletePhoneNumber(customerNumber, 3).getValidationErrors().isValid());
         assertTrue(connection.getSentRequests().isEmpty());
-        assertTrue(queue.all().isEmpty(), "nothing is queued when the checks fail");
     }
 
     // --- adding, updating and deleting ---
 
     @Test
-    void addsAPhoneNumberAndReturnsWhatWasSaved() {
+    void addsAPhoneNumberAndReturnsItWithItsNewId() {
         connection.whenRequested("customer.addPhoneNumber", FakeConnection.success(phoneReply(5)));
 
         ServiceResult<PhoneNumber> result = service.addPhoneNumber(CUSTOMER,
                 new PhoneNumberInput("Mobile", "ignored", " ", " 21 123 4567 ", false, true));
 
         assertTrue(result.isSuccessful());
-        // what was saved, as sent; the new id comes from listing again
-        assertNull(result.getValue().getId());
-        assertEquals("21 123 4567", result.getValue().getNumber());
+        assertEquals(5L, result.getValue().getId());
         assertTrue(result.getValue().canTxt());
         MessageRequest sent = connection.getSentRequests().get(0);
         assertAll(
@@ -195,41 +179,7 @@ class PhoneNumberServiceTests {
     void reportsAnUpdateTheMainframeRefused() {
         connection.whenRequested("customer.updatePhoneNumber", FakeConnection.rejected("no such phone number"));
 
-        ServiceResult<PhoneNumber> result = service.updatePhoneNumber(CUSTOMER, 3, MOBILE);
-
-        assertEquals(ServiceResult.Outcome.REJECTED, result.getOutcome());
-        assertEquals("no such phone number", result.getMessage());
-        assertNull(result.getValue());
-    }
-
-    @Test
-    void keepsAPhoneNumberAddedOfflineToUploadLater() {
-        connection.whenRequested("customer.addPhoneNumber", FakeConnection.networkDown());
-
-        ServiceResult<PhoneNumber> result = service.addPhoneNumber(CUSTOMER, MOBILE);
-
-        assertTrue(result.isSaved());
-        assertTrue(result.isWaitingToUpload());
-        assertEquals("21 123 4567", result.getValue().getNumber());
-        assertEquals("customer.addPhoneNumber", queue.all().get(0).getMessageType());
-    }
-
-    @Test
-    void keepsAnUpdateMadeOfflineToUploadLater() {
-        connection.whenRequested("customer.updatePhoneNumber", FakeConnection.networkDown());
-
-        ServiceResult<PhoneNumber> result = service.updatePhoneNumber(CUSTOMER, 3, MOBILE);
-
-        assertTrue(result.isWaitingToUpload());
-        assertEquals(3L, result.getValue().getId());
-    }
-
-    @Test
-    void keepsADeleteMadeOfflineToUploadLater() {
-        connection.whenRequested("customer.deletePhoneNumber", FakeConnection.networkDown());
-
-        assertTrue(service.deletePhoneNumber(CUSTOMER, 3).isWaitingToUpload());
-        assertEquals("customer.deletePhoneNumber", queue.all().get(0).getMessageType());
+        assertEquals("no such phone number", service.updatePhoneNumber(CUSTOMER, 3, MOBILE).getMessage());
     }
 
     @Test

@@ -5,7 +5,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import lavs.logic.CustomerInput;
-import lavs.logic.CustomerService;
+import lavs.logic.CustomerOperations;
 import lavs.logic.ServiceResult;
 import lavs.model.Customer;
 import lavs.validation.FieldError;
@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 // AI-assisted: US3, the Details tab of a customer record (customer-details.fxml). Creates a
-// new customer or edits an existing one. The checks live in CustomerService and the
+// new customer or edits an existing one. The checks live in CustomerOperations and the
 // wording in CustomerText and ResultText; this class only moves values between the form
 // and the service. The save runs in the background.
 public class CustomerDetailsController {
@@ -38,7 +38,7 @@ public class CustomerDetailsController {
     private Map<String, TextField> _fields;
     private Map<String, Label> _errorLabels;
 
-    private CustomerService _service;
+    private CustomerOperations _service;
     private BackgroundTasks _tasks;
     // told about the customer each time a save works
     private Consumer<Customer> _onSaved;
@@ -57,7 +57,7 @@ public class CustomerDetailsController {
     }
 
     // Pass the saved customer to edit them, or null to add a new one.
-    public void show(CustomerService service, BackgroundTasks tasks, Customer customer, Consumer<Customer> onSaved) {
+    public void show(CustomerOperations service, BackgroundTasks tasks, Customer customer, Consumer<Customer> onSaved) {
         _service = service;
         _tasks = tasks;
         _onSaved = onSaved;
@@ -101,16 +101,10 @@ public class CustomerDetailsController {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        // AI-assisted: a save kept on the upload queue is saved too (US11)
-        String done = result.isSaved() ? CustomerText.saved(before, result.getValue()) : null;
-        showMessage(ResultText.forChange(result, done), !result.isSaved());
-        if (result.isSaved()) {
-            Customer saved = result.getValue();
-            // a change saved through the queue doesn't bring the status back, so keep the one shown
-            if (saved.getStatus() == null && before != null) {
-                saved.setStatus(before.getStatus());
-            }
-            _saved = saved;
+        String done = result.isSuccessful() ? CustomerText.saved(before, result.getValue()) : null;
+        showMessage(ResultText.forChange(result, done), !result.isSuccessful() && !result.isQueued());
+        if (result.isSuccessful() || result.isQueued()) {
+            _saved = result.getValue();
             fillForm();
             _onSaved.accept(_saved);
         }

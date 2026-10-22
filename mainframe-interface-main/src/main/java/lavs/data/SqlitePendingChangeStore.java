@@ -1,7 +1,6 @@
 package lavs.data;
 
 import lavs.model.PendingChange;
-import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 
@@ -21,7 +20,7 @@ import java.util.Optional;
 public class SqlitePendingChangeStore implements ChangeQueue {
 
     private static final String COLUMNS = "id, createdAt, messageType, customerNumber, createsNumber,"
-            + " fields, status, statusMessage, skipDuplicateCheck, duplicateMatches";
+            + " fields, status, statusMessage, skipDuplicateCheck";
 
     private final LocalDatabase database;
 
@@ -32,8 +31,7 @@ public class SqlitePendingChangeStore implements ChangeQueue {
     @Override
     public synchronized PendingChange add(PendingChange change) {
         String sql = "INSERT INTO PendingChange (createdAt, messageType, customerNumber, createsNumber,"
-                + " fields, status, statusMessage, skipDuplicateCheck, duplicateMatches)"
-                + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + " fields, status, statusMessage, skipDuplicateCheck) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection connection = database.connect();
              PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             statement.setString(1, change.getCreatedAt().toString());
@@ -44,7 +42,6 @@ public class SqlitePendingChangeStore implements ChangeQueue {
             statement.setString(6, change.getStatus().name());
             statement.setString(7, change.getStatusMessage());
             statement.setInt(8, change.isSkipDuplicateCheck() ? 1 : 0);
-            statement.setString(9, JSONValue.toJSONString(change.getDuplicateMatches()));
             statement.executeUpdate();
             try (ResultSet keys = statement.getGeneratedKeys()) {
                 keys.next();
@@ -71,7 +68,7 @@ public class SqlitePendingChangeStore implements ChangeQueue {
     @Override
     public synchronized void update(PendingChange change) {
         String sql = "UPDATE PendingChange SET customerNumber = ?, fields = ?, status = ?, statusMessage = ?,"
-                + " skipDuplicateCheck = ?, duplicateMatches = ? WHERE id = ?";
+                + " skipDuplicateCheck = ? WHERE id = ?";
         try (Connection connection = database.connect();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, change.getCustomerNumber());
@@ -79,8 +76,7 @@ public class SqlitePendingChangeStore implements ChangeQueue {
             statement.setString(3, change.getStatus().name());
             statement.setString(4, change.getStatusMessage());
             statement.setInt(5, change.isSkipDuplicateCheck() ? 1 : 0);
-            statement.setString(6, JSONValue.toJSONString(change.getDuplicateMatches()));
-            statement.setLong(7, change.getId());
+            statement.setLong(6, change.getId());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new LocalStoreException("Could not update the queued change", e);
@@ -111,6 +107,61 @@ public class SqlitePendingChangeStore implements ChangeQueue {
         }
     }
 
+    // AI-assisted: deleting the create and rewriting its dependants must survive crashes together.
+    @Override
+    public synchronized void commit(List<PendingChange> updates, List<Long> removed, Map<String, String> numbers) {
+        try (Connection connection = database.connect()) {
+            connection.setAutoCommit(false);
+            try {
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "UPDATE PendingChange SET customerNumber=?, fields=?, status=?, statusMessage=?, skipDuplicateCheck=? WHERE id=?")) {
+                    for (PendingChange change : updates) {
+                        statement.setString(1, change.getCustomerNumber());
+                        statement.setString(2, JSONValue.toJSONString(change.getFields()));
+                        statement.setString(3, change.getStatus().name());
+                        statement.setString(4, change.getStatusMessage());
+                        statement.setInt(5, change.isSkipDuplicateCheck() ? 1 : 0);
+                        statement.setLong(6, change.getId());
+                        statement.executeUpdate();
+                    }
+                }
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "INSERT OR REPLACE INTO NumberMapping (temporary, actual) VALUES (?, ?)")) {
+                    for (var entry : numbers.entrySet()) {
+                        statement.setString(1, entry.getKey());
+                        statement.setString(2, entry.getValue());
+                        statement.executeUpdate();
+                    }
+                }
+                try (PreparedStatement statement = connection.prepareStatement("DELETE FROM PendingChange WHERE id=?")) {
+                    for (long id : removed) {
+                        statement.setLong(1, id);
+                        statement.executeUpdate();
+                    }
+                }
+                connection.commit();
+            } catch (SQLException | RuntimeException error) {
+                connection.rollback();
+                throw error;
+            }
+        } catch (SQLException error) {
+            throw new LocalStoreException("Could not finish the uploaded change", error);
+        }
+    }
+
+    @Override
+    public synchronized Map<String, String> knownNumbers() {
+        try (Connection connection = database.connect();
+             Statement statement = connection.createStatement();
+             ResultSet rows = statement.executeQuery("SELECT temporary, actual FROM NumberMapping")) {
+            Map<String, String> result = new LinkedHashMap<>();
+            while (rows.next()) result.put(rows.getString(1), rows.getString(2));
+            return result;
+        } catch (SQLException error) {
+            throw new LocalStoreException("Could not read accepted record numbers", error);
+        }
+    }
+
     private List<PendingChange> query(String sql) {
         try (Connection connection = database.connect();
              Statement statement = connection.createStatement();
@@ -133,21 +184,7 @@ public class SqlitePendingChangeStore implements ChangeQueue {
         change.setStatus(PendingChange.Status.valueOf(row.getString("status")));
         change.setStatusMessage(row.getString("statusMessage"));
         change.setSkipDuplicateCheck(row.getInt("skipDuplicateCheck") == 1);
-        change.setDuplicateMatches(parseMatches(row.getString("duplicateMatches")));
         return change;
-    }
-
-    // AI-assisted: a JSON list of customer numbers; nothing stored (a row from before the column
-    // was added) means none
-    private static List<String> parseMatches(String json) {
-        List<String> matches = new ArrayList<>();
-        if (json == null) {
-            return matches;
-        }
-        for (Object number : (JSONArray) JSONValue.parse(json)) {
-            matches.add(number.toString());
-        }
-        return matches;
     }
 
     private static Map<String, String> parseFields(String json) {

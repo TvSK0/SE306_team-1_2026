@@ -1,11 +1,9 @@
 package lavs.logic;
 
-import lavs.data.MainframeGateway;
 import lavs.validation.FieldError;
 import mainframe.client.FakeConnection;
 import mainframe.client.MessageRequest;
 import mainframe.client.StatusMessage;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,7 +13,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -27,22 +24,11 @@ class LoanStatusServiceTests {
 
     private FakeConnection connection;
     private LoanStatusService service;
-    // AI-assisted: the status change goes through the upload queue (US11); a real SyncService
-    // over an in-memory queue sends it to the same FakeConnection
-    private InMemoryChangeQueue queue;
-    private SyncService sync;
 
     @BeforeEach
     void setUp() {
         connection = new FakeConnection();
-        queue = new InMemoryChangeQueue();
-        sync = new SyncService(queue, new MainframeGateway(connection), Executors.newSingleThreadScheduledExecutor());
-        service = new LoanStatusService(connection, sync);
-    }
-
-    @AfterEach
-    void tearDown() {
-        sync.close();
+        service = new LoanStatusService(connection);
     }
 
     // --- submitted ---
@@ -295,28 +281,8 @@ class LoanStatusServiceTests {
         LoanStatusResult result = service.submitForVerification(LOAN_NUMBER);
 
         assertFalse(result.isSuccessful());
-        assertFalse(result.isSaved());
         assertFalse(result.getMainframeStatus().getWasSuccessful());
         assertNull(result.getLoanStatus());
-    }
-
-    // AI-assisted: the checks passed, then the connection dropped: the change is kept to send later (US11)
-    @Test
-    void keepsTheStatusChangeWhenTheConnectionDropsAfterTheChecks() throws IOException {
-        givenLoan(LoanStatusService.NEW);
-        givenAddresses("y");
-        givenRows("customerPhoneNumber.list", 1);
-        givenRows("customerEmployer.list", 1);
-        connection.whenRequested("loan.updateStatus", FakeConnection.networkDown());
-
-        LoanStatusResult result = service.submitForVerification(LOAN_NUMBER);
-
-        assertFalse(result.isSuccessful());
-        assertTrue(result.isWaitingToUpload());
-        assertTrue(result.isSaved());
-        assertEquals(LoanStatusService.PENDING, result.getLoanStatus());
-        assertEquals("loan.updateStatus", queue.all().get(0).getMessageType());
-        assertEquals(CUSTOMER_NUMBER, queue.all().get(0).getCustomerNumber());
     }
 
     // --- helpers ---

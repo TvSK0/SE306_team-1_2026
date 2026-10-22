@@ -7,7 +7,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
-import lavs.logic.ConstantsService;
+import lavs.logic.CategoryValues;
 import lavs.logic.PhoneNumberInput;
 import lavs.logic.PhoneNumberService;
 import lavs.logic.ServiceResult;
@@ -43,7 +43,7 @@ public class PhoneNumbersController extends ContactListController<PhoneNumber, P
     private Map<String, Label> _errorLabels;
     private PhoneNumberService _service;
 
-    public void show(PhoneNumberService service, ConstantsService constants, BackgroundTasks tasks,
+    public void show(PhoneNumberService service, CategoryValues constants, BackgroundTasks tasks,
                      String customerNumber) {
         _service = service;
         start(constants, tasks, customerNumber);
@@ -72,7 +72,7 @@ public class PhoneNumbersController extends ContactListController<PhoneNumber, P
     }
 
     @Override
-    protected void fillForm(PhoneNumber phone, ConstantsService constants) {
+    protected void fillForm(PhoneNumber phone, CategoryValues constants) {
         PhoneNumberInput input = phone == null
                 ? new PhoneNumberInput(null, "", NEW_ZEALAND_CODE, "", false, false)
                 : PhoneNumberInput.fromPhoneNumber(phone);

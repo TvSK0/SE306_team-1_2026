@@ -12,6 +12,7 @@ public final class SendResult {
     private final Outcome outcome;
     private final String assignedNumber;
     private final String message;
+    private mainframe.client.MessageResponse response;
 
     private SendResult(Outcome outcome, String assignedNumber, String message) {
         this.outcome = outcome;
@@ -27,6 +28,14 @@ public final class SendResult {
     public static SendResult success(String assignedNumber) {
         return new SendResult(Outcome.SUCCESS, assignedNumber, null);
     }
+
+    public static SendResult success(String number, mainframe.client.MessageResponse response) {
+        SendResult result = success(number);
+        result.response = response;
+        return result;
+    }
+
+    public mainframe.client.MessageResponse getResponse() { return response; }
 
     public static SendResult networkFailure(String message) {
         return new SendResult(Outcome.NETWORK_FAILURE, null, message);

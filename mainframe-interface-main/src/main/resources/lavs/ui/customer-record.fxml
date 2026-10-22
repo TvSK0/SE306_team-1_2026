@@ -29,6 +29,10 @@
         <Tab fx:id="_detailsTab" text="Details">
             <fx:include fx:id="_details" source="customer-details.fxml"/>
         </Tab>
+        <Tab fx:id="_documentsTab" text="Documents"/>
+        <Tab fx:id="_notesTab" text="Notes"/>
+        <Tab fx:id="_loansTab" text="Loans"/>
+        <Tab fx:id="_employersTab" text="Employers"/>
         <Tab fx:id="_addressesTab" text="Addresses">
             <fx:include fx:id="_addresses" source="customer-addresses.fxml"/>
         </Tab>

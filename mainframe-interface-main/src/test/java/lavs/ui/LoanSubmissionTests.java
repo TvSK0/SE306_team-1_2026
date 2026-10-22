@@ -1,21 +1,14 @@
 // TEMPORARY: swap this package for Scott's ui package once his skeleton is on main.
 package lavs.ui;
 
-import lavs.data.LocalDatabase;
-import lavs.data.MainframeGateway;
-import lavs.data.SqlitePendingChangeStore;
 import lavs.logic.LoanStatusResult;
 import lavs.logic.LoanStatusService;
-import lavs.logic.SyncService;
 import lavs.model.Loan;
 import mainframe.client.FakeConnection;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -118,22 +111,8 @@ class LoanSubmissionTests {
 
     // --- helpers ---
 
-    // AI-assisted: the status change goes through the upload queue (US11), kept in a temp folder
-    @TempDir
-    Path folder;
-    private SyncService _sync;
-
     private LoanStatusResult submit() throws IOException {
-        _sync = SyncService.create(new SqlitePendingChangeStore(new LocalDatabase(folder.resolve("lavs.db"))),
-                new MainframeGateway(connection));
-        return new LoanStatusService(connection, _sync).submitForVerification(LOAN_NUMBER);
-    }
-
-    @AfterEach
-    void closeSync() {
-        if (_sync != null) {
-            _sync.close();
-        }
+        return new LoanStatusService(connection).submitForVerification(LOAN_NUMBER);
     }
 
     private static Loan loanWithStatus(String status) {

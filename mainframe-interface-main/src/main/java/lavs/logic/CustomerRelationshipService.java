@@ -5,6 +5,7 @@ import lavs.validation.FieldError;
 import lavs.validation.ValidationResult;
 import lavs.validation.Validators;
 import mainframe.client.Connection;
+import lavs.data.MainframeGateway;
 import mainframe.client.Status;
 
 import java.io.IOException;
@@ -13,19 +14,19 @@ import java.util.List;
 
 // Optional component: a customer's relationships to other customers (spouse, parent,
 // legal authority or other). Lists, adds, updates and deletes them.
-// AI-assisted: reads go to the mainframe over the Connection; saves go through the upload queue
-// (SyncService), so adding, updating and deleting work offline (US11).
-// TEMPORARY: the reads still use the Connection directly rather than the MainframeGateway.
 public class CustomerRelationshipService {
     public static final String CUSTOMER_NUMBER = "customerNumber";
     static final long PAGE_SIZE = 50;
 
-    private final Connection _connection;
-    private final SyncService _sync;
+    private final MainframeGateway _gateway;
 
-    public CustomerRelationshipService(Connection connection, SyncService sync) {
-        _connection = connection;
-        _sync = sync;
+    // AI-assisted: all application traffic uses the shared gateway.
+    public CustomerRelationshipService(MainframeGateway gateway) {
+        _gateway = gateway;
+    }
+
+    public CustomerRelationshipService(Connection connection) {
+        _gateway = new MainframeGateway(connection);
     }
 
     // Checks the form without contacting the mainframe: the other customer and the type
@@ -63,7 +64,7 @@ public class CustomerRelationshipService {
             // a new message per page, because message objects keep the items from earlier sends
             mainframe.client.messages.customerRelationship.List message =
                     new mainframe.client.messages.customerRelationship.List(customerNumber, page, PAGE_SIZE);
-            Status status = message.send(_connection);
+            Status status = _gateway.send(message).getStatus();
             if (!status.getWasSuccessful()) {
                 return RelationshipListResult.fromStatus(status, List.of());
             }
@@ -71,7 +72,7 @@ public class CustomerRelationshipService {
             for (mainframe.client.messages.customerRelationship.List.Item item : items) {
                 mainframe.client.messages.customerRelationship.Retrieve details =
                         new mainframe.client.messages.customerRelationship.Retrieve(item.getId(), customerNumber);
-                Status detailsStatus = details.send(_connection);
+                Status detailsStatus = _gateway.send(details).getStatus();
                 if (!detailsStatus.getWasSuccessful()) {
                     return RelationshipListResult.fromStatus(detailsStatus, List.of());
                 }
@@ -97,9 +98,11 @@ public class CustomerRelationshipService {
 
         mainframe.client.messages.customer.AddRelationship message = new mainframe.client.messages.customer.AddRelationship(
                 customerNumber, otherTypeToSend(input), input.getOtherCustomerNumber().trim(), input.getType());
-        // AI-assisted: queued; the new relationship has no id until it is uploaded, so the tab lists again
-        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, null);
-        return RelationshipResult.queued(step, toRelationship(null, customerNumber,
+        Status status = _gateway.send(message).getStatus();
+        if (!status.getWasSuccessful()) {
+            return RelationshipResult.fromStatus(status, null);
+        }
+        return RelationshipResult.fromStatus(status, toRelationship(message.getId(), customerNumber,
                 message.getSecondaryCustomerNumber(), message.getType(), message.getOtherType()));
     }
 
@@ -114,9 +117,11 @@ public class CustomerRelationshipService {
         mainframe.client.messages.customer.UpdateRelationship message =
                 new mainframe.client.messages.customer.UpdateRelationship(customerNumber, id,
                         otherTypeToSend(input), input.getOtherCustomerNumber().trim(), input.getType());
-        // AI-assisted: queued, so the update works offline
-        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, null);
-        return RelationshipResult.queued(step, toRelationship(id, customerNumber,
+        Status status = _gateway.send(message).getStatus();
+        if (!status.getWasSuccessful()) {
+            return RelationshipResult.fromStatus(status, null);
+        }
+        return RelationshipResult.fromStatus(status, toRelationship(message.getId(), customerNumber,
                 message.getSecondaryCustomerNumber(), message.getType(), message.getOtherType()));
     }
 
@@ -130,8 +135,7 @@ public class CustomerRelationshipService {
 
         mainframe.client.messages.customer.DeleteRelationship message =
                 new mainframe.client.messages.customer.DeleteRelationship(customerNumber, id);
-        // AI-assisted: queued, so the delete works offline
-        return RelationshipResult.queued(QueuedWrites.queue(_sync, message, customerNumber, null), null);
+        return RelationshipResult.fromStatus(_gateway.send(message).getStatus(), null);
     }
 
     private static boolean isOther(RelationshipInput input) {
@@ -143,8 +147,8 @@ public class CustomerRelationshipService {
         return isOther(input) ? input.getOtherType().trim() : null;
     }
 
-    // Builds the model from what was queued. customer.AddRelationship and
-    // customer.UpdateRelationship share no type, so both pass their getters in here.
+    // Builds the model from the values the mainframe sent back. customer.AddRelationship
+    // and customer.UpdateRelationship share no type, so both pass their getters in here.
     private static CustomerRelationship toRelationship(Long id, String customerNumber, String otherCustomerNumber,
                                                        String type, String otherType) {
         CustomerRelationship relationship = new CustomerRelationship(customerNumber, otherCustomerNumber, type, otherType);

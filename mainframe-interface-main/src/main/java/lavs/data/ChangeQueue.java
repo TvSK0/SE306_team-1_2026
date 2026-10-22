@@ -25,6 +25,15 @@ public interface ChangeQueue {
     // Marks a change as REJECTED so it's shown to the MMM and never retried.
     void markRejected(long id, String reason);
 
+    /** Atomically records accepted identifiers, updates dependants and removes accepted saves. */
+    default void commit(List<PendingChange> updates, List<Long> removed, java.util.Map<String, String> numbers) {
+        updates.forEach(this::update);
+        removed.forEach(this::delete);
+    }
+
+    /** Previously accepted identifiers, retained across application restarts. */
+    default java.util.Map<String, String> knownNumbers() { return java.util.Map.of(); }
+
     // Removes a change (eg once the mainframe has accepted it, no use for it anymore)
     void delete(long id);
 }

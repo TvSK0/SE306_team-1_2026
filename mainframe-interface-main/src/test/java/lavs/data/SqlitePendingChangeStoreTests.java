@@ -181,37 +181,30 @@ class SqlitePendingChangeStoreTests {
 
         assertTrue(store.all().get(0).getFields().isEmpty());
     }
-
-    // AI-assisted: the customers a paused new customer may be survive a restart (US11)
     @Test
-    void keepsTheDuplicateMatchesOfAPausedCustomer() {
-        PendingChange create = store.add(new PendingChange("customer.create", "TMP-1", "TMP-1", new HashMap<>()));
-        assertTrue(store.all().get(0).getDuplicateMatches().isEmpty());
-
-        create.setStatus(PendingChange.Status.PAUSED);
-        create.setDuplicateMatches(List.of("C-5", "C-6"));
-        store.update(create);
-
-        assertEquals(List.of("C-5", "C-6"), new SqlitePendingChangeStore(database).all().get(0).getDuplicateMatches());
+    void acceptedNumbersAndDependantsSurviveRestartTogether() {
+        PendingChange create = store.add(new PendingChange("customer.create", "TMP-1", "TMP-1", Map.of()));
+        PendingChange address = store.add(change("customer.addAddress", "TMP-1"));
+        address.replaceNumber("TMP-1", "C1");
+        store.commit(List.of(address), List.of(create.getId()), Map.of("TMP-1", "C1"));
+        var reopened = new SqlitePendingChangeStore(new LocalDatabase(folder.resolve("lavs.db")));
+        assertEquals(Map.of("TMP-1", "C1"), reopened.knownNumbers());
+        assertEquals(1, reopened.all().size());
+        assertEquals("C1", reopened.all().get(0).getFields().get("customer"));
     }
 
-    // AI-assisted: a file from before the matches were kept gets the column, and its rows have none (US11)
     @Test
-    void opensAFileFromBeforeTheDuplicateMatchesWereKept() throws Exception {
-        Path old = folder.resolve("old.db");
-        try (Connection connection = java.sql.DriverManager.getConnection("jdbc:sqlite:" + old.toAbsolutePath());
-             Statement statement = connection.createStatement()) {
-            statement.executeUpdate(LocalDatabase.CREATE_PENDING_CHANGE.replace(", duplicateMatches TEXT", ""));
-            statement.executeUpdate("INSERT INTO PendingChange (createdAt, messageType, customerNumber, fields, status)"
-                    + " VALUES ('2026-10-22T10:00:00Z', 'customer.addEmail', 'C-1', '{}', 'PENDING')");
+    void failedCommitRollsBackEveryUpdate() throws Exception {
+        PendingChange create = store.add(new PendingChange("customer.create", "TMP-1", "TMP-1", Map.of()));
+        PendingChange address = store.add(change("customer.addAddress", "TMP-1"));
+        address.replaceNumber("TMP-1", "C1");
+        try (var connection = database.connect(); var statement = connection.createStatement()) {
+            statement.executeUpdate("CREATE TRIGGER fail_delete BEFORE DELETE ON PendingChange BEGIN SELECT RAISE(ABORT, 'test failure'); END");
         }
-
-        SqlitePendingChangeStore reopened = new SqlitePendingChangeStore(new LocalDatabase(old));
-
-        assertTrue(reopened.all().get(0).getDuplicateMatches().isEmpty());
-        PendingChange added = reopened.add(new PendingChange("customer.create", "TMP-2", "TMP-2", new HashMap<>()));
-        added.setDuplicateMatches(List.of("C-7"));
-        reopened.update(added);
-        assertEquals(List.of("C-7"), reopened.all().get(1).getDuplicateMatches());
+        assertThrows(LocalStoreException.class, () -> store.commit(List.of(address), List.of(create.getId()), Map.of("TMP-1", "C1")));
+        assertEquals(2, store.all().size());
+        assertEquals("TMP-1", store.all().get(1).getFields().get("customer"));
+        assertTrue(store.knownNumbers().isEmpty());
     }
+
 }

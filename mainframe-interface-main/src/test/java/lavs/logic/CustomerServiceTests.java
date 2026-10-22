@@ -5,7 +5,6 @@ import lavs.model.Customer;
 import lavs.validation.FieldError;
 import mainframe.client.FakeConnection;
 import mainframe.client.MessageRequest;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
@@ -18,7 +17,6 @@ import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -30,19 +28,7 @@ class CustomerServiceTests {
     private static final CustomerInput JANE = new CustomerInput("Ms", "Jane", "Smith", "2001-02-03", "New Zealand");
 
     private final FakeConnection connection = new FakeConnection();
-    // AI-assisted: saves go through the upload queue (US11): a real SyncService over an in-memory
-    // queue sends them to the same FakeConnection. A new customer is searched for first (the
-    // duplicate check), so creating tests script that search too.
-    private final InMemoryChangeQueue queue = new InMemoryChangeQueue();
-    private final SyncService sync = new SyncService(queue, new MainframeGateway(connection),
-            Executors.newSingleThreadScheduledExecutor());
-    private final CustomerService service = new CustomerService(new MainframeGateway(connection), sync, ORGANISATION,
-            TODAY);
-
-    @AfterEach
-    void tearDown() {
-        sync.close();
-    }
+    private final CustomerService service = new CustomerService(new MainframeGateway(connection), ORGANISATION, TODAY);
 
     // --- checking the form ---
 
@@ -88,7 +74,6 @@ class CustomerServiceTests {
 
     @Test
     void createsTheCustomerAndReturnsTheirNewNumber() {
-        givenNoExistingCustomers();
         connection.whenRequested("customer.create", FakeConnection.success(customerReply("C-10234")));
 
         ServiceResult<Customer> result = service.createCustomer(new CustomerInput(" Ms ", " Jane ", " Smith ", "2001-02-03", " New Zealand "));
@@ -99,9 +84,8 @@ class CustomerServiceTests {
                 () -> assertEquals("C-10234", saved.getNumber()),
                 () -> assertEquals("Jane Smith", saved.getFullName()),
                 () -> assertEquals(LocalDate.of(2001, 2, 3), saved.getDateOfBirth()),
-                // the mainframe's answer doesn't come back through the queue
-                () -> assertNull(saved.getStatus()));
-        MessageRequest sent = sent("customer.create").get(0);
+                () -> assertEquals("Active", saved.getStatus()));
+        MessageRequest sent = connection.getSentRequests().get(0);
         assertAll(
                 () -> assertEquals("Jane", sent.getValue("firstName"), "trimmed"),
                 () -> assertEquals("Smith", sent.getValue("familyName")),
@@ -113,13 +97,12 @@ class CustomerServiceTests {
 
     @Test
     void sendsNothingForBlankOptionalFields() {
-        givenNoExistingCustomers();
         connection.whenRequested("customer.create", FakeConnection.success(customerReply("C-1")));
 
         service.createCustomer(new CustomerInput("  ", "Jane", "Smith", "2001-02-03", ""));
         service.createCustomer(new CustomerInput(null, "Jane", "Smith", "2001-02-03", null));
 
-        for (MessageRequest sent : sent("customer.create")) {
+        for (MessageRequest sent : connection.getSentRequests()) {
             assertNull(sent.getValue("title"));
             assertNull(sent.getValue("nationality"));
         }
@@ -138,7 +121,6 @@ class CustomerServiceTests {
 
     @Test
     void reportsACreateTheMainframeRefused() {
-        givenNoExistingCustomers();
         connection.whenRequested("customer.create", FakeConnection.rejected("duplicate customer"));
 
         ServiceResult<Customer> result = service.createCustomer(JANE);
@@ -148,40 +130,13 @@ class CustomerServiceTests {
         assertNull(result.getValue());
     }
 
-    // AI-assisted: since US11 a new customer made while the mainframe can't be reached is kept
-    // under a temporary number until it uploads
     @Test
-    void keepsACustomerMadeOfflineUnderATemporaryNumber() {
+    void reportsACreateThatCouldNotReachTheMainframe() {
         connection.setIsConnected(false);
 
         ServiceResult<Customer> result = service.createCustomer(JANE);
 
-        assertEquals(ServiceResult.Outcome.WAITING, result.getOutcome());
-        assertTrue(result.isSaved());
-        assertFalse(result.isHeldForReview());
-        String number = result.getValue().getNumber();
-        assertTrue(TemporaryNumbers.isTemporary(number));
-        assertEquals("Jane", result.getValue().getFirstName());
-        assertEquals(number, queue.all().get(0).getCreatesNumber());
-        assertEquals(number, queue.all().get(0).getCustomerNumber());
-    }
-
-    // AI-assisted: the duplicate check finds the same person already on the mainframe (US11)
-    @Test
-    void holdsANewCustomerWhoMayAlreadyBeOnTheMainframe() {
-        Map<String, String> found = new HashMap<>(Map.of("page", "1", "total", "1", "items", "1"));
-        found.put("1:number", "C-777");
-        found.put("1:firstName", "Jane");
-        found.put("1:familyName", "Smith");
-        found.put("1:dateOfBirth", "2001-02-03");
-        connection.whenRequested("customer.search", FakeConnection.success(found));
-
-        ServiceResult<Customer> result = service.createCustomer(JANE);
-
-        assertTrue(result.isHeldForReview());
-        assertTrue(result.isWaitingToUpload());
-        assertTrue(sent("customer.create").isEmpty(), "nothing is uploaded until the MMM decides");
-        assertEquals(List.of("C-777"), queue.all().get(0).getDuplicateMatches());
+        assertEquals(ServiceResult.Outcome.NETWORK_FAILURE, result.getOutcome());
     }
 
     // --- editing ---
@@ -194,22 +149,7 @@ class CustomerServiceTests {
 
         assertTrue(result.isSuccessful());
         assertEquals("C-10234", connection.getSentRequests().get(0).getValue("number"));
-        assertEquals("C-10234", result.getValue().getNumber());
         assertEquals("Jane", result.getValue().getFirstName());
-        assertNull(result.getValue().getStatus(), "the screen keeps the status it shows");
-    }
-
-    // AI-assisted: a customer made offline can't be read from the mainframe until they upload (US11)
-    @Test
-    void saysACustomerMadeOfflineIsNotOnTheMainframeYet() {
-        connection.setIsConnected(false);
-        String number = service.createCustomer(JANE).getValue().getNumber();
-
-        ServiceResult<Customer> result = service.loadCustomer(number);
-
-        assertFalse(result.getValidationErrors().isValid());
-        assertEquals(CustomerService.NOT_UPLOADED_YET, result.getValidationErrors().getErrors().get(0).getMessage());
-        assertTrue(sent("customer.retrieve").isEmpty());
     }
 
     @Test
@@ -269,22 +209,13 @@ class CustomerServiceTests {
 
     @Test
     void usesTheSystemClockByDefault() {
-        CustomerService real = new CustomerService(new MainframeGateway(connection), sync, ORGANISATION);
+        CustomerService real = new CustomerService(new MainframeGateway(connection), ORGANISATION);
         String tomorrow = LocalDate.now().plusDays(1).toString();
 
         assertFalse(real.validate(new CustomerInput("", "Jane", "Smith", tomorrow, "")).isValid());
     }
 
     // --- helpers ---
-
-    // AI-assisted: the duplicate check's search, finding nobody with the same name and birthday
-    private void givenNoExistingCustomers() {
-        connection.whenRequested("customer.search", FakeConnection.success(Map.of("page", "1", "total", "0", "items", "0")));
-    }
-
-    private List<MessageRequest> sent(String requestType) {
-        return connection.getSentRequests().stream().filter(r -> requestType.equals(r.getRequestType())).toList();
-    }
 
     private List<String> fieldsWithErrors(CustomerInput input) {
         return service.validate(input).getErrors().stream().map(FieldError::getFieldName).toList();

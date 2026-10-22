@@ -10,14 +10,9 @@ public final class LoanSaveMessage {
     private LoanSaveMessage() {}
 
     public static String forResult(LoanSaveResult result) {
+        if (result.isQueued()) return lavs.logic.SaveStatus.message(result.getMainframeStatus());
         if (result.isSuccessful()) {
-            // AI-assisted: an update saved through the upload queue has no status to show (US11)
-            String status = result.getLoan().getStatus();
-            return "Loan " + result.getLoan().getLoanNumber() + " saved." + (status == null ? "" : " Status: " + status);
-        }
-        // AI-assisted: kept on the upload queue; a new loan's temporary number isn't shown (US11)
-        if (result.isWaitingToUpload()) {
-            return "Loan saved. " + ResultText.WAITING_TO_UPLOAD;
+            return "Loan " + result.getLoan().getLoanNumber() + " saved. Status: " + result.getLoan().getStatus();
         }
         Status status = result.getMainframeStatus();
         // no status means the field checks stopped the save before the mainframe was contacted

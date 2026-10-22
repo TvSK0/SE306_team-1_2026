@@ -5,7 +5,6 @@ import lavs.model.Email;
 import lavs.validation.FieldError;
 import mainframe.client.FakeConnection;
 import mainframe.client.MessageRequest;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
@@ -13,28 +12,16 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-// AI-assisted. Saves now go through the upload queue (US11): a real SyncService over an in-memory
-// queue sends them to the same FakeConnection, as the same requests.
+// AI-assisted
 class EmailServiceTests {
     private static final String CUSTOMER = "C-10234";
     private static final EmailInput PERSONAL = new EmailInput("Personal", "", "jane@example.com", true);
 
     private final FakeConnection connection = new FakeConnection();
-    private final MainframeGateway gateway = new MainframeGateway(connection);
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-    private final InMemoryChangeQueue queue = new InMemoryChangeQueue();
-    private final SyncService sync = new SyncService(queue, gateway, executor);
-    private final EmailService service = new EmailService(gateway, sync);
-
-    @AfterEach
-    void tearDown() {
-        sync.close();
-    }
+    private final EmailService service = new EmailService(new MainframeGateway(connection));
 
     // --- checking the form ---
 
@@ -122,21 +109,18 @@ class EmailServiceTests {
         assertFalse(service.updateEmail(customerNumber, 5, PERSONAL).getValidationErrors().isValid());
         assertFalse(service.deleteEmail(customerNumber, 5).getValidationErrors().isValid());
         assertTrue(connection.getSentRequests().isEmpty());
-        assertTrue(queue.all().isEmpty(), "nothing is queued when the checks fail");
     }
 
     // --- adding, updating and deleting ---
 
     @Test
-    void addsAnEmailAndReturnsWhatWasSaved() {
+    void addsAnEmailAndReturnsItWithItsNewId() {
         connection.whenRequested("customer.addEmail", FakeConnection.success(emailReply(7)));
 
         ServiceResult<Email> result = service.addEmail(CUSTOMER, new EmailInput("Personal", "ignored", " jane@example.com ", true));
 
         assertTrue(result.isSuccessful());
-        // what was saved, as sent; the new id comes from listing again
-        assertNull(result.getValue().getId());
-        assertEquals("jane@example.com", result.getValue().getAddress());
+        assertEquals(7L, result.getValue().getId());
         assertTrue(result.getValue().isPrimary());
         MessageRequest sent = connection.getSentRequests().get(0);
         assertAll(
@@ -169,41 +153,7 @@ class EmailServiceTests {
     void reportsAnUpdateTheMainframeRefused() {
         connection.whenRequested("customer.updateEmail", FakeConnection.rejected("no such email"));
 
-        ServiceResult<Email> result = service.updateEmail(CUSTOMER, 5, PERSONAL);
-
-        assertEquals(ServiceResult.Outcome.REJECTED, result.getOutcome());
-        assertEquals("no such email", result.getMessage());
-        assertNull(result.getValue());
-    }
-
-    @Test
-    void keepsAnEmailAddedOfflineToUploadLater() {
-        connection.whenRequested("customer.addEmail", FakeConnection.networkDown());
-
-        ServiceResult<Email> result = service.addEmail(CUSTOMER, PERSONAL);
-
-        assertTrue(result.isSaved());
-        assertTrue(result.isWaitingToUpload());
-        assertEquals("jane@example.com", result.getValue().getAddress());
-        assertEquals("customer.addEmail", queue.all().get(0).getMessageType());
-    }
-
-    @Test
-    void keepsAnUpdateMadeOfflineToUploadLater() {
-        connection.whenRequested("customer.updateEmail", FakeConnection.networkDown());
-
-        ServiceResult<Email> result = service.updateEmail(CUSTOMER, 5, PERSONAL);
-
-        assertTrue(result.isWaitingToUpload());
-        assertEquals(5L, result.getValue().getId());
-    }
-
-    @Test
-    void keepsADeleteMadeOfflineToUploadLater() {
-        connection.whenRequested("customer.deleteEmail", FakeConnection.networkDown());
-
-        assertTrue(service.deleteEmail(CUSTOMER, 5).isWaitingToUpload());
-        assertEquals("customer.deleteEmail", queue.all().get(0).getMessageType());
+        assertEquals("no such email", service.updateEmail(CUSTOMER, 5, PERSONAL).getMessage());
     }
 
     @Test

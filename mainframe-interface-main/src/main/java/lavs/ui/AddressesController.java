@@ -9,7 +9,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 import lavs.logic.AddressInput;
 import lavs.logic.AddressService;
-import lavs.logic.ConstantsService;
+import lavs.logic.CategoryValues;
 import lavs.logic.ServiceResult;
 import lavs.model.Address;
 
@@ -45,7 +45,7 @@ public class AddressesController extends ContactListController<Address, AddressI
     private Map<String, Label> _errorLabels;
     private AddressService _service;
 
-    public void show(AddressService service, ConstantsService constants, BackgroundTasks tasks, String customerNumber) {
+    public void show(AddressService service, CategoryValues constants, BackgroundTasks tasks, String customerNumber) {
         _service = service;
         start(constants, tasks, customerNumber);
     }
@@ -75,7 +75,7 @@ public class AddressesController extends ContactListController<Address, AddressI
 
     // a new address starts in New Zealand, where most of the bank's customers live
     @Override
-    protected void fillForm(Address address, ConstantsService constants) {
+    protected void fillForm(Address address, CategoryValues constants) {
         AddressInput input = address == null
                 ? new AddressInput(null, "", "", "", "", "", "", AddressInput.NEW_ZEALAND, false, false)
                 : AddressInput.fromAddress(address);

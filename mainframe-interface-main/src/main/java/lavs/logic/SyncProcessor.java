@@ -8,7 +8,6 @@ import lavs.model.PendingChange;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,6 +31,7 @@ public class SyncProcessor {
     public SyncProcessor(ChangeQueue queue, UploadGateway gateway) {
         this.queue = queue;
         this.gateway = gateway;
+        knownNumbers.putAll(queue.knownNumbers());
     }
 
     // Handles the oldest pending change, is empty when nothing's waiting to be sent.
@@ -54,14 +54,8 @@ public class SyncProcessor {
                 return Optional.of(new SyncStep(change, SyncStep.Outcome.WAITING, search.getMessage()));
             }
             if (search.getOutcome() == DuplicateCheckResult.Outcome.FOUND) {
-                String message = "Possible existing customer: " + String.join(", ", search.getMatchingNumbers());
+                String message = DuplicateCandidates.message(search.getMatchingNumbers());
                 setStatusOfPending(change.getCreatesNumber(), PendingChange.Status.PAUSED, message);
-                // AI-assisted: keep the matches on the create itself, so the pending uploads panel can
-                // offer each one without reading them back out of the message (US11)
-                change.setStatus(PendingChange.Status.PAUSED);
-                change.setStatusMessage(message);
-                change.setDuplicateMatches(search.getMatchingNumbers());
-                queue.update(change);
                 return Optional.of(new SyncStep(change, SyncStep.Outcome.PAUSED, message));
             }
         }
@@ -69,14 +63,27 @@ public class SyncProcessor {
     }
 
     private SyncStep send(PendingChange change) {
-        SendResult result = gateway.send(change);
+        SendResult result;
+        if ("loan.replaceCoborrower".equals(change.getMessageType())) {
+            result = new BorrowerReplacement(queue, gateway).send(change);
+        } else if ("customer.replaceDocument".equals(change.getMessageType()) || "loan.replaceDocument".equals(change.getMessageType())) {
+            result = new DocumentReplacement(queue, gateway).send(change);
+        } else {
+            result = gateway.send(change);
+        }
         switch (result.getOutcome()) {
             case SUCCESS:
-                queue.delete(change.getId());
-                if (change.getCreatesNumber() != null && result.getAssignedNumber() != null) {
-                    swapNumber(change.getCreatesNumber(), result.getAssignedNumber());
+                if (change.getCreatesNumber() != null && (result.getAssignedNumber() == null || result.getAssignedNumber().isBlank())) {
+                    String reason = "The mainframe accepted this record without returning its number. Check the record before retrying.";
+                    setStatusOfPending(change.getCreatesNumber(), PendingChange.Status.PAUSED, reason);
+                    return new SyncStep(change, SyncStep.Outcome.PAUSED, reason);
                 }
-                return new SyncStep(change, SyncStep.Outcome.SENT, result.getAssignedNumber());
+                if (change.getCreatesNumber() != null && result.getAssignedNumber() != null) {
+                    completeCreate(change, result.getAssignedNumber());
+                } else {
+                    queue.delete(change.getId());
+                }
+                return new SyncStep(change, SyncStep.Outcome.SENT, result.getAssignedNumber()).withResponse(result.getResponse());
             case NETWORK_FAILURE:
                 return new SyncStep(change, SyncStep.Outcome.WAITING, result.getMessage());
             default:
@@ -91,22 +98,28 @@ public class SyncProcessor {
 
     // The MMM chose the existing customer, will drop the queued create and point everything else at it.
     public void useExistingCustomer(String temporaryNumber, String existingNumber) {
+        java.util.List<PendingChange> changes = queue.all();
+        java.util.List<Long> removed = new java.util.ArrayList<>();
         Deque<String> resumed = new ArrayDeque<>();
-        for (PendingChange change : queue.all()) {
-            if (!change.references(temporaryNumber)) {
-                continue;
-            }
-            if (isCreateOf(change, temporaryNumber)) {
-                queue.delete(change.getId());
-            } else {
-                change.replaceNumber(temporaryNumber, existingNumber);
-                resumeIfPaused(change);
-                queue.update(change);
-                addCreatedNumber(resumed, change);
+        resumed.add(temporaryNumber);
+        while (!resumed.isEmpty()) {
+            String number = resumed.pop();
+            for (PendingChange change : changes) {
+                if (!change.references(number)) continue;
+                if (isCreateOf(change, temporaryNumber)) {
+                    if (!removed.contains(change.getId())) removed.add(change.getId());
+                } else {
+                    change.replaceNumber(temporaryNumber, existingNumber);
+                    if (change.getStatus() == PendingChange.Status.PAUSED) {
+                        resumeIfPaused(change);
+                        addCreatedNumber(resumed, change);
+                    }
+                }
             }
         }
+        queue.commit(changes.stream().filter(change -> !removed.contains(change.getId())).toList(),
+                removed, Map.of(temporaryNumber, existingNumber));
         knownNumbers.put(temporaryNumber, existingNumber);
-        resumeChangesUsing(resumed);
     }
 
     // The MMM confirmed it as a new customer, so upload without searching again.
@@ -116,8 +129,6 @@ public class SyncProcessor {
             if (change.references(temporaryNumber) && change.getStatus() == PendingChange.Status.PAUSED) {
                 if (isCreateOf(change, temporaryNumber)) {
                     change.setSkipDuplicateCheck(true);
-                    // AI-assisted: the MMM has decided, so the matches are no longer offered (US11)
-                    change.setDuplicateMatches(List.of());
                 }
                 resumeIfPaused(change);
                 queue.update(change);
@@ -183,14 +194,17 @@ public class SyncProcessor {
         return knownNumbers.getOrDefault(number, number);
     }
 
-    private void swapNumber(String temporaryNumber, String realNumber) {
-        knownNumbers.put(temporaryNumber, realNumber);
+    private void completeCreate(PendingChange accepted, String realNumber) {
+        String temporary = accepted.getCreatesNumber();
+        java.util.List<PendingChange> updates = new java.util.ArrayList<>();
         for (PendingChange change : queue.all()) {
-            if (change.references(temporaryNumber)) {
-                change.replaceNumber(temporaryNumber, realNumber);
-                queue.update(change);
+            if (!change.getId().equals(accepted.getId()) && change.references(temporary)) {
+                change.replaceNumber(temporary, realNumber);
+                updates.add(change);
             }
         }
+        queue.commit(updates, java.util.List.of(accepted.getId()), Map.of(temporary, realNumber));
+        knownNumbers.put(temporary, realNumber);
     }
 
     private void setStatusOfPending(String number, PendingChange.Status status, String message) {

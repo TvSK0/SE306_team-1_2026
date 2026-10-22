@@ -1,14 +1,12 @@
 // TEMPORARY: swap this package for Scott's logic package once his skeleton is on main.
 package lavs.logic;
 
-import lavs.data.MainframeGateway;
 import lavs.model.Loan;
 import lavs.validation.FieldError;
 import lavs.validation.ValidationResult;
 import mainframe.client.FakeConnection;
 import mainframe.client.MessageRequest;
 import mainframe.client.StatusMessage;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -19,27 +17,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
 
 public class LoanServiceTests {
-    // AI-assisted: saves go through the upload queue (US11). Each service gets a real SyncService
-    // over an in-memory queue that sends to the same FakeConnection, as the same requests.
-    private final List<SyncService> _syncs = new ArrayList<>();
-    private InMemoryChangeQueue _queue;
-
-    private LoanService serviceOver(FakeConnection connection) {
-        _queue = new InMemoryChangeQueue();
-        SyncService sync = new SyncService(_queue, new MainframeGateway(connection),
-                Executors.newSingleThreadScheduledExecutor());
-        _syncs.add(sync);
-        return new LoanService(connection, sync);
-    }
-
-    @AfterEach
-    void closeSyncs() {
-        _syncs.forEach(SyncService::close);
-    }
-
     private static final String CUSTOMER_NUMBER = "C-10234";
     private static final String LOAN_NUMBER = "L-5521";
 
@@ -51,7 +30,7 @@ public class LoanServiceTests {
     @Test
     void customerWithAddressAndPhoneCanStartALoan() {
         // Arrange
-        LoanService service = serviceOver(new FakeConnection());
+        LoanService service = new LoanService(new FakeConnection());
 
         // Act
         ValidationResult result = service.checkCanStartLoan(true, true, false);
@@ -63,7 +42,7 @@ public class LoanServiceTests {
     @Test
     void customerWithAddressAndEmailCanStartALoan() {
         // Arrange
-        LoanService service = serviceOver(new FakeConnection());
+        LoanService service = new LoanService(new FakeConnection());
 
         // Act
         ValidationResult result = service.checkCanStartLoan(true, false, true);
@@ -75,7 +54,7 @@ public class LoanServiceTests {
     @Test
     void saysEachThingTheCustomerIsMissing() {
         // Arrange
-        LoanService service = serviceOver(new FakeConnection());
+        LoanService service = new LoanService(new FakeConnection());
 
         // Act
         ValidationResult result = service.checkCanStartLoan(false, false, false);
@@ -87,7 +66,7 @@ public class LoanServiceTests {
     @Test
     void saysOnlyTheMailingAddressIsMissing() {
         // Arrange
-        LoanService service = serviceOver(new FakeConnection());
+        LoanService service = new LoanService(new FakeConnection());
 
         // Act
         ValidationResult result = service.checkCanStartLoan(false, false, true);
@@ -99,7 +78,7 @@ public class LoanServiceTests {
     @Test
     void saysOnlyTheContactDetailsAreMissing() {
         // Arrange
-        LoanService service = serviceOver(new FakeConnection());
+        LoanService service = new LoanService(new FakeConnection());
 
         // Act
         ValidationResult result = service.checkCanStartLoan(true, false, false);
@@ -113,7 +92,7 @@ public class LoanServiceTests {
     @Test
     void acceptsValidDetails() {
         // Arrange
-        LoanService service = serviceOver(new FakeConnection());
+        LoanService service = new LoanService(new FakeConnection());
 
         // Act and Assert
         Assertions.assertTrue(service.validate(VALID).isValid());
@@ -122,7 +101,7 @@ public class LoanServiceTests {
     @Test
     void acceptsAMissingRenewalDate() {
         // Arrange
-        LoanService service = serviceOver(new FakeConnection());
+        LoanService service = new LoanService(new FakeConnection());
         LoanDetailsInput input = new LoanDetailsInput(
                 "450000", "Fixed", "6.29", "Yearly", "2786", "Monthly", "2026-11-01", "");
 
@@ -133,7 +112,7 @@ public class LoanServiceTests {
     @Test
     void reportsEveryEmptyRequiredField() {
         // Arrange
-        LoanService service = serviceOver(new FakeConnection());
+        LoanService service = new LoanService(new FakeConnection());
         LoanDetailsInput input = new LoanDetailsInput(null, null, null, null, null, null, null, null);
 
         // Act
@@ -150,7 +129,7 @@ public class LoanServiceTests {
     @Test
     void reportsBadlyFormattedFields() {
         // Arrange
-        LoanService service = serviceOver(new FakeConnection());
+        LoanService service = new LoanService(new FakeConnection());
         LoanDetailsInput input = new LoanDetailsInput(
                 "450,000", "Fixed", "six", "Yearly", "-5", "Monthly", "01/11/2026", "next year");
 
@@ -167,7 +146,7 @@ public class LoanServiceTests {
     @Test
     void reportsAZeroPrincipal() {
         // Arrange
-        LoanService service = serviceOver(new FakeConnection());
+        LoanService service = new LoanService(new FakeConnection());
         LoanDetailsInput input = new LoanDetailsInput(
                 "0", "Fixed", "6.29", "Yearly", "2786", "Monthly", "2026-11-01", "");
 
@@ -181,7 +160,7 @@ public class LoanServiceTests {
     @Test
     void acceptsARateWithMoreThanTwoDecimalPlaces() {
         // Arrange
-        LoanService service = serviceOver(new FakeConnection());
+        LoanService service = new LoanService(new FakeConnection());
         LoanDetailsInput input = new LoanDetailsInput(
                 "450000", "Fixed", "5.875", "Yearly", "2786", "Monthly", "2026-11-01", "");
 
@@ -192,7 +171,7 @@ public class LoanServiceTests {
     @Test
     void reportsARenewalDateBeforeTheStartDate() {
         // Arrange
-        LoanService service = serviceOver(new FakeConnection());
+        LoanService service = new LoanService(new FakeConnection());
         LoanDetailsInput input = new LoanDetailsInput(
                 "450000", "Fixed", "6.29", "Yearly", "2786", "Monthly", "2026-11-01", "2026-10-31");
 
@@ -209,15 +188,16 @@ public class LoanServiceTests {
     void createsTheLoanAndReturnsItWithItsNumberAndStatus() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
+        scriptEligibility(connection);
         connection.whenRequested("loan.create", FakeConnection.success(savedLoanReply(VALID)));
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.createLoan(CUSTOMER_NUMBER, VALID);
 
         // Assert
         Loan loan = result.getLoan();
-        MessageRequest sent = connection.getSentRequests().get(0);
+        MessageRequest sent = connection.getSentRequests().get(2);
         Assertions.assertAll(
                 () -> Assertions.assertTrue(result.isSuccessful()),
                 () -> Assertions.assertEquals(LOAN_NUMBER, loan.getLoanNumber()),
@@ -242,8 +222,9 @@ public class LoanServiceTests {
         Map<String, String> reply = savedLoanReply(input);
         reply.remove("renewalDate");
         FakeConnection connection = new FakeConnection();
+        scriptEligibility(connection);
         connection.whenRequested("loan.create", FakeConnection.success(reply));
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.createLoan(CUSTOMER_NUMBER, input);
@@ -252,7 +233,7 @@ public class LoanServiceTests {
         Assertions.assertAll(
                 () -> Assertions.assertTrue(result.isSuccessful()),
                 () -> Assertions.assertNull(result.getLoan().getRenewalDate()),
-                () -> Assertions.assertNull(connection.getSentRequests().get(0).getValue("renewalDate"))
+                () -> Assertions.assertNull(connection.getSentRequests().get(2).getValue("renewalDate"))
         );
     }
 
@@ -260,7 +241,7 @@ public class LoanServiceTests {
     void doesNotContactTheMainframeWhenTheDetailsAreInvalid() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
         LoanDetailsInput input = new LoanDetailsInput(
                 "", "Fixed", "6.29", "Yearly", "2786", "Monthly", "2026-11-01", "");
 
@@ -280,7 +261,7 @@ public class LoanServiceTests {
     void requiresACustomerNumber() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.createLoan(" ", VALID);
@@ -296,8 +277,9 @@ public class LoanServiceTests {
     void reportsAMainframeRejection() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
+        scriptEligibility(connection);
         connection.whenRequested("loan.create", FakeConnection.rejected("Unknown rate type"));
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.createLoan(CUSTOMER_NUMBER, VALID);
@@ -316,7 +298,7 @@ public class LoanServiceTests {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.setIsConnected(false);
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.createLoan(CUSTOMER_NUMBER, VALID);
@@ -336,7 +318,7 @@ public class LoanServiceTests {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("loan.update", FakeConnection.success(savedLoanReply(VALID)));
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.updateLoan(CUSTOMER_NUMBER, LOAN_NUMBER, VALID);
@@ -360,7 +342,7 @@ public class LoanServiceTests {
         reply.put("renewalDate", "");
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("loan.update", FakeConnection.success(reply));
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.updateLoan(CUSTOMER_NUMBER, LOAN_NUMBER, input);
@@ -377,7 +359,7 @@ public class LoanServiceTests {
     void requiresALoanNumberToUpdate() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.updateLoan(CUSTOMER_NUMBER, null, VALID);
@@ -394,7 +376,7 @@ public class LoanServiceTests {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("loan.update", FakeConnection.rejected("Loan is not New"));
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.updateLoan(CUSTOMER_NUMBER, LOAN_NUMBER, VALID);
@@ -404,63 +386,6 @@ public class LoanServiceTests {
                 () -> Assertions.assertFalse(result.isSuccessful()),
                 () -> Assertions.assertEquals("Loan is not New", result.getMainframeStatus().getErrorMessage())
         );
-    }
-
-    // --- saving through the upload queue (AI-assisted, US11) ---
-
-    @Test
-    void aLoanCreatedOfflineKeepsATemporaryNumberUntilItUploads() throws IOException {
-        FakeConnection connection = new FakeConnection();
-        connection.whenRequested("loan.create", FakeConnection.networkDown());
-
-        LoanSaveResult result = serviceOver(connection).createLoan(CUSTOMER_NUMBER, VALID);
-
-        Assertions.assertAll(
-                () -> Assertions.assertTrue(result.isSaved()),
-                () -> Assertions.assertTrue(result.isWaitingToUpload()),
-                () -> Assertions.assertFalse(result.isSuccessful()),
-                () -> Assertions.assertTrue(TemporaryNumbers.isTemporary(result.getLoan().getLoanNumber())),
-                () -> Assertions.assertEquals("New", result.getLoan().getStatus()),
-                () -> Assertions.assertEquals(result.getLoan().getLoanNumber(), _queue.all().get(0).getCreatesNumber()),
-                () -> Assertions.assertEquals(CUSTOMER_NUMBER, _queue.all().get(0).getCustomerNumber())
-        );
-    }
-
-    @Test
-    void aLoanCreatedOnlineGetsTheNumberTheMainframeGaveIt() throws IOException {
-        FakeConnection connection = new FakeConnection();
-        connection.whenRequested("loan.create", FakeConnection.success(savedLoanReply(VALID)));
-
-        LoanSaveResult result = serviceOver(connection).createLoan(CUSTOMER_NUMBER, VALID);
-
-        Assertions.assertTrue(result.isSuccessful());
-        Assertions.assertFalse(result.isWaitingToUpload());
-        Assertions.assertEquals(LOAN_NUMBER, result.getLoan().getLoanNumber());
-        Assertions.assertTrue(_queue.all().isEmpty(), "an uploaded change leaves the queue");
-    }
-
-    @Test
-    void anUpdateSavedThroughTheQueueLeavesTheStatusForTheScreenToKeep() throws IOException {
-        FakeConnection connection = new FakeConnection();
-        connection.whenRequested("loan.update", FakeConnection.success(savedLoanReply(VALID)));
-
-        LoanSaveResult result = serviceOver(connection).updateLoan(CUSTOMER_NUMBER, LOAN_NUMBER, VALID);
-
-        Assertions.assertTrue(result.isSuccessful());
-        Assertions.assertEquals(LOAN_NUMBER, result.getLoan().getLoanNumber());
-        Assertions.assertNull(result.getLoan().getStatus());
-    }
-
-    @Test
-    void aRefusedLoanIsNotSaved() throws IOException {
-        FakeConnection connection = new FakeConnection();
-        connection.whenRequested("loan.create", FakeConnection.rejected("Unknown rate type"));
-
-        LoanSaveResult result = serviceOver(connection).createLoan(CUSTOMER_NUMBER, VALID);
-
-        Assertions.assertFalse(result.isSaved());
-        Assertions.assertFalse(result.isWaitingToUpload());
-        Assertions.assertNull(result.getLoan());
     }
 
     // --- LoanDetailsInput.fromLoan ---
@@ -517,7 +442,7 @@ public class LoanServiceTests {
         reply.put("status", "Pending");
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("loan.retrieve", FakeConnection.success(reply));
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.loadLoan(LOAN_NUMBER);
@@ -548,7 +473,7 @@ public class LoanServiceTests {
         reply.remove("renewalDate");
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("loan.retrieve", FakeConnection.success(reply));
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.loadLoan(LOAN_NUMBER);
@@ -564,7 +489,7 @@ public class LoanServiceTests {
     void loadingRequiresALoanNumber() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.loadLoan(" ");
@@ -582,7 +507,7 @@ public class LoanServiceTests {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("loan.retrieve", FakeConnection.rejected("Loan not found"));
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.loadLoan(LOAN_NUMBER);
@@ -601,7 +526,7 @@ public class LoanServiceTests {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.setIsConnected(false);
-        LoanService service = serviceOver(connection);
+        LoanService service = new LoanService(connection);
 
         // Act
         LoanSaveResult result = service.loadLoan(LOAN_NUMBER);
@@ -613,6 +538,14 @@ public class LoanServiceTests {
                 () -> Assertions.assertEquals(
                         StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode(), result.getMainframeStatus().getErrorCode())
         );
+    }
+
+    // AI-assisted: a loan may only be created for an eligible customer.
+    private static void scriptEligibility(FakeConnection connection) {
+        connection.whenRequested("customerAddress.list", FakeConnection.success(Map.of(
+                "items", "1", "total", "1", "1:id", "1", "1:isMailing", "y")));
+        connection.whenRequested("customerPhoneNumber.list", FakeConnection.success(Map.of(
+                "items", "1", "total", "1", "1:id", "2")));
     }
 
     private static Map<String, String> savedLoanReply(LoanDetailsInput input) {

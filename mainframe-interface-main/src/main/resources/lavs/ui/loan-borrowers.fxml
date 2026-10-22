@@ -49,8 +49,6 @@
 
     <VBox styleClass="card" spacing="12">
         <Label styleClass="section" text="Add a co-borrower or guarantor"/>
-        <!-- TEMPORARY: swap the typed customer number for picking the customer with customer
-             search in select mode (mockup 10) once Taran's US2 screen exists. -->
         <GridPane hgap="24" vgap="2">
             <columnConstraints>
                 <ColumnConstraints percentWidth="50"/>
@@ -58,7 +56,10 @@
             </columnConstraints>
 
             <Label text="Customer number *" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-            <TextField fx:id="_customerNumber" promptText="e.g. C-10234" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+            <HBox spacing="8" GridPane.rowIndex="1" GridPane.columnIndex="0">
+                <TextField fx:id="_customerNumber" promptText="Select a customer" HBox.hgrow="ALWAYS"/>
+                <Button text="Select customer" onAction="#onSelectCustomer"/>
+            </HBox>
             <Label fx:id="_customerNumberError" styleClass="error-text" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
 
             <Label text="Type *" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="1"/>

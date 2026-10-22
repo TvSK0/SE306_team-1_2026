@@ -1,6 +1,5 @@
 package lavs.logic;
 
-import lavs.data.MainframeGateway;
 import lavs.model.LoanCoborrower;
 import mainframe.client.Connection;
 import mainframe.client.MessageRequest;
@@ -8,7 +7,6 @@ import mainframe.client.MessageResponse;
 import mainframe.client.Status;
 import mainframe.client.StatusMessage;
 import mainframe.client.messages.loan.AddCoborrower;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +17,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -35,45 +32,10 @@ class LoanBorrowerServiceTests {
     private Connection connection;
 
     private LoanBorrowerService service;
-    // AI-assisted: changes go through the upload queue (US11); a real SyncService over an
-    // in-memory queue sends them to the mocked connection as the same requests
-    private InMemoryChangeQueue queue;
-    private SyncService sync;
 
     @BeforeEach
     void setUp() {
-        queue = new InMemoryChangeQueue();
-        sync = new SyncService(queue, new MainframeGateway(connection), Executors.newSingleThreadScheduledExecutor());
-        service = new LoanBorrowerService(connection, sync);
-    }
-
-    @AfterEach
-    void tearDown() {
-        sync.close();
-    }
-
-    @Test
-    void addCoborrowerWaitsToUploadWhenTheMainframeCannotBeReached() throws IOException {
-        when(connection.send(argThat(requestOfType("loan.addCoborrower"))))
-                .thenReturn(new MessageResponse(
-                        new Status(StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode(), "no route", 1), new HashMap<>()));
-
-        LoanBorrowerResult result = service.addCoborrower(LOAN_NUMBER, CUSTOMER_NUMBER, AddCoborrower.TYPE_GUARANTOR);
-
-        assertFalse(result.isSuccessful());
-        assertTrue(result.isWaitingToUpload());
-        assertTrue(result.isSaved());
-        assertEquals(1, queue.all().size());
-    }
-
-    @Test
-    void aRefusedChangeIsNotSaved() throws IOException {
-        when(connection.send(argThat(requestOfType("loan.addCoborrower")))).thenReturn(rejectedResponse("no"));
-
-        LoanBorrowerResult result = service.addCoborrower(LOAN_NUMBER, CUSTOMER_NUMBER, AddCoborrower.TYPE_GUARANTOR);
-
-        assertFalse(result.isSaved());
-        assertFalse(result.isWaitingToUpload());
+        service = new LoanBorrowerService(connection);
     }
 
     // --- addCoborrower ---

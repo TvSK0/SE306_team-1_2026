@@ -6,7 +6,6 @@ import java.util.List;
 
 // The outcome of loading a loan's summary and repayment schedule: both of them, or the
 // Status that stopped the load. Nothing is returned from a half-finished load.
-// TEMPORARY: swap this for Scott's gateway result type once it exists.
 public final class LoanRepaymentsResult {
     private final Status _mainframeStatus;
     private final LoanSummary _summary;

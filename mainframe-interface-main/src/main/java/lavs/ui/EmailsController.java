@@ -7,7 +7,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
-import lavs.logic.ConstantsService;
+import lavs.logic.CategoryValues;
 import lavs.logic.EmailInput;
 import lavs.logic.EmailService;
 import lavs.logic.ServiceResult;
@@ -36,7 +36,7 @@ public class EmailsController extends ContactListController<Email, EmailInput> {
     private Map<String, Label> _errorLabels;
     private EmailService _service;
 
-    public void show(EmailService service, ConstantsService constants, BackgroundTasks tasks, String customerNumber) {
+    public void show(EmailService service, CategoryValues constants, BackgroundTasks tasks, String customerNumber) {
         _service = service;
         start(constants, tasks, customerNumber);
     }
@@ -63,7 +63,7 @@ public class EmailsController extends ContactListController<Email, EmailInput> {
     }
 
     @Override
-    protected void fillForm(Email email, ConstantsService constants) {
+    protected void fillForm(Email email, CategoryValues constants) {
         EmailInput input = email == null ? new EmailInput(null, "", "", false) : EmailInput.fromEmail(email);
         _type.show(constants, input.getType());
         _otherType.setText(input.getOtherType());

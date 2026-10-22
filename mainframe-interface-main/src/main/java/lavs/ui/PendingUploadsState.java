@@ -2,11 +2,9 @@
 package lavs.ui;
 
 import lavs.logic.SyncService;
-import lavs.logic.TemporaryNumbers;
 import lavs.model.PendingChange;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 // The decisions behind the pending-uploads panel, with no JavaFX so they can be unit tested.
@@ -32,32 +30,8 @@ public final class PendingUploadsState {
     // One row per queued change, in creation order (oldest first)
     public List<Row> getRows() {
         return _sync.getChanges().stream()
-                .map(c -> new Row(c, descriptionFor(c), customerNumberFor(c), statusTextFor(c)))
+                .map(c -> new Row(descriptionFor(c), c.getCustomerNumber(), statusTextFor(c)))
                 .collect(Collectors.toList());
-    }
-
-    // AI-assisted: what the MMM does about a row (US11). Each runs on the sync thread; the
-    // returned future completes there, so the panel hops back to the JavaFX thread before
-    // it shows the queue again.
-
-    // takes a rejected change off the list once the MMM has seen why
-    public CompletableFuture<Void> dismiss(Row row) {
-        return _sync.dismissRejected(row.getId());
-    }
-
-    // the new customer is one already on the mainframe: their changes go to that customer instead
-    public CompletableFuture<Void> useExistingCustomer(Row row, String existingNumber) {
-        return _sync.useExistingCustomer(row.getTemporaryNumber(), existingNumber);
-    }
-
-    // the new customer really is new: upload them without searching again
-    public CompletableFuture<Void> confirmNewCustomer(Row row) {
-        return _sync.confirmNewCustomer(row.getTemporaryNumber());
-    }
-
-    // AI-assisted: a customer made offline has only a temporary number, which means nothing to the MMM
-    static String customerNumberFor(PendingChange change) {
-        return TemporaryNumbers.isTemporary(change.getCustomerNumber()) ? "New customer" : change.getCustomerNumber();
     }
 
     // Human-readable label for the change, e.g. "Add employer" for "customer.addEmployer".
@@ -114,28 +88,15 @@ public final class PendingUploadsState {
 
     // This is one row in the pending-uploads panel
     public static final class Row {
-        private final Long id;
         private final String description;
         private final String customerNumber;
         private final String statusText;
-        private final PendingChange.Status status;
-        private final String temporaryNumber;
-        private final List<String> duplicateMatches;
-        private final String reason;
 
-        Row(PendingChange change, String description, String customerNumber, String statusText) {
-            this.id = change.getId();
+        Row(String description, String customerNumber, String statusText) {
             this.description = description;
             this.customerNumber = customerNumber;
             this.statusText = statusText;
-            this.status = change.getStatus();
-            this.temporaryNumber = change.getCreatesNumber();
-            this.duplicateMatches = change.getDuplicateMatches();
-            this.reason = change.getStatusMessage();
         }
-
-        // AI-assisted: why it was paused or rejected, e.g. "Unknown customer"; null while pending
-        public String getReason() { return reason; }
 
         // e.g. "Add employer"
         public String getDescription() { return description; }
@@ -143,25 +104,5 @@ public final class PendingUploadsState {
         public String getCustomerNumber() { return customerNumber; }
         // e.g. "Waiting to upload"
         public String getStatusText() { return statusText; }
-
-        // AI-assisted: the queued change this row shows
-        Long getId() { return id; }
-
-        // AI-assisted: the temporary number of the customer (or loan) this change creates, or null
-        String getTemporaryNumber() { return temporaryNumber; }
-
-        // AI-assisted: a rejected change can be taken off the list once the MMM has seen it
-        public boolean canDismiss() {
-            return status == PendingChange.Status.REJECTED;
-        }
-
-        // AI-assisted: only the new customer's own row offers the choice, since the pause covers
-        // every change for them and one answer resolves them all
-        public boolean canResolveDuplicate() {
-            return status == PendingChange.Status.PAUSED && temporaryNumber != null && !duplicateMatches.isEmpty();
-        }
-
-        // AI-assisted: the existing customers this new one may be, e.g. ["C-10234"]
-        public List<String> getDuplicateMatches() { return duplicateMatches; }
     }
 }

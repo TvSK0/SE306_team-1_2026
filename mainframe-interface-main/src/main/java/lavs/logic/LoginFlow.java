@@ -7,10 +7,13 @@ import lavs.data.ConstantsLoadResult;
 // Yu's rule for the constants: values saved from last run are good enough to carry on with,
 // so a failed refresh only blocks the login when nothing is saved either.
 public class LoginFlow {
-    private final AuthService _auth;
-    private final ConstantsService _constants;
+    private final Authentication _auth;
+    private final CategoryValues _constants;
+    private java.util.function.Consumer<String> onReady = user -> {};
 
-    public LoginFlow(AuthService auth, ConstantsService constants) {
+    public void setOnReady(java.util.function.Consumer<String> callback) { onReady = callback; }
+
+    public LoginFlow(Authentication auth, CategoryValues constants) {
         _auth = auth;
         _constants = constants;
     }
@@ -20,11 +23,16 @@ public class LoginFlow {
         if (!auth.isSuccessful()) {
             return LoginAttempt.loginOnly(auth);
         }
+        _constants.loadSaved();
         ConstantsLoadResult constants = _constants.refresh();
         boolean available = constants.getOutcome() == ConstantsLoadResult.Outcome.SUCCESS || _constants.isLoaded();
         if (!available) {
             // the screen stays on Login, so nobody should be left signed in behind it
             _auth.logout();
+        }
+        if (available) {
+            try { onReady.accept(_auth.currentUser()); }
+            catch (RuntimeException error) { _auth.logout(); throw error; }
         }
         return new LoginAttempt(auth, available, constants.getMessage());
     }

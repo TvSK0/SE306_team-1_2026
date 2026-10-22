@@ -13,12 +13,11 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
-import lavs.logic.ConstantsService;
+import lavs.logic.CategoryValues;
 import lavs.logic.CustomerRelationshipService;
 import lavs.logic.RelationshipInput;
 import lavs.logic.RelationshipListResult;
 import lavs.logic.RelationshipResult;
-import lavs.logic.TemporaryNumbers;
 import lavs.model.CustomerRelationship;
 import lavs.validation.FieldError;
 
@@ -62,7 +61,7 @@ public class RelationshipsController {
     private final Map<String, Label> _errorLabels = new HashMap<>();
 
     private CustomerRelationshipService _service;
-    private ConstantsService _constantsService;
+    private CategoryValues _constantsService;
     private BackgroundTasks _tasks;
     private String _customerNumber;
     // the relationship being edited, or null while the form adds a new one
@@ -71,7 +70,7 @@ public class RelationshipsController {
     private BackgroundTasks.Handle _loading;
 
     // Loads the view on its own, for a screen that does not include it with fx:include.
-    public static Parent open(CustomerRelationshipService service, ConstantsService constantsService,
+    public static Parent open(CustomerRelationshipService service, CategoryValues constantsService,
                               BackgroundTasks tasks, String customerNumber) throws IOException {
         FXMLLoader loader = new FXMLLoader(RelationshipsController.class.getResource("customer-relationships.fxml"));
         Parent root = loader.load();
@@ -100,7 +99,7 @@ public class RelationshipsController {
         _type.valueProperty().addListener((property, oldValue, newValue) -> showOtherTypeBox());
     }
 
-    public void show(CustomerRelationshipService service, ConstantsService constantsService,
+    public void show(CustomerRelationshipService service, CategoryValues constantsService,
                      BackgroundTasks tasks, String customerNumber) {
         _service = service;
         _constantsService = constantsService;
@@ -114,12 +113,6 @@ public class RelationshipsController {
     private void load() {
         if (_loading != null) {
             _loading.cancel();
-        }
-        // AI-assisted: a customer made offline isn't on the mainframe yet, so there is nothing to read (US11)
-        if (TemporaryNumbers.isTemporary(_customerNumber)) {
-            _table.getItems().clear();
-            _emptyLabel.setText(ResultText.NOT_UPLOADED_YET);
-            return;
         }
         _emptyLabel.setText("Loading relationships...");
         _loading = _tasks.run(
@@ -187,13 +180,11 @@ public class RelationshipsController {
                     }
                 },
                 result -> {
-                    // AI-assisted: a removal kept on the upload queue is saved too (US11); the list is
-                    // only read again once it reached the mainframe
-                    showMessage(RelationshipsText.forResult(result, "Relationship removed."), !result.isSaved());
-                    if (result.isSaved()) {
+                    showMessage(RelationshipsText.forResult(result, "Relationship removed."), !result.isSuccessful());
+                    if (result.isSuccessful()) {
                         // the form may still hold the relationship that was just removed
                         if (_editing == selected) startAdding();
-                        if (result.isSuccessful()) load();
+                        load();
                     }
                 },
                 failure -> showMessage(NO_CONNECTION, true));
@@ -242,10 +233,8 @@ public class RelationshipsController {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        // AI-assisted: a save kept on the upload queue is saved too (US11); the list is only read
-        // again once it reached the mainframe, since reading it while offline would just fail
-        showMessage(RelationshipsText.forResult(result, doneText), !result.isSaved());
-        if (result.isSaved()) {
+        showMessage(RelationshipsText.forResult(result, doneText), !result.isSuccessful() && !lavs.logic.SaveStatus.isQueued(result.getMainframeStatus()));
+        if (result.isSuccessful() || lavs.logic.SaveStatus.isQueued(result.getMainframeStatus())) {
             startAdding();
             if (result.isSuccessful()) load();
         }

@@ -1,325 +1,279 @@
 package lavs.logic;
 
-// AI-assisted: tests rewritten for the queue path (US11). EmployerService now writes through
-// SyncService, so these drive a real SyncService over the in-memory ChangeQueue and the fake
-// gateway: validation still stops a bad call before it is queued, a good call is SENT (SAVED),
-// an offline call is WAITING, a refused call is REJECTED, and a local save failure is reported.
-import lavs.data.ChangeQueue;
-import lavs.data.SendResult;
-import lavs.model.PendingChange;
-import org.junit.jupiter.api.AfterEach;
+// AI-assisted.
+import mainframe.client.Connection;
+import mainframe.client.MessageRequest;
+import mainframe.client.MessageResponse;
+import mainframe.client.Status;
+import mainframe.client.StatusMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
+import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class EmployerServiceTests {
     private static final String CUSTOMER_NUMBER = "CUST-42";
 
-    private InMemoryChangeQueue queue;
-    private FakeUploadGateway gateway;
-    private ScheduledExecutorService executor;
-    private SyncService sync;
+    @Mock
+    private Connection connection;
+
     private EmployerService service;
 
     @BeforeEach
     void setUp() {
-        queue = new InMemoryChangeQueue();
-        gateway = new FakeUploadGateway();
-        executor = Executors.newSingleThreadScheduledExecutor();
-        sync = new SyncService(queue, gateway, executor);
-        service = new EmployerService(sync);
-    }
-
-    @AfterEach
-    void tearDown() {
-        sync.close();
+        service = new EmployerService(connection);
     }
 
     // --- addEmployer ---
 
     @Test
-    void addEmployerQueuesTheChangeAndSucceedsWhenOnline() {
+    void addEmployerSendsTheRequestAndSucceeds() throws IOException {
+        when(connection.send(argThat(requestOfType("customer.addEmployer"))))
+                .thenReturn(successResponse(Map.of(
+                        "customer", CUSTOMER_NUMBER,
+                        "name", "Acme Corp",
+                        "position", "Engineer",
+                        "salary", "80000.00",
+                        "type", "Primary",
+                        "id", "1")));
+
         EmployerResult result = service.addEmployer(
                 CUSTOMER_NUMBER, "Acme Corp", "Engineer", "80000.00", "Primary");
 
         assertTrue(result.isSuccessful());
-        assertEquals(EmployerResult.Outcome.SAVED, result.getOutcome());
         assertTrue(result.getValidationErrors().isValid());
-        // the exact message and fields the mainframe is sent, matching AddEmployer.send
-        assertEquals(List.of("customer.addEmployer"), gateway.sent);
-        assertEquals(Map.of(
-                "customer", CUSTOMER_NUMBER,
-                "name", "Acme Corp",
-                "position", "Engineer",
-                "salary", "80000.0",
-                "type", "Primary"), gateway.sentFields.get(0));
+        verify(connection, times(1)).send(any(MessageRequest.class));
     }
 
     @Test
-    void addEmployerAcceptsABlankSalaryAndSendsZero() {
+    void addEmployerAcceptsABlankSalary() throws IOException {
+        when(connection.send(argThat(requestOfType("customer.addEmployer"))))
+                .thenReturn(successResponse(Map.of(
+                        "customer", CUSTOMER_NUMBER,
+                        "name", "Acme Corp",
+                        "position", "Engineer",
+                        "salary", "0.0",
+                        "type", "Secondary",
+                        "id", "2")));
+
         EmployerResult result = service.addEmployer(
                 CUSTOMER_NUMBER, "Acme Corp", "Engineer", "", "Secondary");
 
         assertTrue(result.isSuccessful());
-        assertEquals("0.0", gateway.sentFields.get(0).get("salary"));
     }
 
     @Test
-    void addEmployerAcceptsANullSalary() {
+    void addEmployerAcceptsANullSalary() throws IOException {
+        when(connection.send(argThat(requestOfType("customer.addEmployer"))))
+                .thenReturn(successResponse(Map.of(
+                        "customer", CUSTOMER_NUMBER,
+                        "name", "Acme Corp",
+                        "position", "Engineer",
+                        "salary", "0.0",
+                        "type", "Primary",
+                        "id", "3")));
+
         EmployerResult result = service.addEmployer(
                 CUSTOMER_NUMBER, "Acme Corp", "Engineer", null, "Primary");
 
         assertTrue(result.isSuccessful());
-        assertEquals("0.0", gateway.sentFields.get(0).get("salary"));
     }
 
     @Test
-    void addEmployerWaitsToUploadWhenOffline() {
-        gateway.offline = true;
+    void addEmployerReportsAMainframeRejectionWithoutThrowing() throws IOException {
+        when(connection.send(argThat(requestOfType("customer.addEmployer"))))
+                .thenReturn(rejectedResponse("customer not found"));
 
         EmployerResult result = service.addEmployer(
                 CUSTOMER_NUMBER, "Acme Corp", "Engineer", "50000", "Primary");
 
         assertFalse(result.isSuccessful());
-        assertTrue(result.isWaitingToUpload());
-        assertEquals(EmployerResult.Outcome.WAITING, result.getOutcome());
-        // the change is kept in the queue to send later, and nothing reached the mainframe
-        assertEquals(1, queue.all().size());
-        assertEquals(PendingChange.Status.PENDING, queue.all().get(0).getStatus());
-        assertTrue(gateway.sent.isEmpty());
+        assertFalse(result.getMainframeStatus().getWasSuccessful());
     }
 
     @Test
-    void addEmployerReportsAMainframeRejectionWithoutThrowing() {
-        gateway.answerSend(SendResult.rejected("customer not found"));
-
-        EmployerResult result = service.addEmployer(
-                CUSTOMER_NUMBER, "Acme Corp", "Engineer", "50000", "Primary");
-
-        assertFalse(result.isSuccessful());
-        assertEquals(EmployerResult.Outcome.REJECTED, result.getOutcome());
-        assertEquals("customer not found", result.getMessage());
-    }
-
-    @Test
-    void addEmployerReportsALocalSaveFailure() {
-        EmployerService failing = new EmployerService(new SyncService(throwingQueue(), gateway, executor));
-
-        EmployerResult result = failing.addEmployer(
-                CUSTOMER_NUMBER, "Acme Corp", "Engineer", "50000", "Primary");
-
-        assertFalse(result.isSuccessful());
-        assertEquals(EmployerResult.Outcome.REJECTED, result.getOutcome());
-        assertTrue(result.getMessage().contains("disk full"));
-    }
-
-    @Test
-    void addEmployerFailsValidationForMissingRequiredFieldsWithoutQueuing() {
+    void addEmployerFailsValidationForMissingRequiredFields() throws IOException {
         EmployerResult result = service.addEmployer(null, "", "Engineer", "50000", null);
 
         assertFalse(result.isSuccessful());
         assertFalse(result.getValidationErrors().isValid());
         // customerNumber, name, type all missing = 3 errors
         assertEquals(3, result.getValidationErrors().getErrors().size());
-        assertTrue(queue.all().isEmpty());
-        assertTrue(gateway.sent.isEmpty());
+        verifyNoInteractions(connection);
     }
 
     @Test
-    void addEmployerRejectsAnUnknownType() {
+    void addEmployerRejectsAnUnknownType() throws IOException {
         EmployerResult result = service.addEmployer(
                 CUSTOMER_NUMBER, "Acme Corp", "Engineer", "50000", "Contractor");
 
         assertFalse(result.isSuccessful());
         assertEquals(1, result.getValidationErrors().getErrors().size());
         assertEquals("type", result.getValidationErrors().getErrors().get(0).getFieldName());
-        assertTrue(queue.all().isEmpty());
+        verifyNoInteractions(connection);
     }
 
     @Test
-    void addEmployerTreatsABlankTypeAsMissingRatherThanUnknown() {
+    void addEmployerTreatsABlankTypeAsMissingRatherThanUnknown() throws IOException {
         EmployerResult result = service.addEmployer(
                 CUSTOMER_NUMBER, "Acme Corp", "Engineer", "50000", "   ");
 
         // only the "is required" error - the unknown-type check is skipped for blank
         assertEquals(1, result.getValidationErrors().getErrors().size());
         assertEquals("type", result.getValidationErrors().getErrors().get(0).getFieldName());
-        assertTrue(queue.all().isEmpty());
+        verifyNoInteractions(connection);
     }
 
     @Test
-    void addEmployerRejectsAnInvalidSalaryFormat() {
+    void addEmployerRejectsAnInvalidSalaryFormat() throws IOException {
         EmployerResult result = service.addEmployer(
                 CUSTOMER_NUMBER, "Acme Corp", "Engineer", "not-a-number", "Primary");
 
         assertFalse(result.isSuccessful());
         assertEquals(1, result.getValidationErrors().getErrors().size());
         assertEquals("salary", result.getValidationErrors().getErrors().get(0).getFieldName());
-        assertTrue(queue.all().isEmpty());
+        verifyNoInteractions(connection);
     }
 
     @Test
-    void addEmployerRejectsASalaryWithMoreThanTwoDecimalPlaces() {
+    void addEmployerRejectsASalaryWithMoreThanTwoDecimalPlaces() throws IOException {
         EmployerResult result = service.addEmployer(
                 CUSTOMER_NUMBER, "Acme Corp", "Engineer", "50000.999", "Primary");
 
         assertFalse(result.isSuccessful());
         assertEquals("salary", result.getValidationErrors().getErrors().get(0).getFieldName());
-        assertTrue(queue.all().isEmpty());
+        verifyNoInteractions(connection);
     }
 
     // --- updateEmployer ---
 
     @Test
-    void updateEmployerQueuesTheChangeAndSucceeds() {
+    void updateEmployerSendsTheRequestAndSucceeds() throws IOException {
+        when(connection.send(argThat(requestOfType("customer.updateEmployer"))))
+                .thenReturn(successResponse(Map.of(
+                        "customer", CUSTOMER_NUMBER,
+                        "id", "1",
+                        "name", "Acme Corp",
+                        "position", "Senior Engineer",
+                        "salary", "90000.00",
+                        "type", "Primary")));
+
         EmployerResult result = service.updateEmployer(
                 1L, CUSTOMER_NUMBER, "Acme Corp", "Senior Engineer", "90000.00", "Primary");
 
         assertTrue(result.isSuccessful());
-        assertEquals(List.of("customer.updateEmployer"), gateway.sent);
-        assertEquals(Map.of(
-                "customer", CUSTOMER_NUMBER,
-                "id", "1",
-                "name", "Acme Corp",
-                "position", "Senior Engineer",
-                "salary", "90000.0",
-                "type", "Primary"), gateway.sentFields.get(0));
+        verify(connection, times(1)).send(any(MessageRequest.class));
     }
 
     @Test
-    void updateEmployerReportsAMainframeRejectionWithoutThrowing() {
-        gateway.answerSend(SendResult.rejected("no such employer"));
+    void updateEmployerReportsAMainframeRejectionWithoutThrowing() throws IOException {
+        when(connection.send(argThat(requestOfType("customer.updateEmployer"))))
+                .thenReturn(rejectedResponse("no such employer"));
 
         EmployerResult result = service.updateEmployer(
                 99L, CUSTOMER_NUMBER, "Acme Corp", "Engineer", "50000", "Primary");
 
         assertFalse(result.isSuccessful());
-        assertEquals(EmployerResult.Outcome.REJECTED, result.getOutcome());
-        assertEquals("no such employer", result.getMessage());
+        assertFalse(result.getMainframeStatus().getWasSuccessful());
     }
 
     @Test
-    void updateEmployerFailsValidationForMissingRequiredFields() {
+    void updateEmployerFailsValidationForMissingRequiredFields() throws IOException {
         EmployerResult result = service.updateEmployer(1L, null, "", "Engineer", "50000", null);
 
         assertFalse(result.isSuccessful());
         assertEquals(3, result.getValidationErrors().getErrors().size());
-        assertTrue(queue.all().isEmpty());
+        verifyNoInteractions(connection);
     }
 
     @Test
-    void updateEmployerRejectsAnUnknownType() {
+    void updateEmployerRejectsAnUnknownType() throws IOException {
         EmployerResult result = service.updateEmployer(
                 1L, CUSTOMER_NUMBER, "Acme Corp", "Engineer", "50000", "Freelance");
 
         assertFalse(result.isSuccessful());
         assertEquals(1, result.getValidationErrors().getErrors().size());
         assertEquals("type", result.getValidationErrors().getErrors().get(0).getFieldName());
-        assertTrue(queue.all().isEmpty());
+        verifyNoInteractions(connection);
     }
 
     @Test
-    void updateEmployerRejectsAnInvalidSalary() {
+    void updateEmployerRejectsAnInvalidSalary() throws IOException {
         EmployerResult result = service.updateEmployer(
                 1L, CUSTOMER_NUMBER, "Acme Corp", "Engineer", "-500", "Primary");
 
         assertFalse(result.isSuccessful());
         assertEquals("salary", result.getValidationErrors().getErrors().get(0).getFieldName());
-        assertTrue(queue.all().isEmpty());
+        verifyNoInteractions(connection);
     }
 
     // --- deleteEmployer ---
 
     @Test
-    void deleteEmployerQueuesTheDeleteAndSucceeds() {
+    void deleteEmployerSendsTheDeleteRequestAndSucceeds() throws IOException {
+        when(connection.send(argThat(requestOfType("customer.deleteEmployer"))))
+                .thenReturn(successResponse(Map.of("customer", CUSTOMER_NUMBER, "id", "1")));
+
         EmployerResult result = service.deleteEmployer(1L, CUSTOMER_NUMBER);
 
         assertTrue(result.isSuccessful());
-        assertEquals(List.of("customer.deleteEmployer"), gateway.sent);
-        assertEquals(Map.of("customer", CUSTOMER_NUMBER, "id", "1"), gateway.sentFields.get(0));
+        verify(connection, times(1)).send(any(MessageRequest.class));
     }
 
     @Test
-    void deleteEmployerWaitsToUploadWhenOffline() {
-        gateway.offline = true;
-
-        EmployerResult result = service.deleteEmployer(1L, CUSTOMER_NUMBER);
-
-        assertTrue(result.isWaitingToUpload());
-        assertEquals(1, queue.all().size());
-    }
-
-    @Test
-    void deleteEmployerFailsValidationWithoutQueuing() {
+    void deleteEmployerFailsValidationWithoutContactingTheMainframe() throws IOException {
         EmployerResult result = service.deleteEmployer(1L, " ");
 
         assertFalse(result.isSuccessful());
         assertFalse(result.getValidationErrors().isValid());
-        assertTrue(queue.all().isEmpty());
-        assertTrue(gateway.sent.isEmpty());
+        verifyNoInteractions(connection);
     }
 
     @Test
-    void deleteEmployerReportsAMainframeRejectionWithoutThrowing() {
-        gateway.answerSend(SendResult.rejected("employer not found"));
+    void deleteEmployerReportsAMainframeRejectionWithoutThrowing() throws IOException {
+        when(connection.send(argThat(requestOfType("customer.deleteEmployer"))))
+                .thenReturn(rejectedResponse("employer not found"));
 
         EmployerResult result = service.deleteEmployer(99L, CUSTOMER_NUMBER);
 
         assertFalse(result.isSuccessful());
-        assertEquals(EmployerResult.Outcome.REJECTED, result.getOutcome());
-        assertEquals("employer not found", result.getMessage());
+        assertFalse(result.getMainframeStatus().getWasSuccessful());
     }
 
     @Test
-    void deleteEmployerFailsValidationForNullCustomerNumber() {
+    void deleteEmployerFailsValidationForNullCustomerNumber() throws IOException {
         EmployerResult result = service.deleteEmployer(1L, null);
 
         assertFalse(result.isSuccessful());
         assertEquals(1, result.getValidationErrors().getErrors().size());
         assertEquals("customerNumber", result.getValidationErrors().getErrors().get(0).getFieldName());
-        assertTrue(queue.all().isEmpty());
+        verifyNoInteractions(connection);
     }
 
     // --- helpers ---
 
-    // a queue whose first write fails, to drive the local-save-failure path
-    private static ChangeQueue throwingQueue() {
-        return new ChangeQueue() {
-            @Override
-            public PendingChange add(PendingChange change) {
-                throw new RuntimeException("disk full");
-            }
+    private static org.mockito.ArgumentMatcher<MessageRequest> requestOfType(String requestType) {
+        return request -> request != null && requestType.equals(request.getRequestType());
+    }
 
-            @Override
-            public Optional<PendingChange> next() {
-                return Optional.empty();
-            }
+    private static MessageResponse successResponse(Map<String, String> values) {
+        return new MessageResponse(new Status(1), new HashMap<>(values));
+    }
 
-            @Override
-            public List<PendingChange> all() {
-                return List.of();
-            }
-
-            @Override
-            public void update(PendingChange change) {
-            }
-
-            @Override
-            public void markRejected(long id, String reason) {
-            }
-
-            @Override
-            public void delete(long id) {
-            }
-        };
+    private static MessageResponse rejectedResponse(String message) {
+        return new MessageResponse(
+                new Status(StatusMessage.SERVER_FAILURE.getCode(), message, 1),
+                new HashMap<>());
     }
 }

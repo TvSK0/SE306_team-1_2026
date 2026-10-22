@@ -8,10 +8,11 @@ import mainframe.client.StatusMessage;
 // stays queued) or REJECTED (the mainframe refused it; show its message, never retry).
 public final class GatewayResult {
 
-    public enum Outcome { SUCCESS, NETWORK_FAILURE, REJECTED }
+    public enum Outcome { SUCCESS, NETWORK_FAILURE, REJECTED, WAITING, PAUSED }
 
     private final Outcome outcome;
     private final Status status;
+    private mainframe.client.MessageResponse response;
 
     private GatewayResult(Outcome outcome, Status status) {
         this.outcome = outcome;
@@ -26,6 +27,8 @@ public final class GatewayResult {
             return new GatewayResult(Outcome.SUCCESS, status);
         }
         Integer code = status.getErrorCode();
+        if (code == LocalSaveStatus.WAITING) return new GatewayResult(Outcome.WAITING, status);
+        if (code == LocalSaveStatus.PAUSED) return new GatewayResult(Outcome.PAUSED, status);
         if (StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode().equals(code)
                 || StatusMessage.UNABLE_TO_PARSE.getCode().equals(code)) {
             return new GatewayResult(Outcome.NETWORK_FAILURE, status);
@@ -38,6 +41,15 @@ public final class GatewayResult {
         return new GatewayResult(Outcome.NETWORK_FAILURE,
                 new Status(StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode(), message, 0));
     }
+
+    GatewayResult withResponse(mainframe.client.MessageResponse response) {
+        this.response = response;
+        return this;
+    }
+
+    public String getValue(String key) { return response == null ? null : response.getValue(key); }
+
+    public boolean isQueued() { return outcome == Outcome.WAITING || outcome == Outcome.PAUSED; }
 
     public Outcome getOutcome() {
         return outcome;

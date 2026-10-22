@@ -2,7 +2,6 @@ package lavs.ui;
 
 import lavs.logic.LoanStatusResult;
 import lavs.logic.LoanStatusService;
-import lavs.logic.TemporaryNumbers;
 import lavs.model.Loan;
 import lavs.validation.FieldError;
 import mainframe.client.Status;
@@ -23,21 +22,17 @@ public final class LoanSubmission {
         return loan == null || isNew(loan);
     }
 
-    // only a saved loan that is still New can be submitted. AI-assisted: and only once the
-    // mainframe has it, since the checks read it there (US11)
+    // only a saved loan that is still New can be submitted
     public static boolean isEnabled(Loan loan) {
-        return loan != null && isNew(loan) && !TemporaryNumbers.isTemporary(loan.getLoanNumber());
+        return loan != null && isNew(loan);
     }
 
     public static String messageFor(LoanStatusResult result) {
         if (result.isSuccessful()) {
             return "Submitted for verification. Status: " + result.getLoanStatus();
         }
-        // AI-assisted: a submission kept on the upload queue (US11)
-        if (result.isWaitingToUpload()) {
-            return "Submitted for verification. " + ResultText.WAITING_TO_UPLOAD;
-        }
         Status status = result.getMainframeStatus();
+        if (lavs.logic.SaveStatus.isQueued(status)) return lavs.logic.SaveStatus.message(status);
         // no status means a check stopped it before the mainframe was asked to change anything
         if (status == null) {
             return "This loan can't be submitted yet:\n" + result.getValidationErrors().getErrors().stream()

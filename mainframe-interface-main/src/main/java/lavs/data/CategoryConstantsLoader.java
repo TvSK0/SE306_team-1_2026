@@ -5,7 +5,6 @@ import mainframe.client.Message;
 import mainframe.client.Status;
 import mainframe.client.StatusMessage;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -16,17 +15,20 @@ import java.util.Map;
 public class CategoryConstantsLoader implements ConstantsSource {
     public static final long DEFAULT_PAGE_SIZE = 100;
 
-    // TEMPORARY: swap this Connection for Scott's gateway once it exists, so only
-    // the gateway sends mainframe messages. The paging and sorting logic stays the same.
-    private final Connection _connection;
+    private final MainframeGateway _gateway;
     private final long _pageSize;
+
+    public CategoryConstantsLoader(MainframeGateway gateway) {
+        _gateway = gateway;
+        _pageSize = DEFAULT_PAGE_SIZE;
+    }
 
     public CategoryConstantsLoader(Connection connection) {
         this(connection, DEFAULT_PAGE_SIZE);
     }
 
     public CategoryConstantsLoader(Connection connection, long pageSize) {
-        _connection = connection;
+        _gateway = new MainframeGateway(connection);
         _pageSize = pageSize;
     }
 
@@ -90,15 +92,8 @@ public class CategoryConstantsLoader implements ConstantsSource {
         return names;
     }
 
-    // TEMPORARY: swap this for Scott's gateway, which will turn a Status into
-    // success, network failure or rejected for every message.
     private void send(Message message) throws LoadFailure {
-        Status status;
-        try {
-            status = message.send(_connection);
-        } catch (IOException ex) {
-            throw new LoadFailure(ConstantsLoadResult.networkFailure(ex.getMessage()));
-        }
+        Status status = _gateway.send(message).getStatus();
         if (status.getWasSuccessful()) return;
         if (StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode().equals(status.getErrorCode())) {
             throw new LoadFailure(ConstantsLoadResult.networkFailure(status.getErrorMessage()));

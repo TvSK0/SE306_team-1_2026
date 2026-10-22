@@ -3,8 +3,6 @@ package lavs.data;
 import java.util.List;
 import java.util.Map;
 
-// TEMPORARY: swap this class for Scott's gateway result type once the gateway exists.
-// The three outcomes match the plan's gateway results: success, network failure, rejected.
 public final class ConstantsLoadResult {
     public enum Outcome { SUCCESS, NETWORK_FAILURE, REJECTED }
 

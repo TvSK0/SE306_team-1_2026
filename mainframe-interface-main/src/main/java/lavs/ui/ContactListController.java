@@ -2,16 +2,13 @@ package lavs.ui;
 
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.fxml.FXML;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
-import lavs.logic.ConstantsService;
+import lavs.logic.CategoryValues;
 import lavs.logic.ServiceResult;
-import lavs.logic.TemporaryNumbers;
 import lavs.validation.FieldError;
 
 import java.util.List;
@@ -37,15 +34,14 @@ public abstract class ContactListController<T, I> {
     @FXML private Label _formTitle;
     @FXML private Button _saveButton;
 
-    private ConstantsService _constants;
+    private CategoryValues _constants;
     private BackgroundTasks _tasks;
     private String _customerNumber;
     // the record being edited, or null while the form adds a new one
     private T _editing;
     // the list load still running, if any; a newer one replaces it
     private BackgroundTasks.Handle _loading;
-    // TEMPORARY: swap the Alert for Taran's shared confirm dialog once it exists
-    private Predicate<String> _confirm = ContactListController::askToConfirm;
+    private Predicate<String> _confirm = this::askToConfirm;
 
     // --- what each tab supplies ---
 
@@ -58,7 +54,7 @@ public abstract class ContactListController<T, I> {
     protected abstract void setUpForm();
 
     // fills the form from a saved record, or empties it (with any defaults) for a new one
-    protected abstract void fillForm(T record, ConstantsService constants);
+    protected abstract void fillForm(T record, CategoryValues constants);
 
     protected abstract I readForm();
 
@@ -92,7 +88,7 @@ public abstract class ContactListController<T, I> {
     }
 
     // Shows the customer's records and an empty form for adding one.
-    protected void start(ConstantsService constants, BackgroundTasks tasks, String customerNumber) {
+    protected void start(CategoryValues constants, BackgroundTasks tasks, String customerNumber) {
         _constants = constants;
         _tasks = tasks;
         _customerNumber = customerNumber;
@@ -118,12 +114,6 @@ public abstract class ContactListController<T, I> {
             _loading.cancel();
         }
         String customerNumber = _customerNumber;
-        // AI-assisted: a customer made offline isn't on the mainframe yet, so there is nothing to read (US11)
-        if (TemporaryNumbers.isTemporary(customerNumber)) {
-            _table.getItems().clear();
-            _emptyLabel.setText(ResultText.NOT_UPLOADED_YET);
-            return;
-        }
         _emptyLabel.setText(ContactText.loading(kind()));
         _loading = _tasks.run(
                 () -> list(customerNumber),
@@ -176,14 +166,13 @@ public abstract class ContactListController<T, I> {
                 result -> {
                     removing.finish();
                     bindRemove();
-                    // AI-assisted: a removal kept on the upload queue is saved too, not a problem (US11)
-                    showMessage(ResultText.forChange(result, ContactText.removed(kind())), !result.isSaved());
-                    if (result.isSaved()) {
+                    showMessage(ResultText.forChange(result, ContactText.removed(kind())), !result.isSuccessful() && !result.isQueued());
+                    if (result.isSuccessful()) {
                         // the form may still hold the record that was just removed
                         if (_editing == selected) {
                             startAdding();
                         }
-                        reloadIfUploaded(result);
+                        load();
                     }
                 },
                 failure -> {
@@ -229,19 +218,10 @@ public abstract class ContactListController<T, I> {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        // AI-assisted: a save kept on the upload queue is saved too, not a problem (US11)
-        showMessage(ResultText.forChange(result, doneText), !result.isSaved());
-        if (result.isSaved()) {
-            startAdding();
-            reloadIfUploaded(result);
-        }
-    }
-
-    // AI-assisted: after a change that reached the mainframe the list is read again, so it shows
-    // new ids. A change still waiting to upload means the mainframe can't be reached, so reading
-    // the list would only fail and empty the table; it stays as it is until the next load.
-    private void reloadIfUploaded(ServiceResult<?> result) {
+        showMessage(ResultText.forChange(result, doneText), !result.isSuccessful() && !result.isQueued());
+        if (result.isQueued()) startAdding();
         if (result.isSuccessful()) {
+            startAdding();
             load();
         }
     }
@@ -294,9 +274,8 @@ public abstract class ContactListController<T, I> {
         _messageLabel.setVisible(false);
     }
 
-    private static boolean askToConfirm(String question) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, question, ButtonType.OK, ButtonType.CANCEL);
-        alert.setHeaderText(null);
-        return alert.showAndWait().filter(ButtonType.OK::equals).isPresent();
+    private boolean askToConfirm(String question) {
+        return ConfirmDialog.confirm(_table.getScene().getWindow(),
+                new ConfirmContent("Remove record?", question, "Remove"));
     }
 }

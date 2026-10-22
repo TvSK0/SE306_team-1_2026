@@ -3,7 +3,6 @@ package lavs.model;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -27,9 +26,6 @@ public class PendingChange {
     private Status status;
     private String statusMessage;
     private boolean skipDuplicateCheck;
-    // AI-assisted: for a new customer paused as a possible duplicate, the customers on the
-    // mainframe it may be (US11); empty otherwise
-    private List<String> duplicateMatches = List.of();
 
     public PendingChange(String messageType, String customerNumber, String createsNumber,
                          Map<String, String> fields) {
@@ -92,6 +88,9 @@ public class PendingChange {
         return Collections.unmodifiableMap(fields);
     }
 
+    /** Stores upload progress in the durable queue before the next request. */
+    public void setField(String name, String value) { fields.put(name, value); }
+
     public Status getStatus() {
         return status;
     }
@@ -116,14 +115,5 @@ public class PendingChange {
 
     public void setSkipDuplicateCheck(boolean skipDuplicateCheck) {
         this.skipDuplicateCheck = skipDuplicateCheck;
-    }
-
-    // AI-assisted: the existing customers a paused new customer may be, e.g. ["C-10234"]; never null
-    public List<String> getDuplicateMatches() {
-        return duplicateMatches;
-    }
-
-    public void setDuplicateMatches(List<String> duplicateMatches) {
-        this.duplicateMatches = duplicateMatches == null ? List.of() : List.copyOf(duplicateMatches);
     }
 }

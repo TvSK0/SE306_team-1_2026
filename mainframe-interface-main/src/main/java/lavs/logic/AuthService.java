@@ -3,21 +3,24 @@ package lavs.logic;
 
 import lavs.validation.ValidationResult;
 import mainframe.client.Connection;
+import lavs.data.MainframeGateway;
 import mainframe.client.Status;
 import mainframe.client.StatusMessage;
 
-import java.io.IOException;
 
 // US1: logs in and out. The token stays inside the Connection; this class only remembers
 // who is signed in.
-// TEMPORARY: uses Connection directly until Scott's gateway lands; swap then.
-public class AuthService {
-    private final Connection _connection;
+public class AuthService implements Authentication {
+    private final MainframeGateway _gateway;
     // login runs on a background thread and the screens read this on the UI thread
     private volatile String _currentUser;
 
+    public AuthService(MainframeGateway gateway) {
+        _gateway = gateway;
+    }
+
     public AuthService(Connection connection) {
-        _connection = connection;
+        _gateway = new MainframeGateway(connection);
     }
 
     // Checks the form, then logs in. The username is trimmed before it is sent and the
@@ -28,12 +31,7 @@ public class AuthService {
             return AuthResult.invalid(validation);
         }
         String trimmed = username.trim();
-        Status status;
-        try {
-            status = _connection.Login(trimmed, password);
-        } catch (IOException ex) {
-            return AuthResult.networkFailure(ex.getMessage());
-        }
+        Status status = _gateway.login(trimmed, password).getStatus();
         if (status.getWasSuccessful()) {
             _currentUser = trimmed;
             return AuthResult.success(trimmed);
@@ -45,7 +43,7 @@ public class AuthService {
     }
 
     public void logout() {
-        _connection.Logout();
+        _gateway.logout();
         _currentUser = null;
     }
 

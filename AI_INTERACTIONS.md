@@ -8,6 +8,18 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Gabeliu, Codex - Complete customer workflow
+
+**Prompt (summarised):** implement the remaining delegated tasks with high-quality code and check the supplied project brief. External boards, proposal criteria and reports were explicitly excluded by the user. Keep commits short, omit coauthor trailers, and use a feature branch and PR.
+
+**Changes:** connected durable, per-user uploads to application services; added customer search/selection, customer loans and employer screens; enforced loan eligibility and submission revalidation; added customer/loan notes and document metadata editors; introduced consumed service interfaces; exposed duplicate decisions and saved rejection fields. Number replacement is transactional, and compound borrower/document changes persist their progress across restart. Local saves have distinct UI results.
+
+**Validation:** added service, SQLite restart/rollback, queue isolation, eligibility, optional-component and Windows JavaFX rendering tests. The Maven build targets Java 17 and enforces 95% branch coverage, including a separate business-logic package rule. Exact test totals and reports are produced by CI.
+
+**Limits:** no live-mainframe writes were used for verification. The API has no idempotency key or atomic multi-request update, so a lost response after server acceptance remains ambiguous. The README describes this limitation. This session generated implementation code with the user's explicit authorization; affected components are marked AI-assisted. No team participation or review was fabricated.
+
+---
+
 ## 2026-10-22 - Aum, Claude Code (Opus 5.5) - route every save through the upload queue (US11)
 
 **Prompt (summarised):** finish US11 step B with the team's sign-off: route every

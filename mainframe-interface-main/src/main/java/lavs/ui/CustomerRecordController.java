@@ -14,7 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-// AI-assisted: TEMPORARY customer record (customer-record.fxml) until Taran's exists. Shows
+// AI-assisted: customer record and its independently loaded tabs. Shows
 // the header and a tab per slice: Details (US3, CustomerDetailsController), Addresses, Phone
 // numbers and Emails (US4) and Relationships (Yu's RelationshipsController). It loads the
 // customer in the background, and each tab that reads from the mainframe only does so the
@@ -24,6 +24,10 @@ public class CustomerRecordController {
     @FXML private Label _statusLabel;
     @FXML private Label _loadMessage;
     @FXML private TabPane _tabs;
+    @FXML private Tab _loansTab;
+    @FXML private Tab _notesTab;
+    @FXML private Tab _documentsTab;
+    @FXML private Tab _employersTab;
     @FXML private Tab _detailsTab;
     @FXML private Tab _addressesTab;
     @FXML private Tab _phoneNumbersTab;
@@ -54,12 +58,27 @@ public class CustomerRecordController {
         Parent root = loader.load();
         CustomerRecordController controller = loader.getController();
         controller.show(services, customerNumber, goBack);
-        return root;
+        // Refresh the selected list when returning from a loan.
+        class RecordView extends javafx.scene.layout.StackPane implements Refreshable {
+            RecordView() { super(root); }
+            public void onReturn() {
+                controller._opened.remove(controller._tabs.getSelectionModel().getSelectedItem());
+                controller.openTab(controller._tabs.getSelectionModel().getSelectedItem());
+            }
+        }
+        return new RecordView();
     }
 
     // called by FXMLLoader once the @FXML fields are filled in
     @FXML
     private void initialize() {
+        _openers.put(_documentsTab, () -> _documentsTab.setContent(new DocumentsPanel(_services.documents(),
+                lavs.logic.RecordOwner.CUSTOMER, _customer.getNumber(), _services.constants(), _services.tasks())));
+        _openers.put(_notesTab, () -> _notesTab.setContent(new NotesPanel(_services.notes(),
+                lavs.logic.RecordOwner.CUSTOMER, _customer.getNumber(), _services.constants(), _services.tasks())));
+        _openers.put(_loansTab, () -> _loansTab.setContent(new CustomerLoansPanel(_services, _customer)));
+        _openers.put(_employersTab, () -> _employersTab.setContent(new EmployersPanel(_services.employers(),
+                _services.tasks(), _customer.getNumber(), _services.constants())));
         _openers.put(_addressesTab, () -> _addressesController.show(_services.addresses(), _services.constants(),
                 _services.tasks(), _customer.getNumber()));
         _openers.put(_phoneNumbersTab, () -> _phoneNumbersController.show(_services.phoneNumbers(),
@@ -121,7 +140,7 @@ public class CustomerRecordController {
     }
 
     private void openTab(Tab tab) {
-        if (_customer == null || _opened.contains(tab)) {
+        if (_customer == null || !_openers.containsKey(tab) || _opened.contains(tab)) {
             return;
         }
         _openers.get(tab).run();

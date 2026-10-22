@@ -22,8 +22,7 @@ import java.util.regex.Pattern;
 // A phone number needs a type (and a description for "Other") and a number the shared
 // phone validator accepts. The country code is optional, e.g. "+64".
 //
-// AI-assisted: reads go to the mainframe through the MainframeGateway; saves go through the
-// upload queue (SyncService), so adding, updating and deleting work offline (US11).
+// TEMPORARY: saves go straight to the mainframe until SyncService is composed in LavsApp.
 public class PhoneNumberService {
     public static final String CUSTOMER_NUMBER = "customerNumber";
     static final long PAGE_SIZE = 50;
@@ -31,11 +30,9 @@ public class PhoneNumberService {
     private static final Pattern COUNTRY_CODE = Pattern.compile("^\\+?\\d{1,3}$");
 
     private final MainframeGateway _gateway;
-    private final SyncService _sync;
 
-    public PhoneNumberService(MainframeGateway gateway, SyncService sync) {
+    public PhoneNumberService(MainframeGateway gateway) {
         _gateway = gateway;
-        _sync = sync;
     }
 
     // Checks the form without contacting the mainframe.
@@ -100,9 +97,8 @@ public class PhoneNumberService {
         AddPhoneNumber message = new AddPhoneNumber(input.canTxt(), ContactRules.trimmed(input.getCountryCode()),
                 customerNumber, input.isPrimary(), input.getNumber().trim(),
                 ContactRules.otherTypeToSend(input.getType(), input.getOtherType()), input.getType());
-        // AI-assisted: queued; the new phone number has no id until it is uploaded, so the tab lists again
-        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, null);
-        return ServiceResult.queued(step, toPhoneNumber(null, customerNumber, message.getType(),
+        GatewayResult result = _gateway.send(message);
+        return ServiceResult.from(result, toPhoneNumber(message.getId(), customerNumber, message.getType(),
                 message.getOtherType(), message.getCountryCode(), message.getNumber(),
                 Boolean.TRUE.equals(message.getIsPrimary()), Boolean.TRUE.equals(message.getCanTxt())));
     }
@@ -116,9 +112,8 @@ public class PhoneNumberService {
         UpdatePhoneNumber message = new UpdatePhoneNumber(input.canTxt(), ContactRules.trimmed(input.getCountryCode()),
                 customerNumber, id, input.isPrimary(), input.getNumber().trim(),
                 ContactRules.otherTypeToSend(input.getType(), input.getOtherType()), input.getType());
-        // AI-assisted: queued, so the update works offline
-        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, null);
-        return ServiceResult.queued(step, toPhoneNumber(id, customerNumber, message.getType(),
+        GatewayResult result = _gateway.send(message);
+        return ServiceResult.from(result, toPhoneNumber(message.getId(), customerNumber, message.getType(),
                 message.getOtherType(), message.getCountryCode(), message.getNumber(),
                 Boolean.TRUE.equals(message.getIsPrimary()), Boolean.TRUE.equals(message.getCanTxt())));
     }
@@ -128,9 +123,7 @@ public class PhoneNumberService {
         if (!validation.isValid()) {
             return ServiceResult.invalid(validation);
         }
-        // AI-assisted: queued, so the delete works offline
-        return ServiceResult.queued(
-                QueuedWrites.queue(_sync, new DeletePhoneNumber(customerNumber, id), customerNumber, null), null);
+        return ServiceResult.from(_gateway.send(new DeletePhoneNumber(customerNumber, id)), null);
     }
 
     private static ValidationResult requireCustomer(String customerNumber) {

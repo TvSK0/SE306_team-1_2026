@@ -142,6 +142,7 @@ class SyncProcessorTests {
     @Test
     void newCustomerIsSearchedForBeforeUpload() {
         addCreateCustomer();
+        gateway.answerSend(SendResult.success("C1"));
 
         SyncStep step = next();
 
@@ -401,5 +402,13 @@ class SyncProcessorTests {
         assertEquals(List.of("customer.create", "customer.create", "customer.addRelationship"), gateway.sent);
         assertEquals("C80", gateway.sentFields.get(2).get("customer"));
         assertEquals("C81", gateway.sentFields.get(2).get("relatedCustomer"));
+    }
+    @Test
+    void acceptedCreateWithoutNumberIsRetainedForReview() {
+        addCreateCustomer(); addAddress(TEMP);
+        gateway.answerSend(SendResult.success());
+        assertEquals(SyncStep.Outcome.PAUSED, next().getOutcome());
+        assertEquals(2, queue.all().size());
+        assertTrue(queue.all().stream().allMatch(change -> change.getStatus() == PendingChange.Status.PAUSED));
     }
 }

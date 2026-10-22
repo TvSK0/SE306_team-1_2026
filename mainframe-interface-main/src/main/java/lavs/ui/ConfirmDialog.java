@@ -19,6 +19,16 @@ public final class ConfirmDialog {
     }
 
     public static void ask(Window owner, ConfirmContent content, Runnable onConfirmed) {
+        create(owner, content, onConfirmed).show();
+    }
+
+    public static boolean confirm(Window owner, ConfirmContent content) {
+        boolean[] accepted = { false };
+        create(owner, content, () -> accepted[0] = true).showAndWait();
+        return accepted[0];
+    }
+
+    private static Stage create(Window owner, ConfirmContent content, Runnable onConfirmed) {
         Stage stage = new Stage();
         stage.initOwner(owner);
         stage.initModality(Modality.WINDOW_MODAL);
@@ -51,6 +61,6 @@ public final class ConfirmDialog {
         // same stylesheet as the window that opened it
         scene.getStylesheets().setAll(owner.getScene().getStylesheets());
         stage.setScene(scene);
-        stage.show();
+        return stage;
     }
 }

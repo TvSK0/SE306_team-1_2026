@@ -1,43 +1,18 @@
 // TEMPORARY: swap this package for Scott's ui package once his skeleton is on main.
 package lavs.ui;
 
-import lavs.data.LocalDatabase;
-import lavs.data.MainframeGateway;
-import lavs.data.SqlitePendingChangeStore;
 import lavs.logic.LoanDetailsInput;
 import lavs.logic.LoanSaveResult;
 import lavs.logic.LoanService;
-import lavs.logic.SyncService;
 import mainframe.client.FakeConnection;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
 public class LoanSaveMessageTests {
-    // AI-assisted: saves go through the upload queue (US11), kept in a SQLite file in a temp folder
-    @TempDir
-    Path folder;
-    private SyncService _sync;
-
-    private LoanService serviceOver(FakeConnection connection) {
-        _sync = SyncService.create(new SqlitePendingChangeStore(new LocalDatabase(folder.resolve("lavs.db"))),
-                new MainframeGateway(connection));
-        return new LoanService(connection, _sync);
-    }
-
-    @AfterEach
-    void closeSync() {
-        if (_sync != null) {
-            _sync.close();
-        }
-    }
-
     private static final LoanDetailsInput VALID = new LoanDetailsInput(
             "450000", "Fixed", "6.29", "Yearly", "2786", "Monthly", "2026-11-01", "2027-11-01");
 
@@ -45,10 +20,11 @@ public class LoanSaveMessageTests {
     void namesTheSavedLoanAndItsStatus() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
+        scriptEligibility(connection);
         connection.whenRequested("loan.create", FakeConnection.success(savedLoanReply()));
 
         // Act
-        LoanSaveResult result = serviceOver(connection).createLoan("C-10234", VALID);
+        LoanSaveResult result = new LoanService(connection).createLoan("C-10234", VALID);
 
         // Assert
         Assertions.assertEquals("Loan L-5521 saved. Status: New", LoanSaveMessage.forResult(result));
@@ -60,40 +36,49 @@ public class LoanSaveMessageTests {
         LoanDetailsInput input = new LoanDetailsInput("", "Fixed", "6.29", "Yearly", "2786", "Monthly", "2026-11-01", "");
 
         // Act
-        LoanSaveResult result = serviceOver(new FakeConnection()).createLoan("C-10234", input);
+        LoanSaveResult result = new LoanService(new FakeConnection()).createLoan("C-10234", input);
 
         // Assert
         Assertions.assertEquals("Please fix the highlighted fields.", LoanSaveMessage.forResult(result));
     }
 
     @Test
-    // AI-assisted: since US11 a loan saved while the mainframe can't be reached is kept to upload later
-    void saysALoanIsKeptOnThisLaptopWhenTheMainframeCannotBeReached() throws IOException {
+    void saysWhenTheMainframeCannotBeReached() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.setIsConnected(false);
 
         // Act
-        LoanSaveResult result = serviceOver(connection).createLoan("C-10234", VALID);
+        LoanSaveResult result = new LoanService(connection).createLoan("C-10234", VALID);
 
         // Assert
-        Assertions.assertTrue(result.isSaved());
-        Assertions.assertEquals("Loan saved. " + ResultText.WAITING_TO_UPLOAD, LoanSaveMessage.forResult(result));
+        Assertions.assertEquals(
+                "Couldn't reach the mainframe. Check your connection and try again.",
+                LoanSaveMessage.forResult(result));
     }
 
     @Test
     void passesOnTheMainframesReasonForARejection() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
+        scriptEligibility(connection);
         connection.whenRequested("loan.create", FakeConnection.rejected("Unknown rate type"));
 
         // Act
-        LoanSaveResult result = serviceOver(connection).createLoan("C-10234", VALID);
+        LoanSaveResult result = new LoanService(connection).createLoan("C-10234", VALID);
 
         // Assert
         Assertions.assertEquals(
                 "The mainframe rejected the loan: Unknown rate type",
                 LoanSaveMessage.forResult(result));
+    }
+
+    // AI-assisted: a loan may only be created for an eligible customer.
+    private static void scriptEligibility(FakeConnection connection) {
+        connection.whenRequested("customerAddress.list", FakeConnection.success(Map.of(
+                "items", "1", "total", "1", "1:id", "1", "1:isMailing", "y")));
+        connection.whenRequested("customerPhoneNumber.list", FakeConnection.success(Map.of(
+                "items", "1", "total", "1", "1:id", "2")));
     }
 
     private static Map<String, String> savedLoanReply() {
