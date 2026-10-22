@@ -42,6 +42,7 @@
 .lavs-subtitle     { -fx-font-size: 14px; -fx-text-fill: -lavs-text-muted; }
 .lavs-subtitle-small { -fx-font-size: 13px; -fx-text-fill: -lavs-text-muted; }
 .lavs-muted        { -fx-text-fill: -lavs-text-muted; }
+.lavs-note         { -fx-font-size: 12px; -fx-text-fill: -lavs-text-muted; }
 
 /* ---- buttons ---- */
 .lavs-button-primary,
@@ -273,3 +274,7 @@
     -fx-border-radius: 8;
     -fx-padding: 20;
 }
+
+/* ---- login screen (Figma 01): subtle page, 400 wide card with 32 padding ---- */
+.lavs-login-page { -fx-background-color: -lavs-surface-subtle; }
+.lavs-login-card { -fx-padding: 32; }
