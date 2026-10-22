@@ -80,6 +80,16 @@
     -fx-cursor: default;
 }
 
+/* solid red: the confirm button of a delete dialog */
+.lavs-button-danger {
+    -fx-background-color: -lavs-danger;
+    -fx-background-radius: 6;
+    -fx-text-fill: white;
+    -fx-font-family: "Segoe UI Semibold";
+    -fx-padding: 9 16 9 16;
+    -fx-cursor: hand;
+}
+
 .lavs-button-link,
 .lavs-button-danger-link {
     -fx-background-color: transparent;
@@ -117,6 +127,22 @@
     -fx-border-width: 1.5;
 }
 .lavs-field-label.lavs-error { -fx-text-fill: -lavs-danger; }
+
+/* a focused input gets the primary border (an input in error keeps the danger border) */
+.lavs-input:focused { -fx-border-color: -lavs-primary; }
+.lavs-input.lavs-error:focused { -fx-border-color: -lavs-danger; }
+
+/* a ComboBox (e.g. ConstantDropdown) with lavs-input: the box itself carries the look, so
+   the inner cell and arrow button are made transparent to let it show through,
+   in both the normal and the error state */
+.lavs-input.combo-box-base { -fx-padding: 0; }
+.lavs-input.combo-box-base > .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: -lavs-text;
+    -fx-padding: 0 0 0 12;
+}
+.lavs-input.combo-box-base > .arrow-button { -fx-background-color: transparent; }
+.lavs-input.combo-box-base:disabled { -fx-opacity: 1; -fx-background-color: -lavs-disabled; }
 
 /* ---- tags (pills) ---- */
 .lavs-tag {
@@ -169,6 +195,10 @@
     -fx-padding: 12 16 12 16;
 }
 .lavs-table-cell { -fx-font-size: 13px; }
+/* the rows scroll under the fixed header; the border comes from .lavs-table */
+.lavs-table-scroll { -fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0; }
+.lavs-table-scroll > .viewport { -fx-background-color: transparent; }
+.lavs-table-empty { -fx-text-fill: -lavs-text-muted; -fx-padding: 24 16 24 16; }
 .lavs-row-action { -fx-font-size: 13px; }
 
 /* ---- sidebar navigation ---- */
