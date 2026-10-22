@@ -8,6 +8,28 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-23 - Aum, Claude Code - screens off mainframe.client.Status, and the last methods over 10
+
+**Prompt (summarised):** stop the ui files importing `mainframe.client.Status`, then bring the three
+methods still over complexity 10 under the target.
+
+**What it assisted with:**
+
+- New `lavs.logic.MainframeReply`: what a screen needs from a mainframe answer (queued and its
+  message, network failure, the mainframe's reason, or not asked). Every result type the screens
+  read gains `getReply()`. `BorrowersText`, `LoanSaveMessage`, `LoanSubmission`, `RelationshipsText`,
+  `RepaymentsText`, `ResultText`, `EmployersPanel` and the loan, borrower and relationship
+  controllers use it instead of `Status`. `LayerRulesTests` now forbids all of `mainframe.client`
+  in ui (except `LavsApp`, which builds the Connection), and `ui/package-info.java` says so.
+- Refactors, same behaviour, existing tests unchanged: `QueuedWrites.send` 16 -> 3,
+  `CustomerEligibilityService.check` 15 -> 7, `PendingRecordReads.apply` 12 -> 4, each split into
+  small helpers. These are Gabriel's classes, refactored at the team's request.
+
+**Validation:** `./mvnw clean verify` passes (843 tests, coverage gate met, logic 98.0%).
+`./mvnw -Pmetrics validate`: no method in `lavs` is over 10 (highest 7).
+
+---
+
 ## 2026-10-23 - Aum, Claude Code - SyncProcessor.send refactor and three more sync integration tests
 
 **Prompt (summarised):** bring `SyncProcessor.send` under the complexity target from the metrics
