@@ -8,6 +8,29 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - package skeleton
+
+**Prompt (summarised):** the team agreed I take over Scott's cards; do the
+package skeleton.
+
+**What it produced** on `chore/package-skeleton`:
+
+- A `package-info.java` for `ui`, `logic`, `data`, `model` and `validation`
+  saying what belongs in each layer and what it may use.
+- `LayerRulesTests`: reads the source and fails the build if a layer uses
+  something the working rules forbid (imports or fully qualified names;
+  comments ignored). `LavsApp` is the one allowed exception. It also tests
+  its own checker.
+- Removed the "swap this package for Scott's package once his skeleton is
+  on main" notes from 31 files. The three in files my US8 branch changes
+  are removed there, and the one in `LavsApp` is left for whoever next
+  changes it (three open PRs do).
+
+**Marking:** the package-info files and the test carry an `// AI-assisted`
+comment; the removals are comment-only.
+
+---
+
 ## 2026-10-19 - Aum, Claude (Sonnet 4.6) - US5 employer service (partial)
 
 **Prompt (summarised):** assist with parts of the US5 logic layer (employers tab —
