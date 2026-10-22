@@ -79,6 +79,30 @@ rule, like the earlier US8/US9 service work.
 
 ## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
 
+**Prompt (summarised):** build the shared UI components every screen will
+use: form fields with inline errors, banners, tags, section headings, a
+record table and a delete confirmation, plus a demo screen to compare them
+with Figma.
+
+**What it produced** on `feature/ui-shared-components`:
+
+- `FormField` and `FieldErrorPresenter`: shows a `ValidationResult` on the
+  field named by each `FieldError`, counts fields for the banner title,
+  and keeps errors that have no field so they are not lost.
+- `BannerContent` (the offline, rejection and validation wording from the
+  Figma frames), `Banner`, `Tag`, `SectionHeading`, and the variant enums.
+- `RecordTable` (fixed header over scrolling rows, row links, empty state,
+  Delete always through `ConfirmDialog`), `ColumnWidths`, `ConfirmContent`.
+- `DemoScreen`, shown only when `LAVS_DEMO=true` or `-Dlavs.demo=true`.
+- Unit tests for every decision (presenter, banner wording, column widths,
+  confirm wording, variant-to-CSS mapping, demo switch).
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
+## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
+
 **Prompt (summarised):** build the app shell: a list of screens and a
 navigator with a back stack, a top bar showing connection state, pending
 uploads and the signed-in user, and the main window that joins them.

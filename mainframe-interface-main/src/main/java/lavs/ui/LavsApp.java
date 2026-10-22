@@ -90,6 +90,10 @@ public class LavsApp extends Application {
         CustomerRelationshipService relationshipService = new CustomerRelationshipService(connection);
         navigator.register(Screen.CUSTOMER_RECORD, parameter ->
                 temporaryCustomerRecord(navigator, relationshipService, constantsService, tasks, (String) parameter));
+        // developer only: with LAVS_DEMO=true (or -Dlavs.demo=true) start on the component gallery
+        if (DemoScreen.isEnabled()) {
+            navigator.register(Screen.LOGIN, parameter -> DemoScreen.create());
+        }
         navigator.start();
 
         stage.setTitle("LAVS");
