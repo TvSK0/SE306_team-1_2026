@@ -16,6 +16,7 @@ import lavs.data.ConstantsCache;
 import lavs.data.LocalDatabase;
 import lavs.data.LocalStoreException;
 import lavs.data.MainframeGateway;
+import lavs.data.SqlitePendingChangeStore;
 import lavs.logic.AddressService;
 import lavs.logic.AuthService;
 import lavs.logic.ConstantsService;
@@ -29,6 +30,7 @@ import lavs.logic.LoanService;
 import lavs.logic.LoanStatusService;
 import lavs.logic.LoginFlow;
 import lavs.logic.PhoneNumberService;
+import lavs.logic.SyncService;
 import lavs.model.Customer;
 import mainframe.client.Connection;
 import mainframe.client.HttpConnection;
@@ -37,6 +39,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -52,6 +55,8 @@ public class LavsApp extends Application {
     // TEMPORARY: the organisation new customers are created in, as in the starter tests. Swap
     // for the signed-in MMM's organisation once the login screen (US1) knows it.
     private static final long ORGANISATION = 1;
+    // AI-assisted: how often the sync thread retries queued uploads while the mainframe is offline.
+    private static final Duration SYNC_RETRY_INTERVAL = Duration.ofSeconds(30);
 
     // daemon threads, so closing the window ends the app even while a call is running
     private final ExecutorService _background = Executors.newCachedThreadPool(runnable -> {
@@ -59,22 +64,43 @@ public class LavsApp extends Application {
         thread.setDaemon(true);
         return thread;
     });
+    // AI-assisted: the upload queue + sync thread; null if the local database could not be opened.
+    private SyncService _sync;
 
     @Override
     public void start(Stage stage) {
-        // TEMPORARY: swap this Connection for Scott's gateway once it exists
         Connection connection = new HttpConnection(SERVER_URL);
+        // AI-assisted: one gateway over the Connection, shared by the customer services and the
+        // sync thread, so queued uploads go out as the logged-in MMM (a fresh Connection would
+        // have no session token).
+        MainframeGateway gateway = new MainframeGateway(connection);
+        // AI-assisted: open the one SQLite file the dropdown cache and the upload queue share.
+        LocalDatabase database = openLocalDatabase();
+        ConstantsCache constantsCache = database == null ? ConstantsCache.NONE : new CategoryConstantStore(database);
         ConstantsService constantsService = new ConstantsService(new CategoryConstantsLoader(connection),
-                openConstantsCache());
+                constantsCache);
         BackgroundTasks tasks = new BackgroundTasks(_background, Platform::runLater);
         // the dropdowns get last run's values straight away, even if the mainframe never answers
         tasks.run(constantsService::loadSaved, loaded -> { }, failure -> failure.printStackTrace());
 
         Navigator navigator = new Navigator(Screen.LOGIN);
-        // TEMPORARY: swap the fixed feed for an adapter over SyncService once the services are
-        // composed here (see StatusFeed)
-        TopBar topBar = new TopBar(new FixedStatusFeed(true, 0), Platform::runLater);
+        // AI-assisted: start the upload queue + sync thread and drive the top bar's online/pending
+        // state from it. With no local database there is no queue, so fall back to the fixed feed.
+        StatusFeed statusFeed;
+        if (database != null) {
+            _sync = SyncService.create(new SqlitePendingChangeStore(database), gateway);
+            _sync.start(SYNC_RETRY_INTERVAL);
+            statusFeed = new SyncStatusFeed(_sync);
+        } else {
+            statusFeed = new FixedStatusFeed(true, 0);
+        }
+        TopBar topBar = new TopBar(statusFeed, Platform::runLater);
         MainWindow window = new MainWindow(navigator, topBar);
+        // AI-assisted: clicking the status pill in the top bar opens the pending-uploads panel.
+        if (_sync != null) {
+            PendingUploadsPanel panel = new PendingUploadsPanel(_sync);
+            topBar.setOnStatusClicked(() -> panel.toggle(topBar));
+        }
 
         // one AuthService and one LoginFlow, sharing the Connection and the constants
         AuthService authService = new AuthService(connection);
@@ -98,7 +124,6 @@ public class LavsApp extends Application {
         new LoanScreens(new LoanScreenServices(loanService, new LoanRepaymentsService(connection),
                 constantsService, new LoanStatusService(connection), new LoanBorrowerService(connection), tasks))
                 .register(navigator);
-        MainframeGateway gateway = new MainframeGateway(connection);
         new CustomerScreens(new CustomerScreenServices(new CustomerService(gateway, ORGANISATION),
                 new AddressService(gateway), new PhoneNumberService(gateway), new EmailService(gateway),
                 new CustomerRelationshipService(connection), constantsService, tasks))
@@ -116,16 +141,25 @@ public class LavsApp extends Application {
         stage.show();
     }
 
-    // TEMPORARY: swap this for the LocalDatabase Aum's SyncService uses once the services are
-    // composed here, so the app opens one SQLite file. Until then the constants get their own
-    // copy of it. If the file cannot be opened the dropdowns just are not kept between runs.
-    private static ConstantsCache openConstantsCache() {
+    // AI-assisted: stop the sync thread cleanly on exit so a queued change is never cut off
+    // mid-write (the thread is a daemon and would otherwise die with the JVM).
+    @Override
+    public void stop() {
+        if (_sync != null) {
+            _sync.close();
+        }
+    }
+
+    // AI-assisted: open the one SQLite file the dropdown cache and the upload queue share.
+    // If it cannot be opened the app still starts: the dropdowns are not kept between runs and the
+    // upload queue is disabled (the top bar uses the fixed feed), rather than failing to launch.
+    private static LocalDatabase openLocalDatabase() {
         try {
             Files.createDirectories(LOCAL_DATABASE.getParent());
-            return new CategoryConstantStore(new LocalDatabase(LOCAL_DATABASE));
+            return new LocalDatabase(LOCAL_DATABASE);
         } catch (IOException | LocalStoreException e) {
             e.printStackTrace();
-            return ConstantsCache.NONE;
+            return null;
         }
     }
 

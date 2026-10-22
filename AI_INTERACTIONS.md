@@ -8,6 +8,42 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Aum, Claude Code (Opus 4.8) - wire SyncService into LavsApp
+
+**Prompt (summarised):** now that the mainframe gateway exists, wire the offline
+sync service into the app's composition root: start `SyncService`, drive the top
+bar from it, open one shared SQLite file and show the pending-uploads panel.
+
+**What it assisted with** on `feature/us11-wire-sync`, all in `lavs.ui.LavsApp`
+(the composition root):
+
+- open one `LocalDatabase` shared by the dropdown cache (`CategoryConstantStore`)
+  and the upload queue (`SqlitePendingChangeStore`), resolving the TEMPORARY that
+  gave the constants their own copy.
+- build one `MainframeGateway` over the existing `Connection` and reuse it for both
+  the customer services and the sync thread, so queued uploads go out as the
+  logged-in MMM.
+- construct and `start()` the `SyncService`, and drive the top bar with
+  `SyncStatusFeed` instead of `FixedStatusFeed` (falling back to `FixedStatusFeed`
+  if the local database cannot be opened).
+- wire the pending-uploads panel to the status pill via `setOnStatusClicked`.
+- override `Application.stop()` to `close()` the sync thread so a queued change is
+  not cut off mid-write.
+
+**Tests:** none added. `LavsApp` is the JavaFX entry point (excluded from the
+coverage gate), and the one new behaviour — two stores sharing one SQLite file —
+is already covered by `LocalDatabaseTests.createsFileAndBothTables`.
+
+**Not done (next step):** the services still call the gateway directly; routing
+each write through `SyncService.queue` is a separate change, done per owner.
+
+**Validation:** `mvnw.cmd -B clean verify` passed — 731 tests, 95% branch coverage
+gate met. Launched with `javafx:run`: started with no startup exceptions.
+
+**Marking:** the wiring in `LavsApp` carries `// AI-assisted:` comments.
+
+---
+
 ## 2026-10-22 - Aum, Claude Code (Opus 4.8) - fix SyncService.drain notify ordering
 
 **Prompt (summarised):** fix the intermittent `SyncServiceTests.onlineSaveIsSentStraightAway`
