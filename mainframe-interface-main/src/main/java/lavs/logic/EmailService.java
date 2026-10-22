@@ -20,7 +20,8 @@ import java.util.List;
 // An email needs a type (and a description for "Other") and an address the shared email
 // validator accepts.
 //
-// TEMPORARY: saves go straight to the mainframe until SyncService is composed in LavsApp.
+// Saves go through the gateway, which hands every write to the upload queue (QueuedWrites)
+// once LavsApp has set it up, so a save made offline waits on this laptop until it uploads.
 public class EmailService {
     public static final String CUSTOMER_NUMBER = "customerNumber";
     static final long PAGE_SIZE = 50;

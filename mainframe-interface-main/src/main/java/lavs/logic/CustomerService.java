@@ -21,8 +21,9 @@ import java.util.Optional;
 // person, and the upload queue's duplicate check matches on exactly those three. Title
 // and nationality are optional.
 //
-// TEMPORARY: saves go straight to the mainframe until SyncService is composed in LavsApp;
-// then a new customer made offline should be queued with a temporary number instead.
+// Saves go through the gateway, which hands every write to the upload queue (QueuedWrites)
+// once LavsApp has set it up. A customer created offline gets a temporary number until the
+// mainframe gives them a real one.
 public class CustomerService implements CustomerOperations {
     public static final String CUSTOMER_NUMBER = "customerNumber";
 
