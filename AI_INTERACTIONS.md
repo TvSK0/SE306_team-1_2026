@@ -10,6 +10,37 @@ Add an entry per session/PR, newest first.
 
 ## 2026-10-22 - Taran, Claude Code (Sonnet 5.5)
 
+**Prompt (summarised):** build the customer record frame from Figma 03a:
+the header, the section sidebar with counts, a way for teammates to register
+their sections, and open it from customer search. A requirement ID list
+(CR-R1 to R6) was the spec, with one test per ID.
+
+**What it produced** on `feature/customer-record-frame`:
+
+- `CustomerRecordService` and `CustomerRecordResult`: load the customer for
+  the header; outcomes success, network failure, rejected and invalid.
+- `CustomerCountsService`: the eight sidebar counts, one list call each,
+  reported one by one as they arrive; a count that cannot be read is empty,
+  never a guess.
+- `CustomerHeaderState`, `RecordSidebarState`, `Section`, `SectionRegistry`,
+  `SectionContext` and `CustomerRecordText` (no JavaFX, unit tested): the
+  header for a saved and a new customer, the sidebar counts and enabled
+  sections, the nine sections in Figma order, and placeholders that name each
+  section's owner.
+- `CustomerRecordScreen` (thin JavaFX) and styles in `lavs.css`.
+- In `LavsApp`: the frame replaces the temporary record, with Yu's
+  Relationships view registered as a section and the temporary loan
+  stand-ins kept in the Loans section.
+- Unit tests for every service and decision, with the requirement ID above
+  each test. Also checked once by building the screen under the JavaFX
+  toolkit with a scripted connection (not committed).
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
+## 2026-10-22 - Taran, Claude Code (Sonnet 5.5)
+
 **Prompt (summarised):** build US2, customer search: a service over the
 mainframe search, the search screen from Figma 02 with loading, Cancel,
 paging and the offline state, select mode from Figma 10 for the Borrowers

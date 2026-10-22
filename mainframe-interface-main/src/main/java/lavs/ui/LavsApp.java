@@ -2,17 +2,13 @@ package lavs.ui;
 
 import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
-import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import lavs.data.CategoryConstantsLoader;
@@ -23,6 +19,8 @@ import lavs.data.LocalStoreException;
 import lavs.logic.AuthService;
 import lavs.logic.ConstantsService;
 import lavs.logic.CustomerContactService;
+import lavs.logic.CustomerCountsService;
+import lavs.logic.CustomerRecordService;
 import lavs.logic.CustomerRelationshipService;
 import lavs.logic.CustomerSearchService;
 import lavs.logic.LoanRepaymentsService;
@@ -110,9 +108,20 @@ public class LavsApp extends Application {
                 constantsService, new LoanStatusService(connection), tasks))
                 .register(navigator);
         CustomerRelationshipService relationshipService = new CustomerRelationshipService(connection);
-        navigator.register(Screen.CUSTOMER_RECORD, parameter ->
-                temporaryCustomerRecord(navigator, loanService, relationshipService, constantsService, tasks,
-                        (String) parameter));
+        // Teammates register their customer record sections here, like their screens:
+        // recordSections.register(Section.NOTES, context -> view). A section nobody has
+        // built yet shows a placeholder that names its owner (see Section).
+        SectionRegistry<Node> recordSections = new SectionRegistry<>(CustomerRecordScreen::placeholder);
+        recordSections.register(Section.RELATIONSHIPS, context ->
+                relationshipsSection(relationshipService, constantsService, tasks, context.customerNumber()));
+        // TEMPORARY: swap this for the Loans tab (feature/customer-loans-tab)
+        recordSections.register(Section.LOANS, context ->
+                temporaryLoansSection(navigator, loanService, tasks, context.customerNumber()));
+        CustomerRecordService recordService = new CustomerRecordService(connection);
+        CustomerCountsService countsService = new CustomerCountsService(connection);
+        navigator.register(Screen.CUSTOMER_RECORD, parameter -> new CustomerRecordScreen((String) parameter,
+                recordService, countsService, recordSections, tasks, statusFeed, Platform::runLater,
+                navigator::back, topBar::setTitle));
         // developer only: with LAVS_DEMO=true (or -Dlavs.demo=true) start on the component gallery
         if (DemoScreen.isEnabled()) {
             navigator.register(Screen.LOGIN, parameter -> DemoScreen.create());
@@ -139,37 +148,26 @@ public class LavsApp extends Application {
         }
     }
 
-    // TEMPORARY: swap this for the real customer record once Taran's screen exists; it should
-    // include customer-relationships.fxml as its Relationships tab and a Loans tab. Until then
-    // this shows the customer number, a Back link and the Relationships view on their own, plus
-    // Yu's way into the loan screens: start a loan for this customer, or open a saved loan by
-    // its number typed in by hand. A null customer number is the "+ Add New Customer" path.
-    private static Node temporaryCustomerRecord(Navigator navigator, LoanService loanService,
-                                                CustomerRelationshipService relationshipService,
-                                                ConstantsService constantsService, BackgroundTasks tasks,
-                                                String customerNumber) {
-        Hyperlink back = new Hyperlink("← Back to search");
-        back.setOnAction(event -> navigator.back());
-        if (customerNumber == null) {
-            Label newCustomer = new Label("New customer: built with the customer record");
-            newCustomer.getStyleClass().add("lavs-page-title");
-            VBox empty = new VBox(8, back, newCustomer);
-            empty.setPadding(new Insets(20, 24, 20, 24));
-            return empty;
-        }
-        Label title = new Label("Customer " + customerNumber);
-        title.getStyleClass().add("lavs-page-title");
-        Parent relationships;
+    // Yu's Relationships view as the Relationships section of the customer record.
+    private static Node relationshipsSection(CustomerRelationshipService relationshipService,
+                                             ConstantsService constantsService, BackgroundTasks tasks,
+                                             String customerNumber) {
         try {
-            relationships = RelationshipsController.open(relationshipService, constantsService, tasks, customerNumber);
+            return RelationshipsController.open(relationshipService, constantsService, tasks, customerNumber);
         } catch (IOException e) {
-            // a missing or broken FXML file: the Navigator reports it and stays where it is
+            // a missing or broken FXML file: the section stays unbuilt and the error goes to stderr
             throw new UncheckedIOException(e);
         }
-        VBox box = new VBox(8, back, title, loanStandIns(navigator, loanService, tasks, customerNumber), relationships);
-        VBox.setVgrow(relationships, Priority.ALWAYS);
-        box.setPadding(new Insets(20, 24, 20, 24));
-        return box;
+    }
+
+    // TEMPORARY: swap this for the Loans tab (feature/customer-loans-tab). Until then the Loans
+    // section holds Yu's way into the loan screens: start a loan for this customer, or open a
+    // saved loan by its number typed in by hand.
+    private static Node temporaryLoansSection(Navigator navigator, LoanService loanService, BackgroundTasks tasks,
+                                              String customerNumber) {
+        Label title = new Label("Loans: built in the customer loans tab");
+        title.getStyleClass().add("lavs-subtitle");
+        return new VBox(8, title, loanStandIns(navigator, loanService, tasks, customerNumber));
     }
 
     // TEMPORARY: swap this for the Loans tab (feature/customer-loans-tab).
