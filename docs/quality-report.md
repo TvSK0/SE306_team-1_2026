@@ -132,4 +132,8 @@ What the baseline shows:
 - Branch protection on `main` is being set up. Until then, CI must be green before merging. On 22 Oct
   two PRs that each passed CI on their own (#50 and #51) broke `main` together. It was fixed within
   the hour in #53. Branch protection with "require branches to be up to date" prevents this.
+- Until 22 Oct, `mvnw.cmd` could not install Maven on a machine that didn't already have it cached,
+  and it still exited with 0. Every team laptop had it cached, so CI was the only place this showed,
+  and CI reported green without building. Fixed in the wrapper. CI now also fails if no test or
+  coverage report was produced. The clean-clone check above is redone with an empty wrapper cache.
 - **TODO:** anything the walkthrough or responsiveness check finds.

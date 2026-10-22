@@ -46,6 +46,13 @@ jobs:
       - name: Build, test and check coverage
         run: ./mvnw.cmd -B clean verify
 
+      # the wrapper once failed quietly and this job went green without building
+      # anything, so fail unless the tests and the coverage check actually ran
+      - name: Check the build really ran
+        run: |
+          if (-not (Test-Path target/site/jacoco/jacoco.csv)) { Write-Error "No coverage report: the build did not run"; exit 1 }
+          if (-not (Test-Path target/surefire-reports)) { Write-Error "No test reports: the tests did not run"; exit 1 }
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
