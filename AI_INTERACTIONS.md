@@ -8,6 +8,24 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - slow FakeConnection
+
+**Prompt (summarised):** same session as the repo review: add what the test
+fakes still need for the Phase 4 responsiveness check.
+
+**What it produced** on `test/slow-fake-connection`:
+
+- `FakeConnection.setDelay(Duration)`: every `send()` waits that long before
+  it answers (a network failure too). Interrupted while waiting, it answers
+  with a network failure and keeps the interrupt. Its lists are now safe to
+  use from background threads.
+- Four tests for it in `FakeConnectionTests`.
+
+**Marking:** the new method, the waiting code and the tests carry an
+`// AI-assisted` comment.
+
+---
+
 ## 2026-10-19 - Aum, Claude (Sonnet 4.6) - US5 employer service (partial)
 
 **Prompt (summarised):** assist with parts of the US5 logic layer (employers tab —
