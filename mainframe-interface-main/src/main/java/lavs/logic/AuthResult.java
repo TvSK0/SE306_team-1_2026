@@ -1,5 +1,4 @@
 // AI-assisted: the outcome of a login attempt (success, network failure, rejected or invalid).
-// TEMPORARY: swap this package for Scott's logic package once his skeleton is on main.
 package lavs.logic;
 
 import lavs.validation.ValidationResult;

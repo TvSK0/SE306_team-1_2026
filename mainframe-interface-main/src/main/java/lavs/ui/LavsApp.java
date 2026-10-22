@@ -24,6 +24,7 @@ import lavs.logic.ConstantsService;
 import lavs.logic.CustomerRelationshipService;
 import lavs.logic.LoanRepaymentsService;
 import lavs.logic.LoanSaveResult;
+import lavs.logic.LoanBorrowerService;
 import lavs.logic.LoanService;
 import lavs.logic.LoanStatusService;
 import lavs.logic.LoginFlow;
@@ -38,7 +39,6 @@ import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-// TEMPORARY: swap this for the real package name once Scott's skeleton exists.
 // Starts the desktop app: builds the window (top bar + navigator) and shows the login screen.
 public class LavsApp extends Application {
     // every screen shares this one stylesheet (colour tokens, type, components)
@@ -92,7 +92,7 @@ public class LavsApp extends Application {
         LoanService loanService = new LoanService(connection);
         navigator.register(Screen.CUSTOMER_SEARCH, parameter -> temporaryCustomerSearch(navigator, loanService, tasks));
         new LoanScreens(new LoanScreenServices(loanService, new LoanRepaymentsService(connection),
-                constantsService, new LoanStatusService(connection), tasks))
+                constantsService, new LoanStatusService(connection), new LoanBorrowerService(connection), tasks))
                 .register(navigator);
         CustomerRelationshipService relationshipService = new CustomerRelationshipService(connection);
         navigator.register(Screen.CUSTOMER_RECORD, parameter ->
