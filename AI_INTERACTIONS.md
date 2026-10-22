@@ -8,6 +8,28 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-23 - Aum, Claude Code - Employers tab layout and the search screen constructor
+
+**Prompt (summarised):** after a full check of main, make the Employers tab look like the other
+customer record tabs, and bring the `CustomerSearchScreen` constructor (complexity 12, from #60)
+under 10.
+
+**What it assisted with:**
+
+- `EmployersPanel` laid out like the Addresses tab (`customer-addresses.fxml`): top padding, an
+  "Employers" heading with a note on the guarantor rule and Edit / Remove / Refresh beside it, the
+  table on the left, and the add/edit form in a card on the right ("Add an employer" / "Edit
+  employer"). The message only shows when there's something to say, red for a problem, and a save
+  now says "Employer saved." / "Employer removed." once the list reloads. Saving, queuing and the
+  service calls are unchanged.
+- `CustomerSearchScreen`: the table, button wiring and heading moved out of the constructor into
+  `setUpTable`, `setUpButtons` and `heading`. The screen is unchanged.
+
+**Validation:** `./mvnw clean verify` passes (890 tests), with the screen smoke test also run under a
+virtual display and its screenshots checked. `./mvnw -Pmetrics validate`: no method over 10.
+
+---
+
 ## 2026-10-23 - Aum, Claude Code - screens off mainframe.client.Status, and the last methods over 10
 
 **Prompt (summarised):** stop the ui files importing `mainframe.client.Status`, then bring the three

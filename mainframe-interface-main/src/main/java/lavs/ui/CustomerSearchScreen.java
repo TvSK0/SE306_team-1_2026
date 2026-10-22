@@ -39,6 +39,8 @@ public final class CustomerSearchScreen extends VBox {
     }
 
     // feed says whether the app is online: searching needs a connection (US2-R5)
+    // AI-assisted: the table, buttons and heading are set up in their own methods to keep the
+    // constructor's complexity under 10 (metrics baseline); the screen is unchanged.
     public CustomerSearchScreen(CustomerSearchService service, BackgroundTasks tasks, Navigator navigator,
                                 CustomerSelection selection, StatusFeed feed) {
         super(16);
@@ -55,6 +57,20 @@ public final class CustomerSearchScreen extends VBox {
         open = new Button(selection == null ? "Open customer" : "Select customer");
         open.getStyleClass().add("lavs-button-primary");
         search.getStyleClass().add("lavs-button-primary");
+        setUpTable();
+        setUpButtons();
+        HBox actions = new HBox(12, previous, next, open);
+        SectionHeading heading = heading(actions);
+        message.setWrapText(true);
+        HBox searchRow = new HBox(12, queryField, search, cancel);
+        searchRow.setAlignment(javafx.geometry.Pos.BOTTOM_LEFT);
+        getChildren().addAll(heading, offline, searchRow, message, skeleton, table, actions);
+        updateButtons();
+        feed.onChange(() -> javafx.application.Platform.runLater(this::updateButtons));
+    }
+
+    // the results: a link and a double-click both open (or select) the customer
+    private void setUpTable() {
         TableColumns.add(table, "Customer no.", Customer::getNumber);
         TableColumns.add(table, "Name", Customer::getFullName);
         TableColumns.add(table, "Date of birth", customer -> CustomerSearchText.dateOfBirth(customer.getDateOfBirth()));
@@ -71,6 +87,9 @@ public final class CustomerSearchScreen extends VBox {
             row.setOnMouseClicked(event -> { if (event.getClickCount() == 2 && !row.isEmpty() && !busy) choose(); });
             return row;
         });
+    }
+
+    private void setUpButtons() {
         search.setOnAction(event -> { submittedQuery = query.getText(); load(1); });
         query.setOnAction(search.getOnAction());
         previous.setOnAction(event -> load(page.number() - 1));
@@ -82,7 +101,10 @@ public final class CustomerSearchScreen extends VBox {
             updateButtons();
         });
         open.setOnAction(event -> choose());
-        HBox actions = new HBox(12, previous, next, open);
+    }
+
+    // search mode offers "+ Add New Customer"; select mode adds a way back to the caller instead
+    private SectionHeading heading(HBox actions) {
         SectionHeading heading = SectionHeading.page(
                 selection == null ? CustomerSearchText.TITLE : CustomerSearchText.SELECT_TITLE,
                 selection == null ? CustomerSearchText.SUBTITLE : null);
@@ -94,12 +116,7 @@ public final class CustomerSearchScreen extends VBox {
             back.setOnAction(event -> { if (running != null) running.cancel(); navigator.back(); });
             actions.getChildren().add(back);
         }
-        message.setWrapText(true);
-        HBox searchRow = new HBox(12, queryField, search, cancel);
-        searchRow.setAlignment(javafx.geometry.Pos.BOTTOM_LEFT);
-        getChildren().addAll(heading, offline, searchRow, message, skeleton, table, actions);
-        updateButtons();
-        feed.onChange(() -> javafx.application.Platform.runLater(this::updateButtons));
+        return heading;
     }
 
     private void load(long number) {
