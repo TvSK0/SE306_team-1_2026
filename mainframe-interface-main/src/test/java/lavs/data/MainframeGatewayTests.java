@@ -291,7 +291,103 @@ class MainframeGatewayTests {
         assertTrue(connection.getSentRequests().isEmpty());
     }
 
+    // --- a stale transaction number: another copy of the app signed in as the same user ---
+
+    private final Connection server = mock(Connection.class);
+    private final MainframeGateway shared = new MainframeGateway(server);
+
+    @Test
+    void signsInAgainAndResendsWhenTheTransactionNumberIsStale() throws IOException {
+        signIn();
+        when(server.send(any())).thenReturn(stale(),
+                FakeConnection.success(Map.of("loanNumber", "L-1", "status", "Pending")));
+        UpdateStatus message = new UpdateStatus("L-1", UpdateStatus.STATUS_PENDING);
+
+        GatewayResult result = shared.send(message);
+
+        assertTrue(result.isSuccess());
+        assertEquals("Pending", message.getStatus());
+        verify(server, times(2)).Login("admin", "secret");
+        verify(server, times(2)).send(any());
+    }
+
+    @Test
+    void aQueuedChangeIsResentRatherThanMarkedRejected() throws IOException {
+        signIn();
+        when(server.send(any())).thenReturn(stale(), FakeConnection.success(Map.of()));
+
+        SendResult result = shared.send(new PendingChange("customer.addEmail", "C-1", null, Map.of()));
+
+        assertEquals(SendResult.Outcome.SUCCESS, result.getOutcome());
+    }
+
+    @Test
+    void passesTheRejectionOnIfSigningInAgainIsRefused() throws IOException {
+        signIn();
+        when(server.Login("admin", "secret")).thenReturn(new Status(StatusMessage.SERVER_FAILURE.getCode(), "Locked", 1));
+        when(server.send(any())).thenReturn(stale());
+
+        GatewayResult result = shared.send(new UpdateStatus("L-1", UpdateStatus.STATUS_PENDING));
+
+        assertEquals(GatewayResult.Outcome.REJECTED, result.getOutcome());
+        assertEquals("Invalid transaction number", result.getMessage());
+        verify(server, times(1)).send(any());
+    }
+
+    @Test
+    void passesTheRejectionOnIfTheServerCantBeReachedToSignInAgain() throws IOException {
+        signIn();
+        when(server.Login("admin", "secret")).thenThrow(new IOException("down"));
+        when(server.send(any())).thenReturn(stale());
+
+        GatewayResult result = shared.send(new UpdateStatus("L-1", UpdateStatus.STATUS_PENDING));
+
+        assertEquals(GatewayResult.Outcome.REJECTED, result.getOutcome());
+        verify(server, times(1)).send(any());
+    }
+
+    @Test
+    void doesNotResendOtherRejections() throws IOException {
+        signIn();
+        when(server.send(any())).thenReturn(FakeConnection.rejected("cannot change from Active"),
+                new MessageResponse(new Status(StatusMessage.SERVER_FAILURE.getCode(), null, 1), new HashMap<>()));
+
+        assertEquals("cannot change from Active", shared.send(new UpdateStatus("L-1", UpdateStatus.STATUS_PENDING)).getMessage());
+        assertEquals(GatewayResult.Outcome.REJECTED, shared.send(new UpdateStatus("L-1", UpdateStatus.STATUS_PENDING)).getOutcome());
+        verify(server, times(1)).Login(any(), any());
+    }
+
+    @Test
+    void doesNotSignInAgainAfterLoggingOut() throws IOException {
+        signIn();
+        shared.logout();
+        when(server.send(any())).thenReturn(stale());
+
+        assertEquals(GatewayResult.Outcome.REJECTED, shared.send(new UpdateStatus("L-1", UpdateStatus.STATUS_PENDING)).getOutcome());
+        verify(server, times(1)).Login(any(), any());
+    }
+
+    @Test
+    void doesNotKeepDetailsFromAFailedLogin() throws IOException {
+        when(server.Login("admin", "wrong")).thenReturn(new Status(StatusMessage.SERVER_FAILURE.getCode(), "Bad login", 1));
+        assertFalse(shared.login("admin", "wrong").isSuccess());
+        when(server.send(any())).thenReturn(stale());
+
+        assertEquals(GatewayResult.Outcome.REJECTED, shared.send(new UpdateStatus("L-1", UpdateStatus.STATUS_PENDING)).getOutcome());
+        verify(server, times(1)).Login(any(), any());
+    }
+
     // --- helpers ---
+
+    private void signIn() throws IOException {
+        when(server.Login("admin", "secret")).thenReturn(new Status(1));
+        assertTrue(shared.login("admin", "secret").isSuccess());
+    }
+
+    // what the server says when another copy signed in as the same user used the next number
+    private static MessageResponse stale() {
+        return FakeConnection.rejected("Invalid transaction number");
+    }
 
     private static PendingChange newCustomer(String firstName, String familyName, String dateOfBirth) {
         Map<String, String> fields = new LinkedHashMap<>();

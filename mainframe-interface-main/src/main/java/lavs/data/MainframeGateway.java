@@ -29,7 +29,14 @@ public class MainframeGateway implements UploadGateway {
             "customer.create", "number",
             "loan.create", "loanNumber");
 
+    // AI-assisted: the server's reply when the transaction number is behind. It counts numbers
+    // per user, and the Connection only learns the count when it signs in, so a second copy of
+    // the app signed in as the same user makes this one fall behind. Signing in again catches up.
+    static final String STALE_NUMBER = "invalid transaction number";
+
     private final Connection _connection;
+    // who is signed in, kept in memory only, so a stale number can be fixed by signing in again
+    private volatile String[] _signedIn;
     private volatile WriteDispatcher writes;
     private volatile java.util.function.UnaryOperator<String> resolveNumber = java.util.function.UnaryOperator.identity();
     private volatile java.util.function.Function<MessageRequest, MessageResponse> localReads = request -> null;
@@ -82,14 +89,39 @@ public class MainframeGateway implements UploadGateway {
         }
     }
 
+    // A request the server refused for a stale number never took effect, so after signing in
+    // again it is sent once more. Otherwise the reply is passed on as it came.
     private MessageResponse sendRequest(MessageRequest request) {
-        synchronized (_connection) { return _connection.send(request); }
+        synchronized (_connection) {
+            MessageResponse response = _connection.send(request);
+            String[] user = _signedIn;
+            if (user == null || !isStaleNumber(response.getStatus())) {
+                return response;
+            }
+            try {
+                if (!_connection.Login(user[0], user[1]).getWasSuccessful()) {
+                    return response;
+                }
+            } catch (IOException e) {
+                return response;
+            }
+            return _connection.send(request);
+        }
+    }
+
+    private static boolean isStaleNumber(mainframe.client.Status status) {
+        String message = status.getErrorMessage();
+        return !status.getWasSuccessful() && message != null && message.toLowerCase().contains(STALE_NUMBER);
     }
 
     // Signs in; the Connection keeps the token for every later message.
     public GatewayResult login(String username, String password) {
         try {
-            synchronized (_connection) { return GatewayResult.from(_connection.Login(username, password)); }
+            synchronized (_connection) {
+                GatewayResult result = GatewayResult.from(_connection.Login(username, password));
+                _signedIn = result.isSuccess() ? new String[] {username, password} : null;
+                return result;
+            }
         } catch (IOException e) {
             return GatewayResult.networkFailure(e.getMessage());
         }
@@ -97,7 +129,10 @@ public class MainframeGateway implements UploadGateway {
 
     // Forgets the token, so nothing more is sent as this user.
     public void logout() {
-        synchronized (_connection) { _connection.Logout(); }
+        synchronized (_connection) {
+            _signedIn = null;
+            _connection.Logout();
+        }
     }
 
     @Override

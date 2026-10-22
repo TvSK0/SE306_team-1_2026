@@ -8,6 +8,23 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - stale transaction number
+
+**Prompt (summarised):** run the app and find issues. A search failed with
+"Invalid transaction number" while the app showed Online.
+
+**What it produced** on `fix/stale-transaction-number`: the server counts
+transaction numbers per user and the client only learns the count at sign-in,
+so a second copy of the app signed in as the same user makes this one fall
+behind. `MainframeGateway` now keeps the sign-in details in memory, and on that
+reply signs in again and resends the request once. Queued uploads use the same
+path, so they are no longer marked rejected for it. Tests cover the retry, a
+refused or unreachable re-sign-in, other rejections, logout and a failed login.
+
+**Marking:** `MainframeGateway` carries an `AI-assisted` note.
+
+---
+
 ## 2026-10-23 - Aum, Claude Code - screens off mainframe.client.Status, and the last methods over 10
 
 **Prompt (summarised):** stop the ui files importing `mainframe.client.Status`, then bring the three
