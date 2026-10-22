@@ -20,15 +20,18 @@ import java.util.List;
 // An address needs a type (and a description for "Other"), a first line, a city and a
 // country. A New Zealand address also needs a 4-digit postcode.
 //
-// TEMPORARY: saves go straight to the mainframe until SyncService is composed in LavsApp.
+// AI-assisted: reads go to the mainframe through the MainframeGateway; saves go through the
+// upload queue (SyncService), so adding, updating and deleting work offline (US11).
 public class AddressService {
     public static final String CUSTOMER_NUMBER = "customerNumber";
     static final long PAGE_SIZE = 50;
 
     private final MainframeGateway _gateway;
+    private final SyncService _sync;
 
-    public AddressService(MainframeGateway gateway) {
+    public AddressService(MainframeGateway gateway, SyncService sync) {
         _gateway = gateway;
+        _sync = sync;
     }
 
     // Checks the form without contacting the mainframe.
@@ -91,8 +94,9 @@ public class AddressService {
                 input.isMailing(), input.isPrimary(), input.getLine1().trim(), ContactRules.trimmed(input.getLine2()),
                 ContactRules.otherTypeToSend(input.getType(), input.getOtherType()),
                 ContactRules.trimmed(input.getPostCode()), ContactRules.trimmed(input.getSuburb()), input.getType());
-        GatewayResult result = _gateway.send(message);
-        return ServiceResult.from(result, toAddress(message.getId(), customerNumber, message.getType(),
+        // AI-assisted: queued; the new address has no id until it is uploaded, so the tab lists again
+        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, null);
+        return ServiceResult.queued(step, toAddress(null, customerNumber, message.getType(),
                 message.getOtherType(), message.getLine1(), message.getLine2(), message.getSuburb(), message.getCity(),
                 message.getPostCode(), message.getCountry(), message.getIsPrimary(), message.getIsMailing()));
     }
@@ -107,8 +111,9 @@ public class AddressService {
                 id, input.isMailing(), input.isPrimary(), input.getLine1().trim(),
                 ContactRules.trimmed(input.getLine2()), ContactRules.otherTypeToSend(input.getType(), input.getOtherType()),
                 ContactRules.trimmed(input.getPostCode()), ContactRules.trimmed(input.getSuburb()), input.getType());
-        GatewayResult result = _gateway.send(message);
-        return ServiceResult.from(result, toAddress(message.getId(), customerNumber, message.getType(),
+        // AI-assisted: queued, so the update works offline
+        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, null);
+        return ServiceResult.queued(step, toAddress(id, customerNumber, message.getType(),
                 message.getOtherType(), message.getLine1(), message.getLine2(), message.getSuburb(), message.getCity(),
                 message.getPostCode(), message.getCountry(), message.getIsPrimary(), message.getIsMailing()));
     }
@@ -118,7 +123,9 @@ public class AddressService {
         if (!validation.isValid()) {
             return ServiceResult.invalid(validation);
         }
-        return ServiceResult.from(_gateway.send(new DeleteAddress(customerNumber, id)), null);
+        // AI-assisted: queued, so the delete works offline
+        return ServiceResult.queued(QueuedWrites.queue(_sync, new DeleteAddress(customerNumber, id), customerNumber, null),
+                null);
     }
 
     private static ValidationResult requireCustomer(String customerNumber) {
@@ -131,8 +138,9 @@ public class AddressService {
         return country != null && AddressInput.NEW_ZEALAND.equalsIgnoreCase(country.trim());
     }
 
-    // Builds the model from what the mainframe sent back; the messages share no type, so each
-    // passes its getters in here. Missing yes/no flags count as no.
+    // Builds the model from a message's values: what the mainframe sent back for a read, or
+    // what was queued for a save. The messages share no type, so each passes its getters in
+    // here. Missing yes/no flags count as no.
     private static Address toAddress(Long id, String customerNumber, String type, String otherType, String line1,
                                      String line2, String suburb, String city, String postCode, String country,
                                      Boolean primary, Boolean mailing) {

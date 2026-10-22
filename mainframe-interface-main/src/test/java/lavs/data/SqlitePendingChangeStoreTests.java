@@ -181,4 +181,37 @@ class SqlitePendingChangeStoreTests {
 
         assertTrue(store.all().get(0).getFields().isEmpty());
     }
+
+    // AI-assisted: the customers a paused new customer may be survive a restart (US11)
+    @Test
+    void keepsTheDuplicateMatchesOfAPausedCustomer() {
+        PendingChange create = store.add(new PendingChange("customer.create", "TMP-1", "TMP-1", new HashMap<>()));
+        assertTrue(store.all().get(0).getDuplicateMatches().isEmpty());
+
+        create.setStatus(PendingChange.Status.PAUSED);
+        create.setDuplicateMatches(List.of("C-5", "C-6"));
+        store.update(create);
+
+        assertEquals(List.of("C-5", "C-6"), new SqlitePendingChangeStore(database).all().get(0).getDuplicateMatches());
+    }
+
+    // AI-assisted: a file from before the matches were kept gets the column, and its rows have none (US11)
+    @Test
+    void opensAFileFromBeforeTheDuplicateMatchesWereKept() throws Exception {
+        Path old = folder.resolve("old.db");
+        try (Connection connection = java.sql.DriverManager.getConnection("jdbc:sqlite:" + old.toAbsolutePath());
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate(LocalDatabase.CREATE_PENDING_CHANGE.replace(", duplicateMatches TEXT", ""));
+            statement.executeUpdate("INSERT INTO PendingChange (createdAt, messageType, customerNumber, fields, status)"
+                    + " VALUES ('2026-10-22T10:00:00Z', 'customer.addEmail', 'C-1', '{}', 'PENDING')");
+        }
+
+        SqlitePendingChangeStore reopened = new SqlitePendingChangeStore(new LocalDatabase(old));
+
+        assertTrue(reopened.all().get(0).getDuplicateMatches().isEmpty());
+        PendingChange added = reopened.add(new PendingChange("customer.create", "TMP-2", "TMP-2", new HashMap<>()));
+        added.setDuplicateMatches(List.of("C-7"));
+        reopened.update(added);
+        assertEquals(List.of("C-7"), reopened.all().get(1).getDuplicateMatches());
+    }
 }

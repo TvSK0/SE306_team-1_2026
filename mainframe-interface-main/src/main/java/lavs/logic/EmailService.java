@@ -20,15 +20,18 @@ import java.util.List;
 // An email needs a type (and a description for "Other") and an address the shared email
 // validator accepts.
 //
-// TEMPORARY: saves go straight to the mainframe until SyncService is composed in LavsApp.
+// AI-assisted: reads go to the mainframe through the MainframeGateway; saves go through the
+// upload queue (SyncService), so adding, updating and deleting work offline (US11).
 public class EmailService {
     public static final String CUSTOMER_NUMBER = "customerNumber";
     static final long PAGE_SIZE = 50;
 
     private final MainframeGateway _gateway;
+    private final SyncService _sync;
 
-    public EmailService(MainframeGateway gateway) {
+    public EmailService(MainframeGateway gateway, SyncService sync) {
         _gateway = gateway;
+        _sync = sync;
     }
 
     // Checks the form without contacting the mainframe.
@@ -87,8 +90,9 @@ public class EmailService {
         }
         AddEmail message = new AddEmail(input.getAddress().trim(), customerNumber, input.isPrimary(),
                 ContactRules.otherTypeToSend(input.getType(), input.getOtherType()), input.getType());
-        GatewayResult result = _gateway.send(message);
-        return ServiceResult.from(result, toEmail(message.getId(), customerNumber, message.getType(),
+        // AI-assisted: queued; the new email has no id until it is uploaded, so the tab lists again
+        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, null);
+        return ServiceResult.queued(step, toEmail(null, customerNumber, message.getType(),
                 message.getOtherType(), message.getAddress(), Boolean.TRUE.equals(message.getIsPrimary())));
     }
 
@@ -100,8 +104,9 @@ public class EmailService {
         }
         UpdateEmail message = new UpdateEmail(input.getAddress().trim(), customerNumber, id, input.isPrimary(),
                 ContactRules.otherTypeToSend(input.getType(), input.getOtherType()), input.getType());
-        GatewayResult result = _gateway.send(message);
-        return ServiceResult.from(result, toEmail(message.getId(), customerNumber, message.getType(),
+        // AI-assisted: queued, so the update works offline
+        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, null);
+        return ServiceResult.queued(step, toEmail(id, customerNumber, message.getType(),
                 message.getOtherType(), message.getAddress(), Boolean.TRUE.equals(message.getIsPrimary())));
     }
 
@@ -110,7 +115,9 @@ public class EmailService {
         if (!validation.isValid()) {
             return ServiceResult.invalid(validation);
         }
-        return ServiceResult.from(_gateway.send(new DeleteEmail(customerNumber, id)), null);
+        // AI-assisted: queued, so the delete works offline
+        return ServiceResult.queued(QueuedWrites.queue(_sync, new DeleteEmail(customerNumber, id), customerNumber, null),
+                null);
     }
 
     private static ValidationResult requireCustomer(String customerNumber) {

@@ -139,10 +139,16 @@ public class LoanDetailsController {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        showMessage(LoanSaveMessage.forResult(result), !result.isSuccessful());
+        // AI-assisted: a save kept on the upload queue is saved too (US11)
+        showMessage(LoanSaveMessage.forResult(result), !result.isSaved());
 
-        if (result.isSuccessful()) {
-            _savedLoan = result.getLoan();
+        if (result.isSaved()) {
+            Loan saved = result.getLoan();
+            // an update saved through the queue doesn't bring the status back, so keep the one shown
+            if (saved.getStatus() == null && _savedLoan != null) {
+                saved.setStatus(_savedLoan.getStatus());
+            }
+            _savedLoan = saved;
             showSavedState();
             _onSaved.accept(_savedLoan);
         }

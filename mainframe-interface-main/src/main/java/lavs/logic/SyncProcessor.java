@@ -8,6 +8,7 @@ import lavs.model.PendingChange;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,6 +56,12 @@ public class SyncProcessor {
             if (search.getOutcome() == DuplicateCheckResult.Outcome.FOUND) {
                 String message = "Possible existing customer: " + String.join(", ", search.getMatchingNumbers());
                 setStatusOfPending(change.getCreatesNumber(), PendingChange.Status.PAUSED, message);
+                // AI-assisted: keep the matches on the create itself, so the pending uploads panel can
+                // offer each one without reading them back out of the message (US11)
+                change.setStatus(PendingChange.Status.PAUSED);
+                change.setStatusMessage(message);
+                change.setDuplicateMatches(search.getMatchingNumbers());
+                queue.update(change);
                 return Optional.of(new SyncStep(change, SyncStep.Outcome.PAUSED, message));
             }
         }
@@ -109,6 +116,8 @@ public class SyncProcessor {
             if (change.references(temporaryNumber) && change.getStatus() == PendingChange.Status.PAUSED) {
                 if (isCreateOf(change, temporaryNumber)) {
                     change.setSkipDuplicateCheck(true);
+                    // AI-assisted: the MMM has decided, so the matches are no longer offered (US11)
+                    change.setDuplicateMatches(List.of());
                 }
                 resumeIfPaused(change);
                 queue.update(change);

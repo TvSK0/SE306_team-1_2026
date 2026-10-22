@@ -18,6 +18,7 @@ import lavs.logic.CustomerRelationshipService;
 import lavs.logic.RelationshipInput;
 import lavs.logic.RelationshipListResult;
 import lavs.logic.RelationshipResult;
+import lavs.logic.TemporaryNumbers;
 import lavs.model.CustomerRelationship;
 import lavs.validation.FieldError;
 
@@ -114,6 +115,12 @@ public class RelationshipsController {
         if (_loading != null) {
             _loading.cancel();
         }
+        // AI-assisted: a customer made offline isn't on the mainframe yet, so there is nothing to read (US11)
+        if (TemporaryNumbers.isTemporary(_customerNumber)) {
+            _table.getItems().clear();
+            _emptyLabel.setText(ResultText.NOT_UPLOADED_YET);
+            return;
+        }
         _emptyLabel.setText("Loading relationships...");
         _loading = _tasks.run(
                 () -> {
@@ -180,11 +187,13 @@ public class RelationshipsController {
                     }
                 },
                 result -> {
-                    showMessage(RelationshipsText.forResult(result, "Relationship removed."), !result.isSuccessful());
-                    if (result.isSuccessful()) {
+                    // AI-assisted: a removal kept on the upload queue is saved too (US11); the list is
+                    // only read again once it reached the mainframe
+                    showMessage(RelationshipsText.forResult(result, "Relationship removed."), !result.isSaved());
+                    if (result.isSaved()) {
                         // the form may still hold the relationship that was just removed
                         if (_editing == selected) startAdding();
-                        load();
+                        if (result.isSuccessful()) load();
                     }
                 },
                 failure -> showMessage(NO_CONNECTION, true));
@@ -233,10 +242,12 @@ public class RelationshipsController {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        showMessage(RelationshipsText.forResult(result, doneText), !result.isSuccessful());
-        if (result.isSuccessful()) {
+        // AI-assisted: a save kept on the upload queue is saved too (US11); the list is only read
+        // again once it reached the mainframe, since reading it while offline would just fail
+        showMessage(RelationshipsText.forResult(result, doneText), !result.isSaved());
+        if (result.isSaved()) {
             startAdding();
-            load();
+            if (result.isSuccessful()) load();
         }
     }
 

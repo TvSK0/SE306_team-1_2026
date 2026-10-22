@@ -1,12 +1,14 @@
 // TEMPORARY: swap this package for Scott's logic package once his skeleton is on main.
 package lavs.logic;
 
+import lavs.data.MainframeGateway;
 import lavs.model.CustomerRelationship;
 import lavs.validation.FieldError;
 import lavs.validation.ValidationResult;
 import mainframe.client.FakeConnection;
 import mainframe.client.MessageRequest;
 import mainframe.client.StatusMessage;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 
 public class CustomerRelationshipServiceTests {
     private static final String CUSTOMER_NUMBER = "C-10234";
@@ -22,12 +25,30 @@ public class CustomerRelationshipServiceTests {
 
     private static final RelationshipInput SPOUSE = new RelationshipInput(OTHER_NUMBER, "Spouse", "");
 
+    // AI-assisted: saves go through the upload queue (US11). Each service gets a real SyncService
+    // over an in-memory queue that sends to the same FakeConnection, as the same requests.
+    private final List<SyncService> _syncs = new ArrayList<>();
+    private InMemoryChangeQueue _queue;
+
+    private CustomerRelationshipService serviceOver(FakeConnection connection) {
+        _queue = new InMemoryChangeQueue();
+        SyncService sync = new SyncService(_queue, new MainframeGateway(connection),
+                Executors.newSingleThreadScheduledExecutor());
+        _syncs.add(sync);
+        return new CustomerRelationshipService(connection, sync);
+    }
+
+    @AfterEach
+    void closeSyncs() {
+        _syncs.forEach(SyncService::close);
+    }
+
     // --- validate ---
 
     @Test
     void acceptsAValidRelationship() {
         // Arrange
-        CustomerRelationshipService service = new CustomerRelationshipService(new FakeConnection());
+        CustomerRelationshipService service = serviceOver(new FakeConnection());
 
         // Act
         ValidationResult result = service.validate(CUSTOMER_NUMBER, SPOUSE);
@@ -39,7 +60,7 @@ public class CustomerRelationshipServiceTests {
     @Test
     void reportsEveryEmptyRequiredField() {
         // Arrange
-        CustomerRelationshipService service = new CustomerRelationshipService(new FakeConnection());
+        CustomerRelationshipService service = serviceOver(new FakeConnection());
 
         // Act
         ValidationResult result = service.validate("", new RelationshipInput(" ", null, ""));
@@ -54,7 +75,7 @@ public class CustomerRelationshipServiceTests {
     @Test
     void anOtherRelationshipNeedsADescription() {
         // Arrange
-        CustomerRelationshipService service = new CustomerRelationshipService(new FakeConnection());
+        CustomerRelationshipService service = serviceOver(new FakeConnection());
 
         // Act
         ValidationResult result = service.validate(CUSTOMER_NUMBER, new RelationshipInput(OTHER_NUMBER, "Other", " "));
@@ -66,7 +87,7 @@ public class CustomerRelationshipServiceTests {
     @Test
     void anOtherRelationshipWithADescriptionIsValid() {
         // Arrange
-        CustomerRelationshipService service = new CustomerRelationshipService(new FakeConnection());
+        CustomerRelationshipService service = serviceOver(new FakeConnection());
 
         // Act
         ValidationResult result = service.validate(CUSTOMER_NUMBER,
@@ -79,7 +100,7 @@ public class CustomerRelationshipServiceTests {
     @Test
     void aCustomerCannotBeRelatedToThemselves() {
         // Arrange
-        CustomerRelationshipService service = new CustomerRelationshipService(new FakeConnection());
+        CustomerRelationshipService service = serviceOver(new FakeConnection());
 
         // Act
         ValidationResult result = service.validate(CUSTOMER_NUMBER,
@@ -101,7 +122,7 @@ public class CustomerRelationshipServiceTests {
                 retrieveReply(7, OTHER_NUMBER, "Sam Smith", "Spouse", null));
         connection.whenRequested("customerRelationship.retrieve", Map.of("id", "9"),
                 retrieveReply(9, "C-30789", "Pat Lee", "Other", "Business partner"));
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipListResult result = service.listRelationships(CUSTOMER_NUMBER);
@@ -133,7 +154,7 @@ public class CustomerRelationshipServiceTests {
                 listReply(2, item(9, "C-30789", "Parent")));
         connection.whenRequested("customerRelationship.retrieve",
                 retrieveReply(0, OTHER_NUMBER, "Sam Smith", "Spouse", null));
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipListResult result = service.listRelationships(CUSTOMER_NUMBER);
@@ -151,7 +172,7 @@ public class CustomerRelationshipServiceTests {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("customerRelationship.list", Map.of("page", "1"), listReply(5));
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipListResult result = service.listRelationships(CUSTOMER_NUMBER);
@@ -168,7 +189,7 @@ public class CustomerRelationshipServiceTests {
     void listingRequiresACustomerNumber() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipListResult result = service.listRelationships(" ");
@@ -187,7 +208,7 @@ public class CustomerRelationshipServiceTests {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.setIsConnected(false);
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipListResult result = service.listRelationships(CUSTOMER_NUMBER);
@@ -208,7 +229,7 @@ public class CustomerRelationshipServiceTests {
         connection.whenRequested("customerRelationship.list", Map.of("page", "1"),
                 listReply(1, item(7, OTHER_NUMBER, "Spouse")));
         connection.whenRequested("customerRelationship.retrieve", FakeConnection.rejected("query error"));
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipListResult result = service.listRelationships(CUSTOMER_NUMBER);
@@ -224,11 +245,11 @@ public class CustomerRelationshipServiceTests {
     // --- addRelationship ---
 
     @Test
-    void addsTheRelationshipAndReturnsItWithItsId() throws IOException {
+    void addsTheRelationshipAndReturnsWhatWasSaved() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("customer.addRelationship", savedReply(12, OTHER_NUMBER, "Spouse", null));
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipResult result = service.addRelationship(CUSTOMER_NUMBER, new RelationshipInput(
@@ -238,7 +259,9 @@ public class CustomerRelationshipServiceTests {
         MessageRequest sent = connection.getSentRequests().get(0);
         Assertions.assertAll(
                 () -> Assertions.assertTrue(result.isSuccessful()),
-                () -> Assertions.assertEquals(12L, result.getRelationship().getId()),
+                () -> Assertions.assertTrue(result.isSaved()),
+                // what was saved, as sent; the new id comes from listing again
+                () -> Assertions.assertNull(result.getRelationship().getId()),
                 () -> Assertions.assertEquals(OTHER_NUMBER, result.getRelationship().getOtherCustomerNumber()),
                 () -> Assertions.assertEquals("Spouse", result.getRelationship().getType()),
                 () -> Assertions.assertEquals(CUSTOMER_NUMBER, sent.getValue("customer")),
@@ -253,7 +276,7 @@ public class CustomerRelationshipServiceTests {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("customer.addRelationship", savedReply(12, OTHER_NUMBER, "Other", "Business partner"));
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipResult result = service.addRelationship(CUSTOMER_NUMBER,
@@ -272,7 +295,7 @@ public class CustomerRelationshipServiceTests {
     void doesNotContactTheMainframeWhenTheRelationshipIsInvalid() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipResult result = service.addRelationship(CUSTOMER_NUMBER, new RelationshipInput("", "Spouse", ""));
@@ -292,7 +315,7 @@ public class CustomerRelationshipServiceTests {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("customer.addRelationship", FakeConnection.rejected("Unknown customer"));
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipResult result = service.addRelationship(CUSTOMER_NUMBER, SPOUSE);
@@ -307,6 +330,52 @@ public class CustomerRelationshipServiceTests {
         );
     }
 
+    @Test
+    void keepsARelationshipAddedOfflineToUploadLater() throws IOException {
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("customer.addRelationship", FakeConnection.networkDown());
+        CustomerRelationshipService service = serviceOver(connection);
+
+        RelationshipResult result = service.addRelationship(CUSTOMER_NUMBER, SPOUSE);
+
+        Assertions.assertAll(
+                () -> Assertions.assertFalse(result.isSuccessful()),
+                () -> Assertions.assertTrue(result.isWaitingToUpload()),
+                () -> Assertions.assertTrue(result.isSaved()),
+                () -> Assertions.assertEquals(OTHER_NUMBER, result.getRelationship().getOtherCustomerNumber()),
+                () -> Assertions.assertEquals(1, _queue.all().size())
+        );
+    }
+
+    @Test
+    void keepsAnUpdateAndADeleteMadeOfflineToUploadLater() throws IOException {
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("customer.updateRelationship", FakeConnection.networkDown());
+        connection.whenRequested("customer.deleteRelationship", FakeConnection.networkDown());
+        CustomerRelationshipService service = serviceOver(connection);
+
+        RelationshipResult updated = service.updateRelationship(CUSTOMER_NUMBER, 12, SPOUSE);
+        RelationshipResult deleted = service.deleteRelationship(CUSTOMER_NUMBER, 12);
+
+        Assertions.assertAll(
+                () -> Assertions.assertTrue(updated.isWaitingToUpload()),
+                () -> Assertions.assertEquals(12L, updated.getRelationship().getId()),
+                () -> Assertions.assertTrue(deleted.isWaitingToUpload()),
+                () -> Assertions.assertNull(deleted.getRelationship())
+        );
+    }
+
+    @Test
+    void aRejectedQueuedSaveIsNotSaved() throws IOException {
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("customer.addRelationship", FakeConnection.rejected("Unknown customer"));
+
+        RelationshipResult result = serviceOver(connection).addRelationship(CUSTOMER_NUMBER, SPOUSE);
+
+        Assertions.assertFalse(result.isSaved());
+        Assertions.assertFalse(result.isWaitingToUpload());
+    }
+
     // --- updateRelationship ---
 
     @Test
@@ -314,7 +383,7 @@ public class CustomerRelationshipServiceTests {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("customer.updateRelationship", savedReply(12, OTHER_NUMBER, "Parent", null));
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipResult result = service.updateRelationship(CUSTOMER_NUMBER, 12,
@@ -335,7 +404,7 @@ public class CustomerRelationshipServiceTests {
     void doesNotUpdateAnInvalidRelationship() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipResult result = service.updateRelationship(CUSTOMER_NUMBER, 12,
@@ -350,11 +419,12 @@ public class CustomerRelationshipServiceTests {
     }
 
     @Test
-    void reportsAFailedUpdate() throws IOException {
+    // AI-assisted: since US11 an update that can't reach the mainframe is kept to upload later
+    void keepsAnUpdateThatCannotReachTheMainframe() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.setIsConnected(false);
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipResult result = service.updateRelationship(CUSTOMER_NUMBER, 12, SPOUSE);
@@ -362,7 +432,8 @@ public class CustomerRelationshipServiceTests {
         // Assert
         Assertions.assertAll(
                 () -> Assertions.assertFalse(result.isSuccessful()),
-                () -> Assertions.assertNull(result.getRelationship()),
+                () -> Assertions.assertTrue(result.isWaitingToUpload()),
+                () -> Assertions.assertEquals(12L, result.getRelationship().getId()),
                 () -> Assertions.assertEquals(StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode(),
                         result.getMainframeStatus().getErrorCode())
         );
@@ -376,7 +447,7 @@ public class CustomerRelationshipServiceTests {
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("customer.deleteRelationship",
                 FakeConnection.success(Map.of("customer", CUSTOMER_NUMBER, "id", "12")));
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipResult result = service.deleteRelationship(CUSTOMER_NUMBER, 12);
@@ -395,7 +466,7 @@ public class CustomerRelationshipServiceTests {
     void deletingRequiresACustomerNumber() throws IOException {
         // Arrange
         FakeConnection connection = new FakeConnection();
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipResult result = service.deleteRelationship("", 12);
@@ -413,7 +484,7 @@ public class CustomerRelationshipServiceTests {
         // Arrange
         FakeConnection connection = new FakeConnection();
         connection.whenRequested("customer.deleteRelationship", FakeConnection.rejected("Not found"));
-        CustomerRelationshipService service = new CustomerRelationshipService(connection);
+        CustomerRelationshipService service = serviceOver(connection);
 
         // Act
         RelationshipResult result = service.deleteRelationship(CUSTOMER_NUMBER, 12);

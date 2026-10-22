@@ -141,4 +141,65 @@ class PendingUploadsStateTests {
     @Test void pendingStatusText()  { assertEquals("Waiting to upload",         PendingUploadsState.statusTextFor(change("x", PendingChange.Status.PENDING))); }
     @Test void pausedStatusText()   { assertEquals("Paused — action needed", PendingUploadsState.statusTextFor(change("x", PendingChange.Status.PAUSED))); }
     @Test void rejectedStatusText() { assertEquals("Rejected by mainframe",     PendingUploadsState.statusTextFor(change("x", PendingChange.Status.REJECTED))); }
+
+    // --- what the MMM can do about a row (AI-assisted, US11) ---
+
+    private PendingChange pausedNewCustomer(List<String> matches) {
+        PendingChange create = new PendingChange("customer.create", "TMP-1", "TMP-1", Map.of());
+        create.setId(5L);
+        create.setStatus(PendingChange.Status.PAUSED);
+        create.setStatusMessage("Possible existing customer: C-7");
+        create.setDuplicateMatches(matches);
+        return create;
+    }
+
+    @Test
+    void onlyThePausedNewCustomerItselfOffersTheDuplicateChoice() {
+        PendingChange address = new PendingChange("customer.addAddress", "TMP-1", null, Map.of());
+        address.setStatus(PendingChange.Status.PAUSED);
+        when(sync.getChanges()).thenReturn(List.of(pausedNewCustomer(List.of("C-7")), address,
+                pausedNewCustomer(List.of())));
+
+        List<PendingUploadsState.Row> rows = state().getRows();
+
+        assertTrue(rows.get(0).canResolveDuplicate());
+        assertEquals(List.of("C-7"), rows.get(0).getDuplicateMatches());
+        assertEquals("Possible existing customer: C-7", rows.get(0).getReason());
+        assertFalse(rows.get(1).canResolveDuplicate(), "the pause covers it, but the create row resolves it");
+        assertFalse(rows.get(2).canResolveDuplicate(), "nothing to offer without a match");
+        assertFalse(rows.get(0).canDismiss());
+    }
+
+    @Test
+    void onlyARejectedChangeCanBeDismissed() {
+        when(sync.getChanges()).thenReturn(List.of(change("x", PendingChange.Status.REJECTED), pending("x")));
+
+        List<PendingUploadsState.Row> rows = state().getRows();
+
+        assertTrue(rows.get(0).canDismiss());
+        assertFalse(rows.get(1).canDismiss());
+        assertFalse(rows.get(1).canResolveDuplicate());
+    }
+
+    @Test
+    void showsANewCustomerRatherThanItsTemporaryNumber() {
+        when(sync.getChanges()).thenReturn(List.of(pausedNewCustomer(List.of("C-7"))));
+
+        assertEquals("New customer", state().getRows().get(0).getCustomerNumber());
+    }
+
+    @Test
+    void eachActionGoesToTheUploadQueue() {
+        when(sync.getChanges()).thenReturn(List.of(pausedNewCustomer(List.of("C-7"))));
+        PendingUploadsState state = state();
+        PendingUploadsState.Row row = state.getRows().get(0);
+
+        state.useExistingCustomer(row, "C-7");
+        state.confirmNewCustomer(row);
+        state.dismiss(row);
+
+        org.mockito.Mockito.verify(sync).useExistingCustomer("TMP-1", "C-7");
+        org.mockito.Mockito.verify(sync).confirmNewCustomer("TMP-1");
+        org.mockito.Mockito.verify(sync).dismissRejected(5L);
+    }
 }

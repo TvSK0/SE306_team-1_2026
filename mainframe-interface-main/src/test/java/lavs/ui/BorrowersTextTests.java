@@ -1,15 +1,23 @@
 // TEMPORARY: swap this package for Scott's ui package once his skeleton is on main.
 package lavs.ui;
 
+import lavs.data.LocalDatabase;
+import lavs.data.MainframeGateway;
+import lavs.data.SqlitePendingChangeStore;
 import lavs.logic.LoanBorrowerListResult;
 import lavs.logic.LoanBorrowerResult;
 import lavs.logic.LoanBorrowerService;
+import lavs.logic.SyncService;
 import lavs.model.LoanCoborrower;
 import mainframe.client.FakeConnection;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -20,7 +28,23 @@ class BorrowersTextTests {
     private static final String LOAN_NUMBER = "L-5521";
 
     private final FakeConnection connection = new FakeConnection();
-    private final LoanBorrowerService service = new LoanBorrowerService(connection);
+    private LoanBorrowerService service;
+    // AI-assisted: changes go through the upload queue (US11), kept in a SQLite file in a temp folder
+    @TempDir
+    Path folder;
+    private SyncService _sync;
+
+    @BeforeEach
+    void setUp() {
+        _sync = SyncService.create(new SqlitePendingChangeStore(new LocalDatabase(folder.resolve("lavs.db"))),
+                new MainframeGateway(connection));
+        service = new LoanBorrowerService(connection, _sync);
+    }
+
+    @AfterEach
+    void tearDown() {
+        _sync.close();
+    }
 
     // --- types ---
 
@@ -97,14 +121,14 @@ class BorrowersTextTests {
                 BorrowersText.forChange(result, "Added."));
     }
 
+    // AI-assisted: since US11 a change that can't reach the mainframe is kept to upload later
     @Test
-    void saysWhenTheMainframeCannotBeReachedForAChange() throws IOException {
+    void saysAChangeIsKeptOnThisLaptopWhenTheMainframeCannotBeReached() throws IOException {
         connection.whenRequested("loan.deleteCoborrower", FakeConnection.networkDown());
 
         LoanBorrowerResult result = service.removeCoborrower(7, LOAN_NUMBER);
 
-        assertEquals("Couldn't reach the mainframe. Check your connection and try again.",
-                BorrowersText.forChange(result, "Removed."));
+        assertEquals("Removed. " + ResultText.WAITING_TO_UPLOAD, BorrowersText.forChange(result, "Removed."));
     }
 
     // --- reading the list ---

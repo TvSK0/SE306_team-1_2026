@@ -101,10 +101,16 @@ public class CustomerDetailsController {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        String done = result.isSuccessful() ? CustomerText.saved(before, result.getValue()) : null;
-        showMessage(ResultText.forChange(result, done), !result.isSuccessful());
-        if (result.isSuccessful()) {
-            _saved = result.getValue();
+        // AI-assisted: a save kept on the upload queue is saved too (US11)
+        String done = result.isSaved() ? CustomerText.saved(before, result.getValue()) : null;
+        showMessage(ResultText.forChange(result, done), !result.isSaved());
+        if (result.isSaved()) {
+            Customer saved = result.getValue();
+            // a change saved through the queue doesn't bring the status back, so keep the one shown
+            if (saved.getStatus() == null && before != null) {
+                saved.setStatus(before.getStatus());
+            }
+            _saved = saved;
             fillForm();
             _onSaved.accept(_saved);
         }

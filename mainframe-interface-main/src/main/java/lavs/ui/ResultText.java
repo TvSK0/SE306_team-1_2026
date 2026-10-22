@@ -10,6 +10,15 @@ import java.io.UncheckedIOException;
 public final class ResultText {
     public static final String NO_CONNECTION = "Couldn't reach the mainframe. Check your connection and try again.";
     public static final String FIX_FIELDS = "Please fix the highlighted fields.";
+    // AI-assisted: added to doneText for a save kept on the upload queue (US11)
+    public static final String WAITING_TO_UPLOAD =
+            "It's saved on this laptop and will upload when the mainframe can be reached.";
+    // AI-assisted: shown in place of a list for a customer made offline, before they upload (US11)
+    public static final String NOT_UPLOADED_YET =
+            "This customer isn't on the mainframe yet. Anything you add here uploads after them.";
+    // AI-assisted: added to doneText for a new customer held as a possible duplicate (US11)
+    public static final String HELD_FOR_REVIEW = "They may already be on the mainframe, so it's waiting for you: "
+            + "open Pending uploads in the top bar to use the existing customer or confirm they're new.";
 
     private ResultText() {}
 
@@ -17,6 +26,12 @@ public final class ResultText {
     public static String forChange(ServiceResult<?> result, String doneText) {
         if (result.isSuccessful()) {
             return doneText;
+        }
+        if (result.isHeldForReview()) {
+            return doneText + " " + HELD_FOR_REVIEW;
+        }
+        if (result.isWaitingToUpload()) {
+            return doneText + " " + WAITING_TO_UPLOAD;
         }
         if (result.getOutcome() == null) {
             return FIX_FIELDS;

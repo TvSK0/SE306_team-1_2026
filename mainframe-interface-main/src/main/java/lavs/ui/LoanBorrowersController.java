@@ -217,12 +217,15 @@ public class LoanBorrowersController {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        showMessage(BorrowersText.forChange(result, successText), !result.isSuccessful());
-        if (result.isSuccessful()) {
+        // AI-assisted: a change kept on the upload queue is saved too (US11)
+        showMessage(BorrowersText.forChange(result, successText), !result.isSaved());
+        if (result.isSaved()) {
             onSuccess.run();
         }
-        // only the field checks stop a change before the mainframe is contacted
-        if (result.getMainframeStatus() != null) {
+        // only the field checks stop a change before the mainframe is contacted. A change still
+        // waiting to upload means the mainframe can't be reached, so reading the list would only
+        // fail and empty the table.
+        if (result.getMainframeStatus() != null && !result.isWaitingToUpload()) {
             load(_loanNumber);
         }
     }

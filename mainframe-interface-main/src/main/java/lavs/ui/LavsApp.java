@@ -5,6 +5,7 @@ import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -12,7 +13,6 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import lavs.data.CategoryConstantsLoader;
 import lavs.data.CategoryConstantStore;
-import lavs.data.ConstantsCache;
 import lavs.data.LocalDatabase;
 import lavs.data.LocalStoreException;
 import lavs.data.MainframeGateway;
@@ -64,7 +64,8 @@ public class LavsApp extends Application {
         thread.setDaemon(true);
         return thread;
     });
-    // AI-assisted: the upload queue + sync thread; null if the local database could not be opened.
+    // AI-assisted: the upload queue + sync thread every save goes through; null only when the
+    // app refused to start because the local database could not be opened.
     private SyncService _sync;
 
     @Override
@@ -75,32 +76,29 @@ public class LavsApp extends Application {
         // have no session token).
         MainframeGateway gateway = new MainframeGateway(connection);
         // AI-assisted: open the one SQLite file the dropdown cache and the upload queue share.
+        // Every save goes through that queue, so without it nothing could be kept safe: say so and
+        // stop, rather than open screens that would lose the MMM's work.
         LocalDatabase database = openLocalDatabase();
-        ConstantsCache constantsCache = database == null ? ConstantsCache.NONE : new CategoryConstantStore(database);
+        if (database == null) {
+            refuseToStart();
+            return;
+        }
         ConstantsService constantsService = new ConstantsService(new CategoryConstantsLoader(connection),
-                constantsCache);
+                new CategoryConstantStore(database));
         BackgroundTasks tasks = new BackgroundTasks(_background, Platform::runLater);
         // the dropdowns get last run's values straight away, even if the mainframe never answers
         tasks.run(constantsService::loadSaved, loaded -> { }, failure -> failure.printStackTrace());
 
         Navigator navigator = new Navigator(Screen.LOGIN);
         // AI-assisted: start the upload queue + sync thread and drive the top bar's online/pending
-        // state from it. With no local database there is no queue, so fall back to the fixed feed.
-        StatusFeed statusFeed;
-        if (database != null) {
-            _sync = SyncService.create(new SqlitePendingChangeStore(database), gateway);
-            _sync.start(SYNC_RETRY_INTERVAL);
-            statusFeed = new SyncStatusFeed(_sync);
-        } else {
-            statusFeed = new FixedStatusFeed(true, 0);
-        }
-        TopBar topBar = new TopBar(statusFeed, Platform::runLater);
+        // state from it.
+        _sync = SyncService.create(new SqlitePendingChangeStore(database), gateway);
+        _sync.start(SYNC_RETRY_INTERVAL);
+        TopBar topBar = new TopBar(new SyncStatusFeed(_sync), Platform::runLater);
         MainWindow window = new MainWindow(navigator, topBar);
         // AI-assisted: clicking the status pill in the top bar opens the pending-uploads panel.
-        if (_sync != null) {
-            PendingUploadsPanel panel = new PendingUploadsPanel(_sync);
-            topBar.setOnStatusClicked(() -> panel.toggle(topBar));
-        }
+        PendingUploadsPanel panel = new PendingUploadsPanel(_sync);
+        topBar.setOnStatusClicked(() -> panel.toggle(topBar));
 
         // one AuthService and one LoginFlow, sharing the Connection and the constants
         AuthService authService = new AuthService(connection);
@@ -119,14 +117,19 @@ public class LavsApp extends Application {
             topBar.setUserName(user);
             navigator.resetTo(Screen.CUSTOMER_SEARCH, null);
         }).create());
-        LoanService loanService = new LoanService(connection);
+        // AI-assisted: loan saves go through the upload queue (US11)
+        LoanService loanService = new LoanService(connection, _sync);
         navigator.register(Screen.CUSTOMER_SEARCH, parameter -> temporaryCustomerSearch(navigator, loanService, tasks));
         new LoanScreens(new LoanScreenServices(loanService, new LoanRepaymentsService(connection),
-                constantsService, new LoanStatusService(connection), new LoanBorrowerService(connection), tasks))
+                // AI-assisted: status changes and co-borrower changes save through the upload queue (US11)
+                constantsService, new LoanStatusService(connection, _sync), new LoanBorrowerService(connection, _sync),
+                tasks))
                 .register(navigator);
-        new CustomerScreens(new CustomerScreenServices(new CustomerService(gateway, ORGANISATION),
-                new AddressService(gateway), new PhoneNumberService(gateway), new EmailService(gateway),
-                new CustomerRelationshipService(connection), constantsService, tasks))
+        new CustomerScreens(new CustomerScreenServices(new CustomerService(gateway, _sync, ORGANISATION),
+                // AI-assisted: the contact services save through the upload queue (US11)
+                new AddressService(gateway, _sync), new PhoneNumberService(gateway, _sync),
+                new EmailService(gateway, _sync),
+                new CustomerRelationshipService(connection, _sync), constantsService, tasks))
                 .register(navigator);
         // developer only: with LAVS_DEMO=true (or -Dlavs.demo=true) start on the component gallery
         if (DemoScreen.isEnabled()) {
@@ -150,9 +153,8 @@ public class LavsApp extends Application {
         }
     }
 
-    // AI-assisted: open the one SQLite file the dropdown cache and the upload queue share.
-    // If it cannot be opened the app still starts: the dropdowns are not kept between runs and the
-    // upload queue is disabled (the top bar uses the fixed feed), rather than failing to launch.
+    // AI-assisted: open the one SQLite file the dropdown cache and the upload queue share; null
+    // if it cannot be opened (start() then refuses to start).
     private static LocalDatabase openLocalDatabase() {
         try {
             Files.createDirectories(LOCAL_DATABASE.getParent());
@@ -161,6 +163,16 @@ public class LavsApp extends Application {
             e.printStackTrace();
             return null;
         }
+    }
+
+    // AI-assisted: tells the MMM why LAVS can't start, then closes it.
+    private static void refuseToStart() {
+        Alert alert = new Alert(Alert.AlertType.ERROR, "LAVS could not open its local database at "
+                + LOCAL_DATABASE + ", so it can't keep your changes safe. Close any other copy of LAVS, "
+                + "check the folder can be written to, and try again.");
+        alert.setHeaderText("LAVS can't start");
+        alert.showAndWait();
+        Platform.exit();
     }
 
     // TEMPORARY: swap this for the real customer search (US2) once Taran's screen exists. Until

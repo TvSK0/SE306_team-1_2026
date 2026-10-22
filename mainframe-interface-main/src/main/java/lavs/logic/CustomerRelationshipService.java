@@ -13,16 +13,19 @@ import java.util.List;
 
 // Optional component: a customer's relationships to other customers (spouse, parent,
 // legal authority or other). Lists, adds, updates and deletes them.
-// TEMPORARY: swap direct Connection use for Scott's gateway (and Aum's sync queue for
-// offline saves) once they exist.
+// AI-assisted: reads go to the mainframe over the Connection; saves go through the upload queue
+// (SyncService), so adding, updating and deleting work offline (US11).
+// TEMPORARY: the reads still use the Connection directly rather than the MainframeGateway.
 public class CustomerRelationshipService {
     public static final String CUSTOMER_NUMBER = "customerNumber";
     static final long PAGE_SIZE = 50;
 
     private final Connection _connection;
+    private final SyncService _sync;
 
-    public CustomerRelationshipService(Connection connection) {
+    public CustomerRelationshipService(Connection connection, SyncService sync) {
         _connection = connection;
+        _sync = sync;
     }
 
     // Checks the form without contacting the mainframe: the other customer and the type
@@ -94,11 +97,9 @@ public class CustomerRelationshipService {
 
         mainframe.client.messages.customer.AddRelationship message = new mainframe.client.messages.customer.AddRelationship(
                 customerNumber, otherTypeToSend(input), input.getOtherCustomerNumber().trim(), input.getType());
-        Status status = message.send(_connection);
-        if (!status.getWasSuccessful()) {
-            return RelationshipResult.fromStatus(status, null);
-        }
-        return RelationshipResult.fromStatus(status, toRelationship(message.getId(), customerNumber,
+        // AI-assisted: queued; the new relationship has no id until it is uploaded, so the tab lists again
+        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, null);
+        return RelationshipResult.queued(step, toRelationship(null, customerNumber,
                 message.getSecondaryCustomerNumber(), message.getType(), message.getOtherType()));
     }
 
@@ -113,11 +114,9 @@ public class CustomerRelationshipService {
         mainframe.client.messages.customer.UpdateRelationship message =
                 new mainframe.client.messages.customer.UpdateRelationship(customerNumber, id,
                         otherTypeToSend(input), input.getOtherCustomerNumber().trim(), input.getType());
-        Status status = message.send(_connection);
-        if (!status.getWasSuccessful()) {
-            return RelationshipResult.fromStatus(status, null);
-        }
-        return RelationshipResult.fromStatus(status, toRelationship(message.getId(), customerNumber,
+        // AI-assisted: queued, so the update works offline
+        SyncStep step = QueuedWrites.queue(_sync, message, customerNumber, null);
+        return RelationshipResult.queued(step, toRelationship(id, customerNumber,
                 message.getSecondaryCustomerNumber(), message.getType(), message.getOtherType()));
     }
 
@@ -131,7 +130,8 @@ public class CustomerRelationshipService {
 
         mainframe.client.messages.customer.DeleteRelationship message =
                 new mainframe.client.messages.customer.DeleteRelationship(customerNumber, id);
-        return RelationshipResult.fromStatus(message.send(_connection), null);
+        // AI-assisted: queued, so the delete works offline
+        return RelationshipResult.queued(QueuedWrites.queue(_sync, message, customerNumber, null), null);
     }
 
     private static boolean isOther(RelationshipInput input) {
@@ -143,8 +143,8 @@ public class CustomerRelationshipService {
         return isOther(input) ? input.getOtherType().trim() : null;
     }
 
-    // Builds the model from the values the mainframe sent back. customer.AddRelationship
-    // and customer.UpdateRelationship share no type, so both pass their getters in here.
+    // Builds the model from what was queued. customer.AddRelationship and
+    // customer.UpdateRelationship share no type, so both pass their getters in here.
     private static CustomerRelationship toRelationship(Long id, String customerNumber, String otherCustomerNumber,
                                                        String type, String otherType) {
         CustomerRelationship relationship = new CustomerRelationship(customerNumber, otherCustomerNumber, type, otherType);
