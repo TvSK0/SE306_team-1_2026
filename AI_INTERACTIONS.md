@@ -20,6 +20,144 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Aum, Claude Code (Opus 5.5) - route every save through the upload queue (US11)
+
+**Prompt (summarised):** finish US11 step B with the team's sign-off: route every
+remaining service's saves through `SyncService` so the app works offline, and add the
+pending-uploads panel actions a queued new customer needs.
+
+**What it assisted with** on `feature/us11-queue-contacts` (stacked on #44):
+
+- `lavs.logic.QueuedWrites` (new) - assisted writing the helper every save goes through: it
+  "sends" the usual message (e.g. `customer.AddAddress`) to a connection that only records the
+  request, then queues that request's type and fields, so a queued save is exactly what the
+  message would have sent. Refuses reads. Also maps a queued result onto a `Status` for the
+  older Status-based result types.
+- Services now save through the queue (reads stay live): `AddressService`,
+  `PhoneNumberService`, `EmailService`, `CustomerRelationshipService`, `LoanBorrowerService`
+  (update stays delete-then-add, in order), `LoanStatusService` (checks read live, the status
+  change is queued), `LoanService` and `CustomerService`. A customer or loan created offline
+  gets a temporary number, which the queue swaps for the real one in later changes.
+- Results can now be waiting to upload: `ServiceResult` (`WAITING`, `isSaved()`,
+  `isWaitingToUpload()`, `isHeldForReview()`), and `RelationshipResult`, `LoanBorrowerResult`,
+  `LoanStatusResult`, `LoanSaveResult` (`isSaved()`, `isWaitingToUpload()`).
+- Possible duplicates: `PendingChange.duplicateMatches`, a `duplicateMatches` column in
+  `LocalDatabase` (added to older files when they open) and `SqlitePendingChangeStore`, set by
+  `SyncProcessor` when it pauses a new customer. `SyncService.dismissRejected` also clears the
+  changes rejected because they used a rejected new customer or loan.
+- Screens: they move on when a save is saved (sent or queued) and say when it is waiting to
+  upload; they don't read lists for a customer or loan that isn't uploaded yet, and don't show
+  temporary numbers. The pending-uploads panel shows why a change was paused or rejected and
+  has "Use existing", "It's a new customer" and "Dismiss" buttons. `LavsApp` refuses to start
+  if the local database can't be opened, since nothing could be saved safely.
+- Tests: wrote `QueuedWritesTests` and new tests for the waiting, held and temporary-number
+  cases in each service, the result types, the store and database migration, the sync
+  dismissal and the panel state; updated the existing service and screen-text tests to run
+  over a real `SyncService` (offline saves are now kept rather than reported as failures).
+
+**Known limits:** a record added offline has no mainframe id until it uploads, so lists show
+it only after that; a screen keeps a temporary number until it is reopened; an automatic
+co-borrower put-back only happens when the replacement is refused straight away. The screen
+controllers have no unit tests; the app was started to check it launches.
+
+**Validation:** `mvn -B clean verify` passed - 779 tests, 95% branch coverage gate met
+(logic 99.2%, data 96.9%, model 100%).
+
+**Marking:** changed code and new tests carry `// AI-assisted:` comments.
+
+---
+
+## 2026-10-22 - Aum, Claude Code (Opus 4.8) - route EmployerService through SyncService
+
+**Prompt (summarised):** start "step B" of US11 — route one service's writes through the
+offline queue instead of calling the mainframe directly. Picked `EmployerService` (US5) because
+it isn't wired into any screen yet, so the change is self-contained.
+
+**What it assisted with** on `feature/us5-employers-queue`:
+
+- `lavs.logic.EmployerService` - assisted rewriting add/update/delete to build the message fields
+  and call `SyncService.queue(...)` instead of sending `AddEmployer`/`UpdateEmployer`/
+  `DeleteEmployer` over the `Connection`. The field keys and string forms match those messages'
+  `send` exactly, so `MainframeGateway` replays each queued change unchanged. Writes now work
+  offline. Blocks on the queue future (safe: the service runs on a `BackgroundTasks` thread).
+- `lavs.logic.EmployerResult` - assisted reshaping it from a mainframe `Status` wrapper to the
+  queue outcomes **SAVED / WAITING / REJECTED** plus field errors. This is the template for the
+  other services moving onto `SyncService`; it differs from `ServiceResult` because on the queue
+  being offline is WAITING, not a failure.
+- `lavs.logic.EmployerServiceTests` - fully wrote the tests (21): validation stops a bad call
+  before it is queued; a good call is SAVED and replays the exact fields for add/update/delete; an
+  offline call is WAITING and stays queued; a refused call is REJECTED with the message; a local
+  save failure is reported. Drive a real `SyncService` over the in-memory queue and fake gateway.
+
+**Not done (flagged for the PR):** an employer added offline has no mainframe `id` until it
+uploads, so it cannot be updated or deleted before then; and `SyncStep` returns the assigned
+number only for customer/loan creates, so a future employer UI must re-list after an add.
+
+**Validation:** `mvn -B clean verify` passed - 734 tests, 95% branch coverage gate met
+(`EmployerService` 21/21 branches). The other services still call the gateway directly.
+
+**Marking:** the changed service, result and tests carry `// AI-assisted:` comments.
+
+---
+
+## 2026-10-22 - Aum, Claude Code (Opus 4.8) - wire SyncService into LavsApp
+
+**Prompt (summarised):** now that the mainframe gateway exists, wire the offline
+sync service into the app's composition root: start `SyncService`, drive the top
+bar from it, open one shared SQLite file and show the pending-uploads panel.
+
+**What it assisted with** on `feature/us11-wire-sync`, all in `lavs.ui.LavsApp`
+(the composition root):
+
+- open one `LocalDatabase` shared by the dropdown cache (`CategoryConstantStore`)
+  and the upload queue (`SqlitePendingChangeStore`), resolving the TEMPORARY that
+  gave the constants their own copy.
+- build one `MainframeGateway` over the existing `Connection` and reuse it for both
+  the customer services and the sync thread, so queued uploads go out as the
+  logged-in MMM.
+- construct and `start()` the `SyncService`, and drive the top bar with
+  `SyncStatusFeed` instead of `FixedStatusFeed` (falling back to `FixedStatusFeed`
+  if the local database cannot be opened).
+- wire the pending-uploads panel to the status pill via `setOnStatusClicked`.
+- override `Application.stop()` to `close()` the sync thread so a queued change is
+  not cut off mid-write.
+
+**Tests:** none added. `LavsApp` is the JavaFX entry point (excluded from the
+coverage gate), and the one new behaviour — two stores sharing one SQLite file —
+is already covered by `LocalDatabaseTests.createsFileAndBothTables`.
+
+**Not done (next step):** the services still call the gateway directly; routing
+each write through `SyncService.queue` is a separate change, done per owner.
+
+**Validation:** `mvnw.cmd -B clean verify` passed — 731 tests, 95% branch coverage
+gate met. Launched with `javafx:run`: started with no startup exceptions.
+
+**Marking:** the wiring in `LavsApp` carries `// AI-assisted:` comments.
+
+---
+
+## 2026-10-22 - Aum, Claude Code (Opus 4.8) - fix SyncService.drain notify ordering
+
+**Prompt (summarised):** fix the intermittent `SyncServiceTests.onlineSaveIsSentStraightAway`
+failure (~1 in 4) caused by `drain()` completing a change's future before notifying listeners.
+
+**What it assisted with** on `fix/sync-drain-notify-order`:
+
+- `lavs.logic.SyncService.drain()` - assisted swapping the order so `notifyListeners()` runs
+  **before** `complete(...)` in the send loop, and before `answerWaitingAfterError(...)` in the
+  error path. Now a caller woken by its future's result (and any listener it then reads, e.g. the
+  pending count) sees the up-to-date state - the same order `runOnSyncThread` already used.
+  Completing first was a race the top bar and the test could lose.
+
+**Tests:** no new test. The existing `onlineSaveIsSentStraightAway` becomes deterministic; ran
+`SyncServiceTests` 12 times in a row with no failure to confirm the flake is gone.
+
+**Validation:** `mvn -B clean verify` passed - 731 tests, 95% branch coverage gate met.
+
+**Marking:** the reordered lines in `drain()` carry `// AI-assisted:` comments.
+
+---
+
 ## 2026-10-22 - Gabeliu, Codex - PR integration and sync status
 
 **Prompt (summarised):** finish Claude's outstanding work, fix and verify all
