@@ -3,6 +3,8 @@ package lavs.logic;
 
 import lavs.model.PendingChange;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -13,6 +15,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -133,6 +136,20 @@ class PendingUploadsStateTests {
     @Test void addCoborrowerDescription()            { assertEquals("Add co-borrower",               PendingUploadsState.descriptionFor(pending("loan.addCoborrower"))); }
     @Test void deleteCoborrowerDescription()         { assertEquals("Remove co-borrower",            PendingUploadsState.descriptionFor(pending("loan.deleteCoborrower"))); }
     @Test void loanUpdateStatusDescription()         { assertEquals("Submit loan for verification",  PendingUploadsState.descriptionFor(pending("loan.updateStatus"))); }
+    // AI-assisted: every message type the panel names, so each case of the switch is covered
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+            "customer.addNote|Add customer note", "customer.updateNote|Update customer note",
+            "customer.deleteNote|Delete customer note", "customer.addDocument|Add customer document",
+            "customer.deleteDocument|Delete customer document", "customer.updateRelationship|Update relationship",
+            "customer.deleteRelationship|Delete relationship", "customer.updateStatus|Update customer status",
+            "loan.addNote|Add loan note", "loan.updateNote|Update loan note", "loan.deleteNote|Delete loan note",
+            "loan.addDocument|Add loan document", "loan.deleteDocument|Delete loan document",
+            "loan.addPayment|Add payment", "loan.deletePayment|Delete payment"})
+    void namesEveryOtherMessageType(String messageType, String description) {
+        assertEquals(description, PendingUploadsState.descriptionFor(pending(messageType)));
+    }
+
     @Test void unknownMessageTypeFallsBackToItsName(){ assertEquals("mainframe.custom",              PendingUploadsState.descriptionFor(pending("mainframe.custom"))); }
 
     // --- statusTextFor ---
@@ -140,4 +157,88 @@ class PendingUploadsStateTests {
     @Test void pendingStatusText()  { assertEquals("Waiting to upload",         PendingUploadsState.statusTextFor(change("x", PendingChange.Status.PENDING))); }
     @Test void pausedStatusText()   { assertEquals("Paused — action needed", PendingUploadsState.statusTextFor(change("x", PendingChange.Status.PAUSED))); }
     @Test void rejectedStatusText() { assertEquals("Rejected by mainframe",     PendingUploadsState.statusTextFor(change("x", PendingChange.Status.REJECTED))); }
+
+    // --- what the MMM can do about a row (AI-assisted, US11) ---
+
+    private PendingChange pausedNewCustomer(List<String> matches) {
+        PendingChange create = new PendingChange("customer.create", "TMP-1", "TMP-1", Map.of("firstName", "Aroha"));
+        create.setId(5L);
+        create.setStatus(PendingChange.Status.PAUSED);
+        create.setStatusMessage("Possible existing customer: C-7");
+        create.setDuplicateMatches(matches);
+        return create;
+    }
+
+    @Test
+    void onlyThePausedNewCustomerItselfOffersTheDuplicateChoice() {
+        PendingChange address = new PendingChange("customer.addAddress", "TMP-1", null, Map.of());
+        address.setStatus(PendingChange.Status.PAUSED);
+        when(sync.getChanges()).thenReturn(List.of(pausedNewCustomer(List.of("C-7")), address,
+                pausedNewCustomer(List.of())));
+
+        List<PendingUploadsState.Row> rows = state().getRows();
+
+        assertTrue(rows.get(0).canResolveDuplicate());
+        assertEquals(List.of("C-7"), rows.get(0).getDuplicateMatches());
+        assertEquals("Possible existing customer: C-7", rows.get(0).getReason());
+        assertFalse(rows.get(1).canResolveDuplicate(), "the pause covers it, but the create row resolves it");
+        assertFalse(rows.get(2).canResolveDuplicate(), "nothing to offer without a match");
+        assertFalse(rows.get(0).canDismiss());
+    }
+
+    @Test
+    void onlyARejectedChangeCanBeDismissed() {
+        when(sync.getChanges()).thenReturn(List.of(change("x", PendingChange.Status.REJECTED), pending("x")));
+
+        List<PendingUploadsState.Row> rows = state().getRows();
+
+        assertTrue(rows.get(0).canDismiss());
+        assertFalse(rows.get(1).canDismiss());
+        assertFalse(rows.get(1).canResolveDuplicate());
+    }
+
+    @Test
+    void namesANewCustomerRatherThanShowingItsTemporaryNumber() {
+        when(sync.getChanges()).thenReturn(List.of(pausedNewCustomer(List.of("C-7")), pending("x")));
+
+        List<PendingUploadsState.Row> rows = state().getRows();
+
+        assertEquals("new customer", rows.get(0).getCustomerLabel());
+        assertEquals("C-1001", rows.get(1).getCustomerLabel());
+    }
+
+    @Test
+    void savedDetailsListEachQueuedValueOnItsOwnLine() {
+        java.util.Map<String, String> fields = new java.util.LinkedHashMap<>();
+        fields.put("firstName", "Aroha");
+        fields.put("middleName", null);
+        when(sync.getChanges()).thenReturn(List.of(new PendingChange("customer.create", "TMP-1", "TMP-1", fields)));
+
+        assertEquals("firstName: Aroha\nmiddleName: ", state().getRows().get(0).getSavedDetails());
+    }
+
+    @Test
+    void eachActionGoesToTheUploadQueue() {
+        when(sync.getChanges()).thenReturn(List.of(pausedNewCustomer(List.of("C-7"))));
+        PendingUploadsState state = state();
+        PendingUploadsState.Row row = state.getRows().get(0);
+
+        state.useExistingCustomer(row, "C-7");
+        state.confirmNewCustomer(row);
+        state.dismiss(row);
+
+        verify(sync).resolveDuplicate(5L, "C-7");
+        verify(sync).resolveDuplicate(5L, null);
+        verify(sync).dismissRejected(5L);
+    }
+
+    @Test
+    void choosingAnExistingCustomerNeedsOne() {
+        when(sync.getChanges()).thenReturn(List.of(pausedNewCustomer(List.of("C-7"))));
+        PendingUploadsState state = state();
+        PendingUploadsState.Row row = state.getRows().get(0);
+
+        org.junit.jupiter.api.Assertions.assertThrows(NullPointerException.class,
+                () -> state.useExistingCustomer(row, null));
+    }
 }

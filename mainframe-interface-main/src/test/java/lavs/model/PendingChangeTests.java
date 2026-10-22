@@ -111,4 +111,19 @@ class PendingChangeTests {
                 () -> assertEquals("C1", change.getCustomerNumber()),
                 () -> assertEquals("C5", change.getFields().get("coborrowerNumber")));
     }
+
+    // AI-assisted: the possible-duplicate matches of a paused new customer (US11)
+    @Test
+    void keepsACopyOfTheDuplicateMatchesAndNeverNull() {
+        PendingChange change = new PendingChange("customer.create", "TMP-1", "TMP-1", Map.of());
+        assertEquals(java.util.List.of(), change.getDuplicateMatches());
+
+        java.util.List<String> matches = new java.util.ArrayList<>(java.util.List.of("C-5"));
+        change.setDuplicateMatches(matches);
+        matches.add("C-6");
+        assertEquals(java.util.List.of("C-5"), change.getDuplicateMatches());
+
+        change.setDuplicateMatches(null);
+        assertEquals(java.util.List.of(), change.getDuplicateMatches());
+    }
 }

@@ -2,7 +2,7 @@
 package lavs.ui;
 
 // Only for the developer demo screen (DemoScreen), which shows the top bar without a real
-// SyncService; the app itself uses SyncStatusFeed. It always reports the same thing.
+// SyncService; the app itself uses SessionStatusFeed. It always reports the same thing.
 public final class FixedStatusFeed implements StatusFeed {
     private final boolean _online;
     private final int _pending;
