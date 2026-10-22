@@ -7,7 +7,9 @@ import lavs.model.RecordDocument;
 import java.util.Map;
 import java.util.function.Supplier;
 
-// AI-assisted: a shared editor for customer and loan documents.
+// AI-assisted: a shared editor for customer and loan documents. The Figma 11 details (heading and
+// subtitle, the inline Add/Edit card, and the rejection banner with the field highlighted) come
+// from DocumentsText and DocumentFormState, which are unit tested.
 public final class DocumentsPanel extends VBox {
     private final RecordDocumentsService service;
     private final RecordOwner owner;
@@ -22,6 +24,9 @@ public final class DocumentsPanel extends VBox {
     private final VBox form = new VBox(10);
     private final HBox actions = new HBox(10);
     private final FieldErrorPresenter errors;
+    private final Banner banner = new Banner();
+    private final Label formTitle = new Label();
+    private final DocumentFormState formState = new DocumentFormState();
     private RecordDocument editing;
 
     public DocumentsPanel(RecordDocumentsService service, RecordOwner owner, String number,
@@ -41,12 +46,16 @@ public final class DocumentsPanel extends VBox {
         TableColumns.add(table, "File name", RecordDocument::fileName);
         TableColumns.add(table, "File type", RecordDocument::fileType);
         TableColumns.add(table, "Bytes", RecordDocument::size);
-        table.setPlaceholder(new Label("No documents to display"));
+        table.setPlaceholder(new Label(DocumentsText.EMPTY));
         Button edit = new Button("Edit selected");
         Button remove = new Button("Delete selected");
         edit.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
         remove.disableProperty().bind(table.getSelectionModel().selectedItemProperty().isNull());
-        edit.setOnAction(event -> fill(table.getSelectionModel().getSelectedItem()));
+        edit.setOnAction(event -> {
+            formState.startEdit(table.getSelectionModel().getSelectedItem());
+            fill(table.getSelectionModel().getSelectedItem());
+            showForm();
+        });
         remove.setOnAction(event -> {
             RecordDocument note = table.getSelectionModel().getSelectedItem();
             ConfirmDialog.ask(getScene().getWindow(), new ConfirmContent("Delete document metadata?", "Delete the selected document metadata?", "Delete"),
@@ -62,10 +71,23 @@ public final class DocumentsPanel extends VBox {
             String name = fileName.getText(), format = fileType.getText(), bytes = size.getText();
             change(() -> service.save(owner, number, id, kind, name, format, bytes));
         });
-        Button clear = new Button("New / clear"); clear.setOnAction(event -> fill(null));
-        form.getChildren().addAll(new Label("Metadata only: no file contents are uploaded."), typeField, nameField, formatField, sizeField, new HBox(10, save, clear));
+        Button cancel = new Button("Cancel");
+        cancel.getStyleClass().add("lavs-button-secondary");
+        cancel.setOnAction(event -> closeForm());
+        Region grow = new Region();
+        HBox.setHgrow(grow, Priority.ALWAYS);
+        formTitle.getStyleClass().add("lavs-section-title");
+        form.getStyleClass().add("lavs-card");
+        form.getChildren().addAll(formTitle, typeField, nameField, formatField, sizeField, new HBox(10, grow, cancel, save));
+        SectionHeading heading = SectionHeading.section(DocumentsText.HEADING, DocumentsText.SUBTITLE);
+        heading.setAction(DocumentsText.ADD_BUTTON, () -> {
+            formState.startAdd();
+            fill(null);
+            showForm();
+        });
         message.setWrapText(true);
-        getChildren().addAll(message, table, actions, form);
+        getChildren().addAll(heading, banner, message, table, actions, form);
+        showForm();
         VBox.setVgrow(table, Priority.ALWAYS);
         load();
     }
@@ -84,15 +106,30 @@ public final class DocumentsPanel extends VBox {
         }, this::failed);
     }
     private void change(Supplier<ServiceResult<Void>> action) {
-        errors.clear(); busy(true); message.setText("Saving...");
+        errors.clear(); banner.hide(); busy(true); message.setText("Saving...");
         tasks.run(action::get, result -> {
-            busy(false); errors.present(result.getValidationErrors());
-            if (result.isSuccessful()) { fill(null); load(); }
-            else {
-                if (result.isQueued()) fill(null);
-                message.setText(ResultText.forChange(result, "Document saved."));
-            }
+            busy(false);
+            DocumentsText.SaveDisplay display = DocumentsText.saveDisplay(result);
+            var shown = errors.present(display.fieldErrors());
+            java.util.Optional.of(shown).filter(found -> display.validationBanner() && found.hasErrors())
+                    .map(BannerContent::validation).or(display::banner).ifPresent(banner::show);
+            if (display.closeForm()) closeForm();
+            if (result.isSuccessful()) { load(); }
+            else message.setText(result.isQueued() ? ResultText.forChange(result, "Document saved.") : "");
         }, this::failed);
+    }
+
+    // the card under the table (Figma 11): hidden until "+ Add document" or Edit
+    private void showForm() {
+        formTitle.setText(formState.title());
+        form.setVisible(formState.isOpen());
+        form.setManaged(formState.isOpen());
+    }
+
+    private void closeForm() {
+        formState.close();
+        fill(null);
+        showForm();
     }
     private void busy(boolean busy) { table.setDisable(busy); form.setDisable(busy); actions.setDisable(busy); }
     private void failed(Throwable error) { busy(false); message.setText(ResultText.forError(error)); }

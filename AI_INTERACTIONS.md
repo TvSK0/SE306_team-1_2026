@@ -8,6 +8,36 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Taran, Claude Code (Opus 5.5)
+
+**Prompt (summarised):** my Figma-matched search, record, Loans and Documents
+branches (#55, #56) predated the gateway and #47, so they were closed. Port
+their Figma details onto Gabriel's classes on main instead, keeping the
+gateway and the upload queue.
+
+**What it produced** on `feature/figma-port`:
+
+- Plain, unit-tested classes for the rules: `CustomerSearchText`,
+  `CustomerHeaderState`, `LoanRowFormatter`, `NewLoanCheck`, `DocumentsText`
+  and `DocumentFormState`; `TableCells` for tag and link columns.
+- Customer search: Figma 02 heading, field label and "+ Add New Customer",
+  the count line and empty text, Customer no. / Name / Date of birth / Status
+  tag columns with a row link, skeleton rows, and the offline banner with
+  Search disabled.
+- Customer record: the 03a header (name, status tag, number and date of
+  birth), the top bar title, and a banner when the customer can't be loaded.
+- Loans tab: a Role column (`CustomerLoansService.roles`, looked up after the
+  list shows), money and date formats, status tags, and the Figma 08 banner
+  with a link to the Addresses or Phone numbers tab.
+- Documents: the Figma 11 heading and subtitle, the Add/Edit card under the
+  table, and the rejection banner with the named field highlighted.
+- Unit tests for every rule, with the requirement ID above each test.
+
+**Marking:** each new file carries an `// AI-assisted` comment; the changed
+lines in Gabriel's classes are described in their header comments.
+
+---
+
 ## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - Windows wrapper and CI fix
 
 **Prompt (summarised):** complete the remaining work. While checking main's CI

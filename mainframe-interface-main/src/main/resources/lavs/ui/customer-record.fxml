@@ -6,6 +6,8 @@
 <?import javafx.scene.control.Tab?>
 <?import javafx.scene.control.TabPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import lavs.ui.Banner?>
 <?import javafx.scene.layout.VBox?>
 
 <!-- AI-assisted: TEMPORARY customer record until Taran's (mockups 3 and 3a) exists: a header
@@ -19,11 +21,12 @@
 
     <HBox spacing="16" alignment="CENTER_LEFT">
         <Hyperlink fx:id="_backLink" styleClass="back-link" text="← Back" onAction="#onBack"/>
-        <Label fx:id="_titleLabel" styleClass="title" text="New customer"/>
-        <Label fx:id="_statusLabel" styleClass="status"/>
+        <Label fx:id="_titleLabel" styleClass="lavs-record-name" text="New customer"/>
+        <Label fx:id="_statusLabel"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Label fx:id="_detailsLabel" styleClass="lavs-subtitle-small"/>
     </HBox>
-    <Label fx:id="_loadMessage" styleClass="message,problem" wrapText="true" maxWidth="Infinity"
-           minHeight="-Infinity" managed="false" visible="false"/>
+    <Banner fx:id="_loadBanner"/>
 
     <TabPane fx:id="_tabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
         <Tab fx:id="_detailsTab" text="Details">
