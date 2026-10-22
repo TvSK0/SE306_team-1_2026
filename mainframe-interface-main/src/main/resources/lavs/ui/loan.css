@@ -152,8 +152,9 @@
     -fx-font-weight: bold;
 }
 
-/* repayment schedule table */
-.loan .schedule {
+/* repayment schedule table, and the borrowers table, which looks the same */
+.loan .schedule,
+.loan .borrowers {
     -fx-border-color: #dddddd;
     -fx-border-radius: 6;
     -fx-background-radius: 6;
@@ -161,16 +162,21 @@
 
 .loan .schedule .column-header,
 .loan .schedule .column-header-background,
-.loan .schedule .filler {
+.loan .schedule .filler,
+.loan .borrowers .column-header,
+.loan .borrowers .column-header-background,
+.loan .borrowers .filler {
     -fx-background-color: #f5f6f8;
 }
 
-.loan .schedule .column-header .label {
+.loan .schedule .column-header .label,
+.loan .borrowers .column-header .label {
     -fx-text-fill: #555555;
     -fx-alignment: CENTER_LEFT;
     -fx-padding: 4 8 4 8;
 }
 
-.loan .schedule .table-cell {
+.loan .schedule .table-cell,
+.loan .borrowers .table-cell {
     -fx-padding: 6 8 6 8;
 }
