@@ -8,6 +8,24 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Gabeliu, Codex - PR integration and sync status
+
+**Prompt (summarised):** finish Claude's outstanding work, fix and verify all
+eight PRs, then merge them with short commit messages and no coauthor trailers.
+
+**Changes:** moved the offline indicator's connection check onto the sync
+executor. UI status reads use the latest cached result. Connection changes
+notify listeners even with an empty queue, and a failed probe does not stop
+later retries. Added five regression tests for these cases and upload results.
+
+**Validation:** trial-merged all eight branches, preserving both sides of
+AI log conflicts. `clean verify` passed all 731 tests and the 95% branch
+coverage gate. The starter tests against the live mainframe remain excluded.
+
+**Marking:** changed code and new tests carry AI-assisted comments.
+
+---
+
 ## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - sync integration tests
 
 **Prompt (summarised):** same session; write the Phase 4 integration tests for
