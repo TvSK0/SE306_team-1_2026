@@ -86,6 +86,61 @@ comment. Agreed by the team as a handover of Scott's cards.
 
 ---
 
+## 2026-10-22 - Aum, Claude (Sonnet 4.6) - US11 offline indicator + pending uploads panel
+
+**Prompt (summarised):** assist with the US11 logic and UI layer (offline indicator in the
+top bar and the pending-uploads panel that lists queued changes).
+
+**What it assisted with** on `feature/us11-offline-indicator`:
+
+- `lavs.ui.SyncStatusFeed` - assisted implementing the real `StatusFeed` adapter over
+  `SyncService` (replaces `FixedStatusFeed`; exposes online/pending state and change
+  notifications to the top bar).
+- `lavs.logic.SyncService` - assisted adding the one-line `isConnected()` delegation so
+  `SyncStatusFeed` only imports from `lavs.logic`, not the data layer.
+- `lavs.ui.PendingUploadsState` - assisted implementing the panel's state class (no JavaFX):
+  `getRows()`, `isEmpty()`, `hasActionNeeded()`, `descriptionFor()` and `statusTextFor()`.
+- `lavs.ui.PendingUploadsPanel` - assisted implementing the JavaFX Popup that appears when
+  the user clicks the status pill in the top bar; lists each queued change with description
+  and status.
+- `lavs.ui.SyncStatusFeedTests` - implemented tests: 5 tests covering online/offline
+  delegation, pending count delegation and listener propagation.
+- `lavs.ui.PendingUploadsStateTests` - implemented tests: 27 tests covering isEmpty,
+  hasActionNeeded, getRows, descriptionFor for every message type, and statusTextFor.
+
+**Marking:** all new and modified files carry `// AI-assisted.` comments.
+
+---
+
+## 2026-10-22 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build US1, log in and log out: a service over the
+mainframe login, the login screen from Figma 01 with its error states, and
+replace the temporary login in `LavsApp`. A requirement ID list (US1-R1 to
+R6) was the spec, with one test per ID.
+
+**What it produced** on `feature/us1-login`:
+
+- `AuthService`, `AuthResult` and `LoginForm`: log in and out over the
+  `Connection`; outcomes success, network failure, rejected (with the
+  mainframe's message) and invalid (a blank field, nothing sent); the
+  username is trimmed and the password sent as typed.
+- `LoginFlow` and `LoginAttempt`: logs in, then refreshes the dropdown
+  values; values saved from last run are enough to carry on with.
+- `LoginScreenState` (no JavaFX, unit tested): inline field errors for an
+   incomplete form, and a banner for a rejection, a network failure or missing
+  failure or missing dropdown values, and when to move on.
+- `LoginScreen` (thin JavaFX) and three styles in `lavs.css`: the centred
+  card, run through `BackgroundTasks` with a "Logging in..." button.
+- In `LavsApp`: the login screen replaces `temporaryLogin` and `signIn`,
+  and Log out calls `AuthService.logout()`.
+- Unit tests for every service and decision, with the requirement ID above
+  each test.
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
 ## 2026-10-19 - Aum, Claude (Sonnet 4.6) - US5 employer service (partial)
 
 **Prompt (summarised):** assist with parts of the US5 logic layer (employers tab —
@@ -174,6 +229,30 @@ co-borrowers and guarantors.
 **Marking:** the new method, result class, model field and tests carry an
 `// AI-assisted` comment. Agreed by me as an exception to the hand-written
 rule, like the earlier US8/US9 service work.
+
+---
+
+## 2026-10-19 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build the shared UI components every screen will
+use: form fields with inline errors, banners, tags, section headings, a
+record table and a delete confirmation, plus a demo screen to compare them
+with Figma.
+
+**What it produced** on `feature/ui-shared-components`:
+
+- `FormField` and `FieldErrorPresenter`: shows a `ValidationResult` on the
+  field named by each `FieldError`, counts fields for the banner title,
+  and keeps errors that have no field so they are not lost.
+- `BannerContent` (the offline, rejection and validation wording from the
+  Figma frames), `Banner`, `Tag`, `SectionHeading`, and the variant enums.
+- `RecordTable` (fixed header over scrolling rows, row links, empty state,
+  Delete always through `ConfirmDialog`), `ColumnWidths`, `ConfirmContent`.
+- `DemoScreen`, shown only when `LAVS_DEMO=true` or `-Dlavs.demo=true`.
+- Unit tests for every decision (presenter, banner wording, column widths,
+  confirm wording, variant-to-CSS mapping, demo switch).
+
+**Marking:** each new file carries an `// AI-assisted` comment.
 
 ---
 
