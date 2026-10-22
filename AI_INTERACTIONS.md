@@ -8,6 +8,27 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-23 - Aum, Claude Code - SyncProcessor.send refactor and three more sync integration tests
+
+**Prompt (summarised):** bring `SyncProcessor.send` under the complexity target from the metrics
+baseline, and add the integration tests still missing from the dropout/restart/reconnect task.
+
+**What it assisted with:**
+
+- `SyncProcessor.send` (complexity 12) split into `send` (3), `sendByType` (4), `accepted` (4) and
+  `rejected` (2). Same behaviour; the existing `SyncProcessorTests` cover every path.
+- `SyncIntegrationTests` (real SQLite file, real queue and gateway, `FakeConnection` offline):
+  - a loan created offline gets its real number in the co-borrower change queued after it;
+  - a possible duplicate confirmed as new: the matches are kept on disk while paused, and the
+    customer is then created without searching again;
+  - a rejected new customer keeps the change that uses it held across a restart, it is never
+    sent, and dismissing the customer clears it too.
+
+**Validation:** `./mvnw clean verify` passes (839 tests, coverage gate met); the integration tests
+passed 5 runs in a row. `./mvnw -Pmetrics validate` shows no `SyncProcessor` method over 4.
+
+---
+
 ## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - Windows wrapper and CI fix
 
 **Prompt (summarised):** complete the remaining work. While checking main's CI
