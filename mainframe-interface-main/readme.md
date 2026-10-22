@@ -72,6 +72,14 @@ Most of the starter tests under `mainframe.client.messages` and `HttpConnectionT
 ./mvnw clean verify -Pfull
 ```
 
+### Code metrics (coupling, complexity, cohesion)
+
+```
+./mvnw -Pmetrics validate        # or: mvnw.cmd -Pmetrics validate
+```
+
+This runs CK over our code and writes the numbers for every class and method to `target/metrics/class.csv` and `target/metrics/method.csv`. The "before" baseline for the final report is in [`docs/metrics/baseline-2026-10-23.md`](../docs/metrics/baseline-2026-10-23.md).
+
 ### Running the application
 
 LAVS is a JavaFX desktop app. To build it and open the main window:
