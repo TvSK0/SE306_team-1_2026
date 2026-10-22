@@ -167,6 +167,7 @@
 }
 .lavs-banner-title { -fx-font-size: 14px; -fx-font-family: "Segoe UI Semibold"; }
 .lavs-banner-body  { -fx-font-size: 13px; -fx-text-fill: -lavs-text; }
+.lavs-banner-link { -fx-font-size: 13px; -fx-padding: 4 0 0 0; }
 
 .lavs-banner-error   { -fx-background-color: -lavs-danger-soft;  -fx-border-color: -lavs-danger; }
 .lavs-banner-warning { -fx-background-color: -lavs-warning-soft; -fx-border-color: -lavs-warning; }

@@ -2,14 +2,8 @@ package lavs.ui;
 
 import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import lavs.data.CategoryConstantsLoader;
 import lavs.data.CategoryConstantStore;
@@ -20,15 +14,14 @@ import lavs.logic.AuthService;
 import lavs.logic.ConstantsService;
 import lavs.logic.CustomerContactService;
 import lavs.logic.CustomerCountsService;
+import lavs.logic.CustomerLoansService;
 import lavs.logic.CustomerRecordService;
 import lavs.logic.CustomerRelationshipService;
 import lavs.logic.CustomerSearchService;
 import lavs.logic.LoanRepaymentsService;
-import lavs.logic.LoanSaveResult;
 import lavs.logic.LoanService;
 import lavs.logic.LoanStatusService;
 import lavs.logic.LoginFlow;
-import lavs.model.Customer;
 import mainframe.client.Connection;
 import mainframe.client.HttpConnection;
 
@@ -114,9 +107,9 @@ public class LavsApp extends Application {
         SectionRegistry<Node> recordSections = new SectionRegistry<>(CustomerRecordScreen::placeholder);
         recordSections.register(Section.RELATIONSHIPS, context ->
                 relationshipsSection(relationshipService, constantsService, tasks, context.customerNumber()));
-        // TEMPORARY: swap this for the Loans tab (feature/customer-loans-tab)
-        recordSections.register(Section.LOANS, context ->
-                temporaryLoansSection(navigator, loanService, tasks, context.customerNumber()));
+        CustomerLoansService customerLoansService = new CustomerLoansService(connection);
+        recordSections.register(Section.LOANS, context -> new CustomerLoansSection(context, customerLoansService,
+                loanService, tasks, request -> navigator.goTo(Screen.LOAN, request)));
         CustomerRecordService recordService = new CustomerRecordService(connection);
         CustomerCountsService countsService = new CustomerCountsService(connection);
         navigator.register(Screen.CUSTOMER_RECORD, parameter -> new CustomerRecordScreen((String) parameter,
@@ -158,72 +151,6 @@ public class LavsApp extends Application {
             // a missing or broken FXML file: the section stays unbuilt and the error goes to stderr
             throw new UncheckedIOException(e);
         }
-    }
-
-    // TEMPORARY: swap this for the Loans tab (feature/customer-loans-tab). Until then the Loans
-    // section holds Yu's way into the loan screens: start a loan for this customer, or open a
-    // saved loan by its number typed in by hand.
-    private static Node temporaryLoansSection(Navigator navigator, LoanService loanService, BackgroundTasks tasks,
-                                              String customerNumber) {
-        Label title = new Label("Loans: built in the customer loans tab");
-        title.getStyleClass().add("lavs-subtitle");
-        return new VBox(8, title, loanStandIns(navigator, loanService, tasks, customerNumber));
-    }
-
-    // TEMPORARY: swap this for the Loans tab (feature/customer-loans-tab).
-    private static Node loanStandIns(Navigator navigator, LoanService loanService, BackgroundTasks tasks,
-                                     String customerNumber) {
-        Button newLoan = new Button("New loan (temporary)");
-        newLoan.getStyleClass().add("lavs-button-primary");
-        newLoan.setOnAction(event -> {
-            Customer customer = new Customer();
-            customer.setNumber(customerNumber);
-            navigator.goTo(Screen.LOAN, LoanScreenRequest.forNewLoan(customer));
-        });
-
-        TextField loanNumber = new TextField();
-        loanNumber.setPromptText("Loan number");
-        loanNumber.setMaxWidth(240);
-        Button openLoan = new Button("Open loan (temporary)");
-        openLoan.getStyleClass().add("lavs-button-secondary");
-        Label error = new Label();
-        LoadingView loading = new LoadingView(LoadingState.forRead("Open loan (temporary)", "Opening..."), openLoan);
-        openLoan.setOnAction(event -> tasks.run(
-                () -> {
-                    try {
-                        return loanService.loadLoan(loanNumber.getText().trim());
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                },
-                loading::start,
-                result -> {
-                    loading.finish();
-                    if (result.isSuccessful()) {
-                        // the loan only knows its customer's number; the real customer record
-                        // passes the whole customer so the Back link shows the name
-                        Customer customer = new Customer();
-                        customer.setNumber(result.getLoan().getCustomerNumber());
-                        navigator.goTo(Screen.LOAN, LoanScreenRequest.forLoan(customer, result.getLoan()));
-                    } else {
-                        error.setText(openLoanError(result));
-                    }
-                },
-                failure -> {
-                    loading.finish();
-                    error.setText("Could not open the loan: " + failure.getMessage());
-                }));
-
-        HBox loanRow = new HBox(8, newLoan, loanNumber, openLoan);
-        loanRow.setAlignment(Pos.CENTER_LEFT);
-        return new VBox(4, loanRow, error);
-    }
-
-    private static String openLoanError(LoanSaveResult result) {
-        if (result.getMainframeStatus() == null) {
-            return "Type a loan number first.";
-        }
-        return "Could not open the loan: " + result.getMainframeStatus().getErrorMessage();
     }
 
     public static void main(String[] args) {

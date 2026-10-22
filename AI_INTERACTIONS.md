@@ -10,6 +10,34 @@ Add an entry per session/PR, newest first.
 
 ## 2026-10-22 - Taran, Claude Code (Sonnet 5.5)
 
+**Prompt (summarised):** build the Loans tab of the customer record (Figma
+03a and 08): the customer's loans with their role on each, Open loan, and
+"+ New loan" with the blocked-loan banner. A requirement ID list (LT-R1 to
+R5) was the spec, with one test per ID.
+
+**What it produced** on `feature/customer-loans-tab`:
+
+- `CustomerLoansService` and `LookupResult`: the customer's loans with the
+  role on each (looked up per loan, so it is right whichever loans
+  `loan.list` includes), opening a saved loan, and reading the facts
+  `LoanService.checkCanStartLoan` needs (mailing address, phone, email).
+- `NewLoanCheck` (no JavaFX, unit tested): the decision for "+ New loan" with
+  the Figma 08 banner and its "Go to Addresses" link. Written so US6's
+  acceptance test can call it.
+- `LoanRowFormatter` and `LoansSectionText` (no JavaFX, unit tested): money,
+  dates, role and status tags, and the failure banners.
+- `CustomerLoansSection` (thin JavaFX), a link on `Banner`, and the Loans
+  section registered in `LavsApp`; the last temporary loan stand-ins are gone.
+- Unit tests for every service and decision, with the requirement ID above
+  each test. Also checked once by building the section under the JavaFX
+  toolkit with a scripted connection (not committed).
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
+## 2026-10-22 - Taran, Claude Code (Sonnet 5.5)
+
 **Prompt (summarised):** build the customer record frame from Figma 03a:
 the header, the section sidebar with counts, a way for teammates to register
 their sections, and open it from customer search. A requirement ID list

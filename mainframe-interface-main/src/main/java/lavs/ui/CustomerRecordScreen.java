@@ -113,6 +113,8 @@ public class CustomerRecordScreen extends BorderPane implements Refreshable {
     @Override
     public void onReturn() {
         _setTopBarTitle.accept(_header.topBarTitle());
+        // a section that shows data (the Loans list) reloads it too
+        _views.values().forEach(Refreshable::notifyReturned);
         refreshCounts();
     }
 
