@@ -122,7 +122,7 @@ What the baseline shows:
 
 | Check | Status |
 |---|---|
-| Clean clone on Windows 10+ (fresh clone, empty Maven cache, `mvnw clean verify`) | Done 21 Oct; **TODO** redo on the final `main` |
+| Clean clone on Windows 10+ (fresh clone, empty Maven cache, `mvnw.cmd clean verify`) | Passed 22 Oct on `356f60b`: 836 tests, coverage met, 61 s including downloads. **TODO** redo on the final `main` |
 | Responsiveness with a slow network (`FakeConnection.setDelay`) | **TODO** |
 | Walkthrough of each story as the MMM | **TODO** |
 | Third-party licences | **TODO** |
