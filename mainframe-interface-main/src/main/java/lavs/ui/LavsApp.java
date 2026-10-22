@@ -16,16 +16,19 @@ import lavs.data.ConstantsCache;
 import lavs.data.LocalDatabase;
 import lavs.data.LocalStoreException;
 import lavs.data.MainframeGateway;
+import lavs.logic.AddressService;
 import lavs.logic.AuthService;
 import lavs.logic.ConstantsService;
 import lavs.logic.CustomerRelationshipService;
 import lavs.logic.CustomerService;
+import lavs.logic.EmailService;
 import lavs.logic.LoanRepaymentsService;
 import lavs.logic.LoanSaveResult;
 import lavs.logic.LoanBorrowerService;
 import lavs.logic.LoanService;
 import lavs.logic.LoanStatusService;
 import lavs.logic.LoginFlow;
+import lavs.logic.PhoneNumberService;
 import lavs.model.Customer;
 import mainframe.client.Connection;
 import mainframe.client.HttpConnection;
@@ -97,6 +100,7 @@ public class LavsApp extends Application {
                 .register(navigator);
         MainframeGateway gateway = new MainframeGateway(connection);
         new CustomerScreens(new CustomerScreenServices(new CustomerService(gateway, ORGANISATION),
+                new AddressService(gateway), new PhoneNumberService(gateway), new EmailService(gateway),
                 new CustomerRelationshipService(connection), constantsService, tasks))
                 .register(navigator);
         // developer only: with LAVS_DEMO=true (or -Dlavs.demo=true) start on the component gallery
