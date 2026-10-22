@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import lavs.ui.ConstantDropdown?>
+
+<!-- AI-assisted: US4, the Phone numbers tab of a customer record (mockup 3). The table is on
+     the left and the add/edit form on the right, as on the Relationships tab; the description
+     field only shows for an "Other" type. PhoneNumbersController fills it. -->
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="lavs.ui.PhoneNumbersController"
+      stylesheets="@loan.css" styleClass="loan" spacing="16">
+    <padding><Insets top="20" right="0" bottom="0" left="0"/></padding>
+
+    <Label fx:id="_messageLabel" styleClass="message" wrapText="true" maxWidth="Infinity"
+           minHeight="-Infinity" managed="false" visible="false"/>
+
+    <HBox spacing="24" alignment="TOP_LEFT" VBox.vgrow="ALWAYS">
+        <VBox spacing="12" HBox.hgrow="ALWAYS">
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <VBox spacing="2">
+                    <Label styleClass="section" text="Phone numbers"/>
+                    <Label styleClass="note" wrapText="true"
+                           text="A customer needs a phone number or an email before a loan can be started or submitted."/>
+                </VBox>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="_editButton" text="Edit" onAction="#onEdit"/>
+                <Button fx:id="_removeButton" text="Remove" onAction="#onRemove"/>
+            </HBox>
+            <TableView fx:id="_table" styleClass="schedule" VBox.vgrow="ALWAYS">
+                <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/></columnResizePolicy>
+                <placeholder><Label fx:id="_emptyLabel" styleClass="note" text="No phone numbers yet."/></placeholder>
+                <columns>
+                    <TableColumn fx:id="_typeColumn" text="Type" maxWidth="160"/>
+                    <TableColumn fx:id="_numberColumn" text="Number"/>
+                    <TableColumn fx:id="_flagsColumn" text="" maxWidth="160"/>
+                </columns>
+            </TableView>
+        </VBox>
+
+        <VBox styleClass="card" spacing="2" prefWidth="340" minWidth="280" maxWidth="380">
+            <Label fx:id="_formTitle" styleClass="section" text="Add a phone number"/>
+            <Region minHeight="10"/>
+
+            <Label text="Type *" styleClass="field-label"/>
+            <ConstantDropdown fx:id="_type" category="CustomerPhoneNumberType" maxWidth="Infinity"/>
+            <Label fx:id="_typeError" styleClass="error-text"/>
+
+            <VBox fx:id="_otherTypeBox" spacing="2" managed="false" visible="false">
+                <Label text="Describe the number *" styleClass="field-label"/>
+                <TextField fx:id="_otherType" promptText="e.g. Holiday home"/>
+                <Label fx:id="_otherTypeError" styleClass="error-text"/>
+            </VBox>
+
+            <HBox spacing="12">
+                <VBox spacing="2" prefWidth="90">
+                    <Label text="Country code" styleClass="field-label"/>
+                    <TextField fx:id="_countryCode" promptText="+64"/>
+                    <Label fx:id="_countryCodeError" styleClass="error-text" wrapText="true"/>
+                </VBox>
+                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                    <Label text="Number *" styleClass="field-label"/>
+                    <TextField fx:id="_number" promptText="e.g. 21 123 4567"/>
+                    <Label fx:id="_numberError" styleClass="error-text" wrapText="true"/>
+                </VBox>
+            </HBox>
+
+            <HBox spacing="16">
+                <CheckBox fx:id="_primary" text="Primary number"/>
+                <CheckBox fx:id="_canTxt" text="Can text"/>
+            </HBox>
+
+            <HBox spacing="8" alignment="CENTER_RIGHT">
+                <padding><Insets top="12" right="0" bottom="0" left="0"/></padding>
+                <Button fx:id="_cancelButton" text="Clear" onAction="#onCancel"/>
+                <Button fx:id="_saveButton" text="Add phone number" styleClass="primary" defaultButton="true"
+                        onAction="#onSave"/>
+            </HBox>
+        </VBox>
+    </HBox>
+</VBox>

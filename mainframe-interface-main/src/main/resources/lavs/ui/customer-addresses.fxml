@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import lavs.ui.ConstantDropdown?>
+
+<!-- AI-assisted: US4, the Addresses tab of a customer record (mockup 3). The table is on the
+     left and the add/edit form on the right, as on the Relationships tab; the description
+     field only shows for an "Other" type. AddressesController fills it. -->
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="lavs.ui.AddressesController"
+      stylesheets="@loan.css" styleClass="loan" spacing="16">
+    <padding><Insets top="20" right="0" bottom="0" left="0"/></padding>
+
+    <Label fx:id="_messageLabel" styleClass="message" wrapText="true" maxWidth="Infinity"
+           minHeight="-Infinity" managed="false" visible="false"/>
+
+    <HBox spacing="24" alignment="TOP_LEFT" VBox.vgrow="ALWAYS">
+        <VBox spacing="12" HBox.hgrow="ALWAYS">
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <VBox spacing="2">
+                    <Label styleClass="section" text="Addresses"/>
+                    <Label styleClass="note" wrapText="true"
+                           text="A customer needs a mailing address before a loan can be started or submitted."/>
+                </VBox>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button fx:id="_editButton" text="Edit" onAction="#onEdit"/>
+                <Button fx:id="_removeButton" text="Remove" onAction="#onRemove"/>
+            </HBox>
+            <TableView fx:id="_table" styleClass="schedule" VBox.vgrow="ALWAYS">
+                <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/></columnResizePolicy>
+                <placeholder><Label fx:id="_emptyLabel" styleClass="note" text="No addresses yet."/></placeholder>
+                <columns>
+                    <TableColumn fx:id="_typeColumn" text="Type" maxWidth="160"/>
+                    <TableColumn fx:id="_addressColumn" text="Address"/>
+                    <TableColumn fx:id="_flagsColumn" text="" maxWidth="140"/>
+                </columns>
+            </TableView>
+        </VBox>
+
+        <VBox styleClass="card" spacing="2" prefWidth="340" minWidth="280" maxWidth="380">
+            <Label fx:id="_formTitle" styleClass="section" text="Add an address"/>
+            <Region minHeight="10"/>
+
+            <Label text="Type *" styleClass="field-label"/>
+            <ConstantDropdown fx:id="_type" category="CustomerAddressType" maxWidth="Infinity"/>
+            <Label fx:id="_typeError" styleClass="error-text"/>
+
+            <VBox fx:id="_otherTypeBox" spacing="2" managed="false" visible="false">
+                <Label text="Describe the address *" styleClass="field-label"/>
+                <TextField fx:id="_otherType" promptText="e.g. Holiday home"/>
+                <Label fx:id="_otherTypeError" styleClass="error-text"/>
+            </VBox>
+
+            <Label text="Address line 1 *" styleClass="field-label"/>
+            <TextField fx:id="_line1" promptText="e.g. 1 Queen Street"/>
+            <Label fx:id="_line1Error" styleClass="error-text"/>
+
+            <Label text="Address line 2" styleClass="field-label"/>
+            <TextField fx:id="_line2" promptText="e.g. Unit 2"/>
+            <Region minHeight="16"/>
+
+            <Label text="Suburb" styleClass="field-label"/>
+            <TextField fx:id="_suburb"/>
+            <Region minHeight="16"/>
+
+            <HBox spacing="12">
+                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                    <Label text="City *" styleClass="field-label"/>
+                    <TextField fx:id="_city"/>
+                    <Label fx:id="_cityError" styleClass="error-text"/>
+                </VBox>
+                <VBox spacing="2" prefWidth="110">
+                    <Label text="Postcode" styleClass="field-label"/>
+                    <TextField fx:id="_postCode" promptText="e.g. 1010"/>
+                    <Label fx:id="_postCodeError" styleClass="error-text" wrapText="true"/>
+                </VBox>
+            </HBox>
+
+            <Label text="Country *" styleClass="field-label"/>
+            <TextField fx:id="_country"/>
+            <Label fx:id="_countryError" styleClass="error-text"/>
+
+            <HBox spacing="16">
+                <CheckBox fx:id="_primary" text="Primary address"/>
+                <CheckBox fx:id="_mailing" text="Mailing address"/>
+            </HBox>
+
+            <HBox spacing="8" alignment="CENTER_RIGHT">
+                <padding><Insets top="12" right="0" bottom="0" left="0"/></padding>
+                <Button fx:id="_cancelButton" text="Clear" onAction="#onCancel"/>
+                <Button fx:id="_saveButton" text="Add address" styleClass="primary" defaultButton="true"
+                        onAction="#onSave"/>
+            </HBox>
+        </VBox>
+    </HBox>
+</VBox>

@@ -8,6 +8,32 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - US4 addresses, phones, emails
+
+**Prompt (summarised):** the team agreed I take over Scott's cards; build US4.
+
+**What it produced** on `feature/us4-contact-details` (built on the US3 branch):
+
+- `AddressService`, `PhoneNumberService`, `EmailService` with their form
+  inputs: list, add, update and delete through the gateway, returning
+  `ServiceResult`. An address needs a type, first line, city and country, and
+  a 4-digit postcode in New Zealand; a phone number needs a valid number (the
+  country code is optional, like "+64"); an email needs a valid address. An
+  "Other" type needs a description. Every branch tested.
+- Addresses, Phone numbers and Emails tabs on the temporary customer record,
+  built on one `ContactListController` (table, edit, remove with confirm, and
+  a form beside it, like Yu's Relationships tab). Each tab reads the
+  mainframe the first time it is opened.
+- `ContactText` (no JavaFX, unit tested) for the wording.
+- Checked the real tabs locally under JavaFX with a `FakeConnection` and
+  looked at rendered screenshots (not committed: CI has no display). That
+  check caught a crash in Remove, now fixed.
+
+**Marking:** every new class and the tests carry an `// AI-assisted`
+comment. Agreed by the team as a handover of Scott's cards.
+
+---
+
 ## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - US3 add and edit customer
 
 **Prompt (summarised):** the team agreed I take over Scott's cards; build US3.
