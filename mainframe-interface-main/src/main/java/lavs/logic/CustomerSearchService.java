@@ -77,7 +77,7 @@ public class CustomerSearchService {
 
     // the mainframe sends yyyy-MM-dd, or nothing when the date of birth is not known; a date
     // that cannot be read is treated as not known rather than failing the whole search
-    private static LocalDate parseDate(String text) {
+    static LocalDate parseDate(String text) {
         if (text == null || text.isBlank()) {
             return null;
         }
