@@ -165,6 +165,10 @@ class SyncProcessorTests {
                 () -> assertEquals(PendingChange.Status.PAUSED, create.getStatus()),
                 () -> assertEquals(PendingChange.Status.PAUSED, address.getStatus()),
                 () -> assertEquals(PendingChange.Status.PENDING, other.getStatus()),
+                // AI-assisted: the matches are kept on the create only, not parsed from the message (US11)
+                () -> assertEquals(List.of("C5", "C6"), create.getDuplicateMatches()),
+                () -> assertEquals(List.of("C5", "C6"), DuplicateCandidates.forChange(create)),
+                () -> assertTrue(address.getDuplicateMatches().isEmpty()),
                 () -> assertTrue(gateway.sent.isEmpty()));
         assertEquals(other.getId(), next().getChange().getId());
     }
@@ -249,6 +253,8 @@ class SyncProcessorTests {
 
         assertAll(
                 () -> assertTrue(create.isSkipDuplicateCheck()),
+                // AI-assisted: once the MMM has decided, the matches are no longer offered (US11)
+                () -> assertTrue(create.getDuplicateMatches().isEmpty()),
                 () -> assertEquals(PendingChange.Status.PENDING, create.getStatus()),
                 () -> assertEquals(PendingChange.Status.PENDING, address.getStatus()),
                 () -> assertTrue(!address.isSkipDuplicateCheck()),
