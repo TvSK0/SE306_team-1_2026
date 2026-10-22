@@ -8,7 +8,7 @@ Add an entry per session/PR, newest first.
 
 ---
 
-## 2026-10-23 - Gabeliu, Claude Code (Opus 5.5) - metrics tooling and baseline
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - metrics tooling and baseline
 
 **Prompt (summarised):** complete the remaining work, including the metrics
 tooling and a "before" baseline for the final report.
@@ -18,7 +18,7 @@ tooling and a "before" baseline for the final report.
 - A `metrics` Maven profile (`./mvnw -Pmetrics validate`) that runs CK 0.7.0
   over `src/main/java/lavs` and writes coupling (CBO), complexity (WMC and
   per-method cyclomatic complexity) and cohesion (LCOM*) to `target/metrics/`.
-- `docs/metrics/baseline-2026-10-23.md`: the baseline from `main` at `ff950b2`,
+- `docs/metrics/baseline-2026-10-22.md`: the baseline from `main` at `ff950b2`,
   with averages per layer, the methods over 10 and the most coupled classes.
 - A readme section on running it.
 
