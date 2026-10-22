@@ -16,7 +16,6 @@ Update this readme file to contain the names of each team member and your GitHub
 * Gabriel Liu - Gabeliu
 * Aum Patel - aumiieee
 * Yu Tokuda - silucksi
-* [Scott full name] - [Scott's login]
 
 You must also update this file to contain either the instructions for running your code or a link to the instructions.
 
