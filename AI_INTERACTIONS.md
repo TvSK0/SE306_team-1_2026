@@ -8,6 +8,32 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Aum, Claude (Sonnet 4.6) - US11 offline indicator + pending uploads panel
+
+**Prompt (summarised):** assist with the US11 logic and UI layer (offline indicator in the
+top bar and the pending-uploads panel that lists queued changes).
+
+**What it assisted with** on `feature/us11-offline-indicator`:
+
+- `lavs.ui.SyncStatusFeed` - assisted implementing the real `StatusFeed` adapter over
+  `SyncService` (replaces `FixedStatusFeed`; exposes online/pending state and change
+  notifications to the top bar).
+- `lavs.logic.SyncService` - assisted adding the one-line `isConnected()` delegation so
+  `SyncStatusFeed` only imports from `lavs.logic`, not the data layer.
+- `lavs.ui.PendingUploadsState` - assisted implementing the panel's state class (no JavaFX):
+  `getRows()`, `isEmpty()`, `hasActionNeeded()`, `descriptionFor()` and `statusTextFor()`.
+- `lavs.ui.PendingUploadsPanel` - assisted implementing the JavaFX Popup that appears when
+  the user clicks the status pill in the top bar; lists each queued change with description
+  and status.
+- `lavs.ui.SyncStatusFeedTests` - implemented tests: 5 tests covering online/offline
+  delegation, pending count delegation and listener propagation.
+- `lavs.ui.PendingUploadsStateTests` - implemented tests: 27 tests covering isEmpty,
+  hasActionNeeded, getRows, descriptionFor for every message type, and statusTextFor.
+
+**Marking:** all new and modified files carry `// AI-assisted.` comments.
+
+---
+
 ## 2026-10-22 - Taran, Claude Code (Sonnet 5.5)
 
 **Prompt (summarised):** build US1, log in and log out: a service over the
