@@ -68,38 +68,57 @@ public class SyncProcessor {
         return Optional.of(send(change));
     }
 
+    // AI-assisted: split into sendByType, accepted and rejected to keep each method's complexity
+    // under 10 (metrics baseline); the behaviour is unchanged.
     private SyncStep send(PendingChange change) {
-        SendResult result;
-        if ("loan.replaceCoborrower".equals(change.getMessageType())) {
-            result = new BorrowerReplacement(queue, gateway).send(change);
-        } else if ("customer.replaceDocument".equals(change.getMessageType()) || "loan.replaceDocument".equals(change.getMessageType())) {
-            result = new DocumentReplacement(queue, gateway).send(change);
-        } else {
-            result = gateway.send(change);
-        }
+        SendResult result = sendByType(change);
         switch (result.getOutcome()) {
             case SUCCESS:
-                if (change.getCreatesNumber() != null && (result.getAssignedNumber() == null || result.getAssignedNumber().isBlank())) {
-                    String reason = "The mainframe accepted this record without returning its number. Check the record before retrying.";
-                    setStatusOfPending(change.getCreatesNumber(), PendingChange.Status.PAUSED, reason);
-                    return new SyncStep(change, SyncStep.Outcome.PAUSED, reason);
-                }
-                if (change.getCreatesNumber() != null && result.getAssignedNumber() != null) {
-                    completeCreate(change, result.getAssignedNumber());
-                } else {
-                    queue.delete(change.getId());
-                }
-                return new SyncStep(change, SyncStep.Outcome.SENT, result.getAssignedNumber()).withResponse(result.getResponse());
+                return accepted(change, result);
             case NETWORK_FAILURE:
                 return new SyncStep(change, SyncStep.Outcome.WAITING, result.getMessage());
             default:
-                queue.markRejected(change.getId(), result.getMessage());
-                if (change.getCreatesNumber() != null) {
-                    setStatusOfPending(change.getCreatesNumber(), PendingChange.Status.REJECTED,
-                            "Not sent because change " + change.getId() + " was rejected");
-                }
-                return new SyncStep(change, SyncStep.Outcome.REJECTED, result.getMessage());
+                return rejected(change, result);
         }
+    }
+
+    // Replacing a co-borrower or a document takes more than one message, so those have their own senders.
+    private SendResult sendByType(PendingChange change) {
+        String type = change.getMessageType();
+        if ("loan.replaceCoborrower".equals(type)) {
+            return new BorrowerReplacement(queue, gateway).send(change);
+        }
+        if ("customer.replaceDocument".equals(type) || "loan.replaceDocument".equals(type)) {
+            return new DocumentReplacement(queue, gateway).send(change);
+        }
+        return gateway.send(change);
+    }
+
+    // The mainframe took the change. A new customer or loan swaps its temporary number for the real
+    // one in every later change; if no number came back, its changes wait for the MMM to check it.
+    private SyncStep accepted(PendingChange change, SendResult result) {
+        String temporary = change.getCreatesNumber();
+        String assigned = result.getAssignedNumber();
+        if (temporary == null) {
+            queue.delete(change.getId());
+        } else if (assigned == null || assigned.isBlank()) {
+            String reason = "The mainframe accepted this record without returning its number. Check the record before retrying.";
+            setStatusOfPending(temporary, PendingChange.Status.PAUSED, reason);
+            return new SyncStep(change, SyncStep.Outcome.PAUSED, reason);
+        } else {
+            completeCreate(change, assigned);
+        }
+        return new SyncStep(change, SyncStep.Outcome.SENT, assigned).withResponse(result.getResponse());
+    }
+
+    // Marked and never retried; anything waiting on a rejected new record is rejected with it.
+    private SyncStep rejected(PendingChange change, SendResult result) {
+        queue.markRejected(change.getId(), result.getMessage());
+        if (change.getCreatesNumber() != null) {
+            setStatusOfPending(change.getCreatesNumber(), PendingChange.Status.REJECTED,
+                    "Not sent because change " + change.getId() + " was rejected");
+        }
+        return new SyncStep(change, SyncStep.Outcome.REJECTED, result.getMessage());
     }
 
     // The MMM chose the existing customer, will drop the queued create and point everything else at it.
