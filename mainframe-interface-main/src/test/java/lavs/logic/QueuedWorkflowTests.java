@@ -137,10 +137,12 @@ class QueuedWorkflowTests {
         connection.whenRequested("customerAddress.list", FakeConnection.success(Map.of("items", "1", "total", "1", "1:id", "1", "1:isMailing", "y")));
         connection.whenRequested("customerPhoneNumber.list", FakeConnection.success(Map.of("items", "1", "1:id", "2")));
         connection.whenRequested("customerEmployer.list", FakeConnection.success(Map.of("items", "1", "1:id", "3")));
+        connection.whenRequested("loanCoborrower.list", FakeConnection.success(Map.of("items", "0", "total", "0")));
         connection.whenRequested("loan.updateStatus", FakeConnection.success(Map.of("status", "Pending")));
         var change = new lavs.model.PendingChange("loan.updateStatus", "C1", null, Map.of("loanNumber", "L1", "status", "Pending"));
         assertEquals(SendResult.Outcome.SUCCESS, new VerifiedUploads(gateway).send(change).getOutcome());
-        assertEquals("loan.updateStatus", connection.getSentRequests().get(4).getRequestType());
+        var sent = connection.getSentRequests();
+        assertEquals("loan.updateStatus", sent.get(sent.size() - 1).getRequestType());
     }
     @Test void borrowerChangeUsesDurableCompoundOperation() throws Exception {
         connection.setIsConnected(false);

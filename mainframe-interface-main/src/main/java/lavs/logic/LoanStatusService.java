@@ -10,7 +10,11 @@ import mainframe.client.Status;
 import mainframe.client.messages.loan.Retrieve;
 import mainframe.client.messages.loan.UpdateStatus;
 
+import lavs.model.LoanCoborrower;
+
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class LoanStatusService {
     // loan statuses, so the screen never has to import the mainframe message classes
@@ -23,6 +27,8 @@ public final class LoanStatusService {
     public static final String MAILING_ADDRESS = "mailingAddress";
     public static final String CONTACT_DETAILS = "contactDetails";
     public static final String GUARANTOR = "guarantor";
+    // a co-borrower who needs updating; the message names them
+    public static final String BORROWER = "borrower";
 
     static final long PAGE_SIZE = 50;
     // how customerAddress.list marks a mailing address
@@ -42,9 +48,9 @@ public final class LoanStatusService {
         _borrowers = new LoanBorrowerService(connection);
     }
 
-    // AI-assisted: moves a New loan to Pending once its main borrower passes
-    // the shared eligibility check (a mailing address and a phone number or
-    // email) and the guarantor rule. Every check runs before anything is
+    // AI-assisted: moves a New loan to Pending once its main borrower and every
+    // co-borrower pass the shared eligibility check (a mailing address and a
+    // phone number or email) and the guarantor rule holds. Every check runs before anything is
     // reported, so the MMM sees all the problems at once as field errors. A
     // lookup the mainframe refuses (or a network failure) is returned as its
     // Status, and the loan is left as it was.
@@ -74,7 +80,9 @@ public final class LoanStatusService {
                 return LoanStatusResult.invalid(validation);
             }
             checkEligibility(loan.getCustomerNumber(), validation);
-            checkGuarantorRule(loanNumber, loan.getCustomerNumber(), validation);
+            List<LoanCoborrower> others = listOthersOnTheLoan(loanNumber);
+            checkCoborrowers(others, validation);
+            checkGuarantorRule(loan.getCustomerNumber(), others, validation);
         } catch (LookupFailed e) {
             return LoanStatusResult.fromStatus(e.status);
         }
@@ -103,19 +111,61 @@ public final class LoanStatusService {
         }
     }
 
-    // A main borrower with an employer is fine; otherwise the loan needs a guarantor.
-    // Employers are checked first, so a borrower with one costs no co-borrower lookup.
-    private void checkGuarantorRule(String loanNumber, String customerNumber, ValidationResult validation)
-            throws IOException, LookupFailed {
-        if (hasEmployer(customerNumber)) {
-            return;
-        }
+    // AI-assisted: everyone else on the loan (co-borrowers and guarantors), read once for both
+    // the co-borrower check and the guarantor rule.
+    private List<LoanCoborrower> listOthersOnTheLoan(String loanNumber) throws IOException, LookupFailed {
         LoanBorrowerListResult borrowers = _borrowers.listCoborrowers(loanNumber);
         if (!borrowers.isSuccessful()) {
             throw new LookupFailed(borrowers.getMainframeStatus());
         }
-        boolean hasGuarantor = borrowers.getCoborrowers().stream()
-                .anyMatch(coborrower -> LoanBorrowerService.GUARANTOR.equals(coborrower.getType()));
+        return borrowers.getCoborrowers();
+    }
+
+    // AI-assisted: US9, every co-borrower also needs a mailing address and a phone number or
+    // email. Each one missing something gets their own error naming them, so the MMM knows
+    // whose record to update. Guarantors aren't borrowers, so they aren't checked.
+    private void checkCoborrowers(List<LoanCoborrower> others, ValidationResult validation)
+            throws IOException, LookupFailed {
+        for (LoanCoborrower other : others) {
+            if (!LoanBorrowerService.COBORROWER.equals(other.getType())) {
+                continue;
+            }
+            List<String> missing = missingContactDetails(other.getCoborrowerNumber());
+            if (!missing.isEmpty()) {
+                validation.add(new FieldError(BORROWER,
+                        "co-borrower " + describe(other) + " needs " + String.join(" and ", missing)));
+            }
+        }
+    }
+
+    // what a customer still needs before they can be on a submitted loan; empty when nothing
+    private List<String> missingContactDetails(String customerNumber) throws IOException, LookupFailed {
+        List<String> missing = new ArrayList<>();
+        if (!hasMailingAddress(customerNumber)) {
+            missing.add("a mailing address");
+        }
+        if (!hasPhoneNumber(customerNumber) && !hasEmail(customerNumber)) {
+            missing.add("a phone number or email");
+        }
+        return missing;
+    }
+
+    // "Mere Brown (C-2)", or just the number when the mainframe gave no name
+    private static String describe(LoanCoborrower borrower) {
+        String name = borrower.getCoborrowerName();
+        return name == null || name.isBlank()
+                ? borrower.getCoborrowerNumber()
+                : name.trim() + " (" + borrower.getCoborrowerNumber() + ")";
+    }
+
+    // A main borrower with an employer is fine; otherwise the loan needs a guarantor.
+    private void checkGuarantorRule(String customerNumber, List<LoanCoborrower> others, ValidationResult validation)
+            throws IOException, LookupFailed {
+        if (hasEmployer(customerNumber)) {
+            return;
+        }
+        boolean hasGuarantor = others.stream()
+                .anyMatch(other -> LoanBorrowerService.GUARANTOR.equals(other.getType()));
         if (!hasGuarantor) {
             validation.add(new FieldError(GUARANTOR, "the customer has no employer, so the loan needs a guarantor"));
         }

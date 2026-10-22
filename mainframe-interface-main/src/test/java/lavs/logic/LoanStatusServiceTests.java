@@ -36,6 +36,7 @@ class LoanStatusServiceTests {
     @Test
     void submitsANewLoanWhoseBorrowerHasAMailingAddressAPhoneAndAnEmployer() throws IOException {
         givenLoan(LoanStatusService.NEW);
+        givenCoborrowerTypes();
         givenAddresses("y");
         givenRows("customerPhoneNumber.list", 1);
         givenRows("customerEmployer.list", 1);
@@ -48,14 +49,16 @@ class LoanStatusServiceTests {
         MessageRequest update = sent("loan.updateStatus").get(0);
         assertEquals(LOAN_NUMBER, update.getValue("loanNumber"));
         assertEquals(LoanStatusService.PENDING, update.getValue("status"));
-        // a phone number is enough and so is an employer: no email or co-borrower lookup
+        // a phone number is enough: no email lookup. The co-borrowers are always read, as each
+        // one has to be contactable too
         assertTrue(sent("customerEmail.list").isEmpty());
-        assertTrue(sent("loanCoborrower.list").isEmpty());
+        assertEquals(1, sent("loanCoborrower.list").size());
     }
 
     @Test
     void checksTheLoansOwnBorrowerRatherThanTrustingTheCaller() throws IOException {
         givenLoan(LoanStatusService.NEW);
+        givenCoborrowerTypes();
         givenAddresses("y");
         givenRows("customerPhoneNumber.list", 1);
         givenRows("customerEmployer.list", 1);
@@ -72,6 +75,7 @@ class LoanStatusServiceTests {
     @Test
     void acceptsAnEmailWhenTheCustomerHasNoPhoneNumber() throws IOException {
         givenLoan(LoanStatusService.NEW);
+        givenCoborrowerTypes();
         givenAddresses("y");
         givenRows("customerPhoneNumber.list", 0);
         givenRows("customerEmail.list", 1);
@@ -86,6 +90,7 @@ class LoanStatusServiceTests {
     @Test
     void findsAMailingAddressOnALaterPage() throws IOException {
         givenLoan(LoanStatusService.NEW);
+        givenCoborrowerTypes();
         givenAddressPage(1, 3, "n", "n");
         givenAddressPage(2, 3, "y");
         givenRows("customerPhoneNumber.list", 1);
@@ -117,6 +122,7 @@ class LoanStatusServiceTests {
     @Test
     void blocksACustomerWhoseAddressesAreNotForMailing() throws IOException {
         givenEligibleExceptAddresses();
+        givenCoborrowerTypes();
         givenAddresses("n", "n");
 
         LoanStatusResult result = service.submitForVerification(LOAN_NUMBER);
@@ -127,6 +133,7 @@ class LoanStatusServiceTests {
     @Test
     void blocksACustomerWithNoAddressesAtAll() throws IOException {
         givenEligibleExceptAddresses();
+        givenCoborrowerTypes();
         givenAddresses();
 
         LoanStatusResult result = service.submitForVerification(LOAN_NUMBER);
@@ -137,6 +144,7 @@ class LoanStatusServiceTests {
     @Test
     void stopsReadingAddressesOnAnEmptyPageEvenIfTheTotalSaysThereAreMore() throws IOException {
         givenEligibleExceptAddresses();
+        givenCoborrowerTypes();
         givenAddressPage(1, 5, "n");
         givenAddressPage(2, 5);
 
@@ -149,6 +157,7 @@ class LoanStatusServiceTests {
     @Test
     void anEmailCountsAsContactDetailsEvenWhenTheAddressIsMissing() throws IOException {
         givenLoan(LoanStatusService.NEW);
+        givenCoborrowerTypes();
         givenAddresses();
         givenRows("customerPhoneNumber.list", 0);
         givenRows("customerEmail.list", 1);
@@ -163,6 +172,7 @@ class LoanStatusServiceTests {
     @Test
     void blocksACustomerWithNoPhoneNumberOrEmail() throws IOException {
         givenLoan(LoanStatusService.NEW);
+        givenCoborrowerTypes();
         givenAddresses("y");
         givenRows("customerPhoneNumber.list", 0);
         givenRows("customerEmail.list", 0);
@@ -275,6 +285,7 @@ class LoanStatusServiceTests {
         givenAddresses("y");
         givenRows("customerPhoneNumber.list", 1);
         givenRows("customerEmployer.list", 1);
+        givenCoborrowerTypes();
         connection.whenRequested("loan.updateStatus",
                 FakeConnection.rejected("Loan '" + LOAN_NUMBER + "' cannot change from New to Pending"));
 
@@ -283,6 +294,113 @@ class LoanStatusServiceTests {
         assertFalse(result.isSuccessful());
         assertFalse(result.getMainframeStatus().getWasSuccessful());
         assertNull(result.getLoanStatus());
+    }
+
+    // --- US9: every co-borrower needs a mailing address and a phone number or email ---
+
+    @Test
+    void submitsWhenEveryCoborrowerCanBeReached() throws IOException {
+        givenOnTheLoan(row("C-2", "Mere Brown", LoanBorrowerService.COBORROWER));
+        givenContactDetails("C-2", true, true, false);
+        givenMainBorrowerIsFine();
+        givenStatusChangeSucceeds();
+
+        LoanStatusResult result = service.submitForVerification(LOAN_NUMBER);
+
+        assertTrue(result.isSuccessful());
+    }
+
+    @Test
+    void namesACoborrowerWithoutAMailingAddress() throws IOException {
+        givenOnTheLoan(row("C-2", "Mere Brown", LoanBorrowerService.COBORROWER));
+        givenContactDetails("C-2", false, true, false);
+        givenMainBorrowerIsFine();
+
+        LoanStatusResult result = service.submitForVerification(LOAN_NUMBER);
+
+        assertBlockedBy(result, LoanStatusService.BORROWER);
+        assertEquals("co-borrower Mere Brown (C-2) needs a mailing address",
+                result.getValidationErrors().getErrors().get(0).getMessage());
+    }
+
+    @Test
+    void namesEachCoborrowerAndEverythingTheyAreMissing() throws IOException {
+        givenOnTheLoan(row("C-2", "Mere Brown", LoanBorrowerService.COBORROWER),
+                row("C-3", " ", LoanBorrowerService.COBORROWER),
+                row("C-5", null, LoanBorrowerService.COBORROWER));
+        givenContactDetails("C-2", false, false, false);
+        givenContactDetails("C-3", true, false, false);
+        givenContactDetails("C-5", false, true, false);
+        givenMainBorrowerIsFine();
+
+        LoanStatusResult result = service.submitForVerification(LOAN_NUMBER);
+
+        // a co-borrower without a name is named by their customer number
+        assertEquals(List.of(
+                        "co-borrower Mere Brown (C-2) needs a mailing address and a phone number or email",
+                        "co-borrower C-3 needs a phone number or email",
+                        "co-borrower C-5 needs a mailing address"),
+                result.getValidationErrors().getErrors().stream().map(FieldError::getMessage).toList());
+        assertTrue(sent("loan.updateStatus").isEmpty());
+    }
+
+    @Test
+    void anEmailIsEnoughForACoborrower() throws IOException {
+        givenOnTheLoan(row("C-2", null, LoanBorrowerService.COBORROWER));
+        givenContactDetails("C-2", true, false, true);
+        givenMainBorrowerIsFine();
+        givenStatusChangeSucceeds();
+
+        assertTrue(service.submitForVerification(LOAN_NUMBER).isSuccessful());
+    }
+
+    @Test
+    void doesNotCheckAGuarantorsContactDetails() throws IOException {
+        givenOnTheLoan(row("C-4", "Hemi Walker", LoanBorrowerService.GUARANTOR));
+        givenMainBorrowerIsFine();
+        givenStatusChangeSucceeds();
+
+        LoanStatusResult result = service.submitForVerification(LOAN_NUMBER);
+
+        assertTrue(result.isSuccessful());
+        assertTrue(connection.getSentRequests().stream()
+                .noneMatch(request -> "C-4".equals(request.getValue("number"))));
+    }
+
+    // the main borrower has a mailing address, a phone and an employer
+    private void givenMainBorrowerIsFine() {
+        givenLoan(LoanStatusService.NEW);
+        givenAddresses("y");
+        givenRows("customerPhoneNumber.list", 1);
+        givenRows("customerEmployer.list", 1);
+    }
+
+    // one person on the loan: number, name, type
+    private static String[] row(String number, String name, String type) {
+        return new String[] {number, name, type};
+    }
+
+    private void givenOnTheLoan(String[]... people) {
+        Map<String, String> values = listReply(people.length, people.length);
+        for (int i = 1; i <= people.length; i++) {
+            values.put(i + ":coborrowerNumber", people[i - 1][0]);
+            if (people[i - 1][1] != null) {
+                values.put(i + ":coborrowerName", people[i - 1][1]);
+            }
+            values.put(i + ":type", people[i - 1][2]);
+        }
+        connection.whenRequested("loanCoborrower.list", FakeConnection.success(values));
+    }
+
+    // scripted for this customer only, so call it before the main borrower's replies
+    private void givenContactDetails(String number, boolean mailing, boolean phone, boolean email) {
+        Map<String, String> address = listReply(1, 1);
+        address.put("1:isMailing", mailing ? "y" : "n");
+        connection.whenRequested("customerAddress.list", Map.of("number", number), FakeConnection.success(address));
+        connection.whenRequested("customerPhoneNumber.list", Map.of("number", number),
+                FakeConnection.success(listReply(phone ? 1 : 0, phone ? 1 : 0)));
+        connection.whenRequested("customerEmail.list", Map.of("number", number),
+                FakeConnection.success(listReply(email ? 1 : 0, email ? 1 : 0)));
     }
 
     // --- helpers ---

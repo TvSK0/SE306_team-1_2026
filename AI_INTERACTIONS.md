@@ -8,6 +8,22 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-23 - Gabeliu, Claude Code (Opus 5.5) - US9 every co-borrower
+
+**Prompt (summarised):** complete the remaining work; US9's acceptance criteria
+say every borrower needs contact details and the MMM is told who to update.
+
+**What it changed:** `LoanStatusService` now checks every co-borrower on the
+loan (mailing address and a phone number or email), naming each one who is
+missing something, e.g. "co-borrower Mere Brown (C-2) needs a mailing
+address". Guarantors aren't checked, as they aren't borrowers. The borrower
+list is read once and reused for the guarantor rule. Tests updated and added
+in `LoanStatusServiceTests`, `LoanSubmissionTests` and `QueuedWorkflowTests`.
+
+**Marking:** the new methods and tests carry an `// AI-assisted` comment.
+
+---
+
 ## 2026-10-23 - Gabeliu, Claude Code (Opus 5.5) - handoff fixes on #47
 
 **Prompt (summarised):** fix the problems listed in the team handoff that are
