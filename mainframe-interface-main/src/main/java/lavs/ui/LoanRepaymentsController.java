@@ -97,7 +97,7 @@ public class LoanRepaymentsController {
 
     private void showResult(LoanRepaymentsResult result) {
         if (!result.isSuccessful()) {
-            showFailure(RepaymentsText.forFailure(result.getMainframeStatus()));
+            showFailure(RepaymentsText.forFailure(result.getReply()));
             return;
         }
         hideMessage();

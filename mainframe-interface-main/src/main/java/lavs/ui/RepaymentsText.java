@@ -1,7 +1,6 @@
 package lavs.ui;
 
-import mainframe.client.Status;
-import mainframe.client.StatusMessage;
+import lavs.logic.MainframeReply;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -28,10 +27,10 @@ public final class RepaymentsText {
         return date.format(DAY_FIRST);
     }
 
-    public static String forFailure(Status status) {
-        if (StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode().equals(status.getErrorCode())) {
+    public static String forFailure(MainframeReply reply) {
+        if (reply.isNetworkFailure()) {
             return "Couldn't reach the mainframe. Check your connection and click Refresh.";
         }
-        return "The mainframe couldn't produce the repayments: " + status.getErrorMessage();
+        return "The mainframe couldn't produce the repayments: " + reply.getErrorMessage();
     }
 }

@@ -4,8 +4,7 @@ import lavs.logic.LoanStatusResult;
 import lavs.logic.LoanStatusService;
 import lavs.model.Loan;
 import lavs.validation.FieldError;
-import mainframe.client.Status;
-import mainframe.client.StatusMessage;
+import lavs.logic.MainframeReply;
 
 import java.io.UncheckedIOException;
 import java.util.stream.Collectors;
@@ -31,18 +30,18 @@ public final class LoanSubmission {
         if (result.isSuccessful()) {
             return "Submitted for verification. Status: " + result.getLoanStatus();
         }
-        Status status = result.getMainframeStatus();
-        if (lavs.logic.SaveStatus.isQueued(status)) return lavs.logic.SaveStatus.message(status);
-        // no status means a check stopped it before the mainframe was asked to change anything
-        if (status == null) {
+        MainframeReply reply = result.getReply();
+        if (reply.isQueued()) return reply.getQueuedMessage();
+        // no reply means a check stopped it before the mainframe was asked to change anything
+        if (!reply.wasAnswered()) {
             return "This loan can't be submitted yet:\n" + result.getValidationErrors().getErrors().stream()
                     .map(LoanSubmission::bullet)
                     .collect(Collectors.joining("\n"));
         }
-        if (StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode().equals(status.getErrorCode())) {
+        if (reply.isNetworkFailure()) {
             return couldNotReachTheMainframe();
         }
-        return "The mainframe didn't accept the submission: " + status.getErrorMessage();
+        return "The mainframe didn't accept the submission: " + reply.getErrorMessage();
     }
 
     // for something the service threw rather than returned

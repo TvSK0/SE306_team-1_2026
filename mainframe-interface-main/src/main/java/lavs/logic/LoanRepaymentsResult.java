@@ -34,6 +34,11 @@ public final class LoanRepaymentsResult {
         return _mainframeStatus;
     }
 
+    // AI-assisted: the same answer for the screens, which don't use mainframe.client.Status
+    public MainframeReply getReply() {
+        return MainframeReply.of(getMainframeStatus());
+    }
+
     // null unless the load worked
     public LoanSummary getSummary() {
         return _summary;

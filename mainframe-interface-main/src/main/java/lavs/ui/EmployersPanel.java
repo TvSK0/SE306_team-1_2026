@@ -107,9 +107,9 @@ public final class EmployersPanel extends VBox {
             busy(false);
             errors.present(result.getValidationErrors());
             if (result.isSuccessful()) { fill(null); load(); }
-            else if (lavs.logic.SaveStatus.isQueued(result.getMainframeStatus())) { fill(null); message.setText(lavs.logic.SaveStatus.message(result.getMainframeStatus())); }
+            else if (result.getReply().isQueued()) { fill(null); message.setText(result.getReply().getQueuedMessage()); }
             else if (!result.getValidationErrors().isValid()) message.setText(ResultText.FIX_FIELDS);
-            else message.setText(result.getMainframeStatus().getErrorMessage());
+            else message.setText(result.getReply().getErrorMessage());
         }, this::failed);
     }
 

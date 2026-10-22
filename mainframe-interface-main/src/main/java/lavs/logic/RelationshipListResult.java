@@ -43,6 +43,11 @@ public final class RelationshipListResult {
         return _mainframeStatus;
     }
 
+    // AI-assisted: the same answer for the screens, which don't use mainframe.client.Status
+    public MainframeReply getReply() {
+        return MainframeReply.of(getMainframeStatus());
+    }
+
     // in the order the mainframe returned them; cannot be modified
     public List<CustomerRelationship> getRelationships() {
         return _relationships;

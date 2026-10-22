@@ -116,7 +116,7 @@ class BorrowersTextTests {
         LoanBorrowerListResult result = service.listCoborrowers(LOAN_NUMBER);
 
         assertEquals("The mainframe couldn't list the co-borrowers and guarantors: no such loan",
-                BorrowersText.forListFailure(result.getMainframeStatus()));
+                BorrowersText.forListFailure(result.getReply()));
     }
 
     @Test
@@ -126,7 +126,7 @@ class BorrowersTextTests {
         LoanBorrowerListResult result = service.listCoborrowers(LOAN_NUMBER);
 
         assertEquals("Couldn't reach the mainframe. Check your connection and try again.",
-                BorrowersText.forListFailure(result.getMainframeStatus()));
+                BorrowersText.forListFailure(result.getReply()));
     }
 
     // --- something thrown ---

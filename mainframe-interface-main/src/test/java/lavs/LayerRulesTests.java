@@ -26,8 +26,8 @@ class LayerRulesTests {
 
     // what each layer must not refer to, as package or class name prefixes
     private static final Map<String, List<String>> FORBIDDEN = Map.of(
-            "ui", List.of("java.sql", "lavs.data", "mainframe.client.messages",
-                    "mainframe.client.Connection", "mainframe.client.HttpConnection"),
+            // AI-assisted: all of mainframe.client, Status included; screens read MainframeReply instead
+            "ui", List.of("java.sql", "lavs.data", "mainframe.client"),
             "logic", List.of("javafx", "java.sql", "lavs.ui"),
             "data", List.of("javafx", "lavs.ui", "lavs.logic"),
             "model", List.of("javafx", "java.sql", "mainframe", "lavs.ui", "lavs.logic", "lavs.data", "lavs.validation"),

@@ -59,6 +59,11 @@ public final class ServiceResult<T> {
         return gatewayResult == null ? null : gatewayResult.getStatus();
     }
 
+    // AI-assisted: the same answer for the screens, which don't use mainframe.client.Status
+    public MainframeReply getReply() {
+        return MainframeReply.of(getMainframeStatus());
+    }
+
     // what the call produced, e.g. the saved customer; null unless successful
     public T getValue() {
         return value;

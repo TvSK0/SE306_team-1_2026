@@ -122,7 +122,7 @@ public class RelationshipsTextTests {
 
         // Act + Assert
         Assertions.assertEquals("Couldn't reach the mainframe. Check your connection and try again.",
-                RelationshipsText.forLoadFailure(status));
+                RelationshipsText.forLoadFailure(lavs.logic.MainframeReply.of(status)));
     }
 
     @Test
@@ -132,6 +132,6 @@ public class RelationshipsTextTests {
 
         // Act + Assert
         Assertions.assertEquals("The relationships could not be loaded: query error",
-                RelationshipsText.forLoadFailure(status));
+                RelationshipsText.forLoadFailure(lavs.logic.MainframeReply.of(status)));
     }
 }

@@ -226,19 +226,19 @@ public class LoanBorrowersController {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        showMessage(BorrowersText.forChange(result, successText), !result.isSuccessful() && !lavs.logic.SaveStatus.isQueued(result.getMainframeStatus()));
-        if (result.isSuccessful() || lavs.logic.SaveStatus.isQueued(result.getMainframeStatus())) {
+        showMessage(BorrowersText.forChange(result, successText), !result.isSuccessful() && !result.getReply().isQueued());
+        if (result.isSuccessful() || result.getReply().isQueued()) {
             onSuccess.run();
         }
         // only the field checks stop a change before the mainframe is contacted
-        if (result.getMainframeStatus() != null && !lavs.logic.SaveStatus.isQueued(result.getMainframeStatus())) {
+        if (result.getReply().wasAnswered() && !result.getReply().isQueued()) {
             load(_loanNumber);
         }
     }
 
     private void showList(LoanBorrowerListResult result) {
         if (!result.isSuccessful()) {
-            showListFailure(BorrowersText.forListFailure(result.getMainframeStatus()));
+            showListFailure(BorrowersText.forListFailure(result.getReply()));
             return;
         }
         _emptyLabel.setText(BorrowersText.NOBODY_YET);

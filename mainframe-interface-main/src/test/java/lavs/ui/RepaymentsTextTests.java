@@ -44,7 +44,7 @@ public class RepaymentsTextTests {
         Status status = StatusMessage.NETWORK_FAILURE_UNAVAILABLE.generateMessageResponse(1).getStatus();
 
         // Act
-        String text = RepaymentsText.forFailure(status);
+        String text = RepaymentsText.forFailure(lavs.logic.MainframeReply.of(status));
 
         // Assert
         Assertions.assertEquals("Couldn't reach the mainframe. Check your connection and click Refresh.", text);
@@ -56,7 +56,7 @@ public class RepaymentsTextTests {
         Status status = new Status(StatusMessage.SERVER_FAILURE.getCode(), "Unable to run query: query error", 1);
 
         // Act
-        String text = RepaymentsText.forFailure(status);
+        String text = RepaymentsText.forFailure(lavs.logic.MainframeReply.of(status));
 
         // Assert
         Assertions.assertEquals(
