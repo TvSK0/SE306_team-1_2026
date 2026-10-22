@@ -8,6 +8,26 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - sync integration tests
+
+**Prompt (summarised):** same session; write the Phase 4 integration tests for
+dropout, restart and reconnect now that the gateway exists.
+
+**What it produced** on `test/sync-integration` (built on the gateway branch):
+
+- `SyncIntegrationTests`: a real SQLite file in a temp folder, the real
+  queue, `SyncService` and `MainframeGateway`, with a `FakeConnection` for
+  the network. Covers: a save made offline waits on disk; a dropout half way
+  keeps the rest in order; reconnecting sends oldest first; a customer
+  created offline gets its real number in later changes; a possible
+  duplicate is held until the MMM picks the existing customer; saves left at
+  close are sent after a restart; a rejected change stays rejected across a
+  restart and is never retried.
+
+**Marking:** the test class carries an `// AI-assisted` comment.
+
+---
+
 ## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - mainframe gateway
 
 **Prompt (summarised):** the team agreed I take over Scott's cards; build the
