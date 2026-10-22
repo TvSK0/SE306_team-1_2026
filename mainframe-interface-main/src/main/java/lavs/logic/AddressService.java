@@ -20,7 +20,8 @@ import java.util.List;
 // An address needs a type (and a description for "Other"), a first line, a city and a
 // country. A New Zealand address also needs a 4-digit postcode.
 //
-// TEMPORARY: saves go straight to the mainframe until SyncService is composed in LavsApp.
+// Saves go through the gateway, which hands every write to the upload queue (QueuedWrites)
+// once LavsApp has set it up, so a save made offline waits on this laptop until it uploads.
 public class AddressService {
     public static final String CUSTOMER_NUMBER = "customerNumber";
     static final long PAGE_SIZE = 50;

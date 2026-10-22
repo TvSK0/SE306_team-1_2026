@@ -58,7 +58,7 @@ public final class PendingUploadsState {
 
     // Human-readable label for the change, e.g. "Add employer" for "customer.addEmployer".
     // Covers every write message the app currently sends; unknown types fall back to the raw name.
-    static String descriptionFor(PendingChange change) {
+    public static String descriptionFor(PendingChange change) {
         return switch (change.getMessageType()) {
             case "customer.create"           -> "Create customer";
             case "customer.update"           -> "Update customer details";
@@ -100,7 +100,7 @@ public final class PendingUploadsState {
     }
 
     // maps status to short labels that describe what the queue is doingw ith this change.
-    static String statusTextFor(PendingChange change) {
+    public static String statusTextFor(PendingChange change) {
         return switch (change.getStatus()) {
             case PENDING  -> "Waiting to upload";
             case PAUSED   -> "Paused — action needed";

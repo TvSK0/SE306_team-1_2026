@@ -14,8 +14,8 @@ import java.io.IOException;
 
 // US5: add, update and delete employer records for a customer.
 //
-// TEMPORARY: uses Connection directly. Once Scott's mainframe gateway is
-// on main, swap Connection for SyncService so writes also work offline.
+// Saves go through the gateway, which hands every write to the upload queue (QueuedWrites)
+// once LavsApp has set it up, so a save made offline waits on this laptop until it uploads.
 //
 // salary is accepted as a String so the UI can validate the format before
 // parsing. Validators.currency() checks the shape; a blank salary is fine

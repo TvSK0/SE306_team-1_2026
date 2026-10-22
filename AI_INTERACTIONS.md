@@ -8,6 +8,30 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-23 - Gabeliu, Claude Code (Opus 5.5) - handoff fixes on #47
+
+**Prompt (summarised):** fix the problems listed in the team handoff that are
+still there on #47's branch.
+
+**What it changed** on `fix/handoff-issues` (on top of
+`feature/complete-customer-workflow`):
+
+- Replaced the out-of-date TEMPORARY notes in AddressService, EmailService,
+  PhoneNumberService, CustomerService, EmployerService, FixedStatusFeed and
+  SyncStatusFeed: saves now go through the upload queue, and FixedStatusFeed
+  is only for the demo screen. No TEMPORARY notes are left.
+- RelationshipsController asks with the shared ConfirmDialog instead of an
+  Alert.
+- Navigator shows an error window when a screen can't be opened, instead of
+  only printing the stack trace.
+- Moved PendingUploadsState (no JavaFX) from ui to logic with its tests, so
+  they count toward the logic coverage gate.
+
+**Marking:** the new Navigator code carries an `// AI-assisted` comment; the
+rest are comment, package and wording changes.
+
+---
+
 ## 2026-10-22 - Aum, Claude Code - restore the US11 pieces lost when #48 was merged into #47
 
 **Prompt (summarised):** #47 and #48 both routed saves through the upload queue, and the merge
@@ -22,8 +46,7 @@ kept #47's version. Bring back the parts of #48 that main lost, on top of the me
   "Possible existing customer: ..." message text.
 - `SyncService.dismissRejected`: dismissing a rejected new customer or loan also removes the
   changes that were rejected because of it.
-- Moved `PendingUploadsState` from `ui` to `logic` so its tests count toward coverage, and put
-  the row decisions back in it (`canDismiss`, `canResolveDuplicate`, `getDuplicateMatches`,
+- Put the row decisions back in `PendingUploadsState` (now in `logic`, moved there by #49 too) (`canDismiss`, `canResolveDuplicate`, `getDuplicateMatches`,
   `getCustomerLabel`, `getSavedDetails`, and the dismiss / use existing / new customer
   actions, which go through #47's `SyncService.resolveDuplicate`). `PendingUploadsPanel` now
   only builds the controls from those rows.
