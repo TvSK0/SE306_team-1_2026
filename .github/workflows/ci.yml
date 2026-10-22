@@ -1,19 +1,28 @@
-# AI-assisted: CI for pull requests into main.
+# AI-assisted: CI for every pull request, and for main.
 # Builds the app, runs the test suite and enforces the 95% logic (branch)
-# coverage gate configured in mainframe-interface-main/pom.xml. Pair this
-# workflow with a branch protection rule on `main` that requires this job
-# ("build-and-test") to pass plus one approving review before merging
-# (Settings > Branches > Branch protection rules - needs repo admin access).
+# coverage gate configured in mainframe-interface-main/pom.xml.
+#
+# Runs on pull requests into any branch, not just main, so a PR stacked on
+# another PR is checked too.
+#
+# Branch protection on main (this job must pass plus one approval) needs a
+# repo admin, and GitHub only offers it for a private repo on GitHub Pro or
+# a paid plan (Settings > Branches). Until then, check this job is green
+# before merging.
 name: CI
 
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
 permissions:
   contents: read
+
+# a newer push to the same PR replaces a run that is still going
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
