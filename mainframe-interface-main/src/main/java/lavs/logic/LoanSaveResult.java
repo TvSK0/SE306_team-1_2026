@@ -45,6 +45,11 @@ public final class LoanSaveResult {
         return _mainframeStatus;
     }
 
+    // AI-assisted: the same answer for the screens, which don't use mainframe.client.Status
+    public MainframeReply getReply() {
+        return MainframeReply.of(getMainframeStatus());
+    }
+
     // The loan as the mainframe saved it (with its loan number and status), or null.
     public Loan getLoan() {
         return _loan;

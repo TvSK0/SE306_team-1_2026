@@ -3,8 +3,7 @@ package lavs.ui;
 import lavs.logic.RelationshipInput;
 import lavs.logic.RelationshipResult;
 import lavs.model.CustomerRelationship;
-import mainframe.client.Status;
-import mainframe.client.StatusMessage;
+import lavs.logic.MainframeReply;
 
 // The text the Relationships view shows, kept free of JavaFX so it can be unit tested.
 public final class RelationshipsText {
@@ -37,28 +36,24 @@ public final class RelationshipsText {
         if (result.isSuccessful()) {
             return doneText;
         }
-        Status status = result.getMainframeStatus();
-        if (lavs.logic.SaveStatus.isQueued(status)) return lavs.logic.SaveStatus.message(status);
-        // no status means the field checks stopped the change before the mainframe was contacted
-        if (status == null) {
+        MainframeReply reply = result.getReply();
+        if (reply.isQueued()) return reply.getQueuedMessage();
+        // no reply means the field checks stopped the change before the mainframe was contacted
+        if (!reply.wasAnswered()) {
             return "Please fix the highlighted fields.";
         }
-        if (isNetworkFailure(status)) {
+        if (reply.isNetworkFailure()) {
             return NO_CONNECTION;
         }
-        return "The mainframe rejected the change: " + status.getErrorMessage();
+        return "The mainframe rejected the change: " + reply.getErrorMessage();
     }
 
     // the message shown when the list could not be loaded
-    public static String forLoadFailure(Status status) {
-        if (isNetworkFailure(status)) {
+    public static String forLoadFailure(MainframeReply reply) {
+        if (reply.isNetworkFailure()) {
             return NO_CONNECTION;
         }
-        return "The relationships could not be loaded: " + status.getErrorMessage();
-    }
-
-    private static boolean isNetworkFailure(Status status) {
-        return StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode().equals(status.getErrorCode());
+        return "The relationships could not be loaded: " + reply.getErrorMessage();
     }
 
     private static boolean isBlank(String value) {

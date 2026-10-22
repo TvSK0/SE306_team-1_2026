@@ -41,6 +41,11 @@ public final class RelationshipResult {
         return _mainframeStatus;
     }
 
+    // AI-assisted: the same answer for the screens, which don't use mainframe.client.Status
+    public MainframeReply getReply() {
+        return MainframeReply.of(getMainframeStatus());
+    }
+
     // the relationship as the mainframe saved it; null after a delete or a failure
     public CustomerRelationship getRelationship() {
         return _relationship;

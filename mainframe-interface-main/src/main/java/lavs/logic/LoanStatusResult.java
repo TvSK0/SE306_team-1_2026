@@ -47,6 +47,11 @@ public final class LoanStatusResult {
         return mainframeStatus;
     }
 
+    // AI-assisted: the same answer for the screens, which don't use mainframe.client.Status
+    public MainframeReply getReply() {
+        return MainframeReply.of(getMainframeStatus());
+    }
+
     // the loan's status after a successful change, e.g. "Pending"; null otherwise
     public String getLoanStatus() {
         return loanStatus;

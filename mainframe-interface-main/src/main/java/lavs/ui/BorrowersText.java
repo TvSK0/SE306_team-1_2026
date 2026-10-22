@@ -3,8 +3,7 @@ package lavs.ui;
 import lavs.logic.LoanBorrowerResult;
 import lavs.logic.LoanBorrowerService;
 import lavs.model.LoanCoborrower;
-import mainframe.client.Status;
-import mainframe.client.StatusMessage;
+import lavs.logic.MainframeReply;
 
 import java.io.UncheckedIOException;
 
@@ -68,18 +67,18 @@ public final class BorrowersText {
         if (result.isSuccessful()) {
             return successText;
         }
-        Status status = result.getMainframeStatus();
-        if (lavs.logic.SaveStatus.isQueued(status)) return lavs.logic.SaveStatus.message(status);
-        // no status means the field checks stopped it before the mainframe was contacted
-        if (status == null) {
+        MainframeReply reply = result.getReply();
+        if (reply.isQueued()) return reply.getQueuedMessage();
+        // no reply means the field checks stopped it before the mainframe was contacted
+        if (!reply.wasAnswered()) {
             return "Please fix the highlighted fields.";
         }
-        return forFailure(status, "The mainframe didn't accept the change: ");
+        return forFailure(reply, "The mainframe didn't accept the change: ");
     }
 
     // when the list itself couldn't be read
-    public static String forListFailure(Status status) {
-        return forFailure(status, "The mainframe couldn't list the co-borrowers and guarantors: ");
+    public static String forListFailure(MainframeReply reply) {
+        return forFailure(reply, "The mainframe couldn't list the co-borrowers and guarantors: ");
     }
 
     // for something a service threw rather than returned
@@ -90,11 +89,11 @@ public final class BorrowersText {
         return "Something went wrong: " + failure.getMessage();
     }
 
-    private static String forFailure(Status status, String refusedPrefix) {
-        if (StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode().equals(status.getErrorCode())) {
+    private static String forFailure(MainframeReply reply, String refusedPrefix) {
+        if (reply.isNetworkFailure()) {
             return couldNotReachTheMainframe();
         }
-        return refusedPrefix + status.getErrorMessage();
+        return refusedPrefix + reply.getErrorMessage();
     }
 
     private static String couldNotReachTheMainframe() {

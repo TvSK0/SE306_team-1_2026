@@ -124,11 +124,11 @@ public class LoanScreenController {
                     _submitting.finish();
                     if (result.isSuccessful()) {
                         _loan.setStatus(result.getLoanStatus());
-                    } else if (lavs.logic.SaveStatus.isQueued(result.getMainframeStatus())) {
+                    } else if (result.getReply().isQueued()) {
                         _loan.setStatus("Waiting to submit");
                     }
                     showHeader();
-                    showSubmitMessage(LoanSubmission.messageFor(result), !result.isSuccessful() && !lavs.logic.SaveStatus.isQueued(result.getMainframeStatus()));
+                    showSubmitMessage(LoanSubmission.messageFor(result), !result.isSuccessful() && !result.getReply().isQueued());
                 },
                 failure -> {
                     _submitting.finish();

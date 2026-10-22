@@ -38,4 +38,9 @@ public final class EmployerResult {
     public Status getMainframeStatus() {
         return mainframeStatus;
     }
+
+    // AI-assisted: the same answer for the screens, which don't use mainframe.client.Status
+    public MainframeReply getReply() {
+        return MainframeReply.of(getMainframeStatus());
+    }
 }

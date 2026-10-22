@@ -129,7 +129,7 @@ public class RelationshipsController {
 
     private void showList(RelationshipListResult result) {
         if (!result.isSuccessful()) {
-            showListFailure(RelationshipsText.forLoadFailure(result.getMainframeStatus()));
+            showListFailure(RelationshipsText.forLoadFailure(result.getReply()));
             return;
         }
         _emptyLabel.setText("No relationships yet.");
@@ -230,8 +230,8 @@ public class RelationshipsController {
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);
         }
-        showMessage(RelationshipsText.forResult(result, doneText), !result.isSuccessful() && !lavs.logic.SaveStatus.isQueued(result.getMainframeStatus()));
-        if (result.isSuccessful() || lavs.logic.SaveStatus.isQueued(result.getMainframeStatus())) {
+        showMessage(RelationshipsText.forResult(result, doneText), !result.isSuccessful() && !result.getReply().isQueued());
+        if (result.isSuccessful() || result.getReply().isQueued()) {
             startAdding();
             if (result.isSuccessful()) load();
         }
