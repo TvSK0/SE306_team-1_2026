@@ -9,7 +9,7 @@ import lavs.logic.SyncSessions;
 import lavs.model.Email;
 import lavs.model.PendingChange;
 import lavs.ui.ResultText;
-import lavs.ui.SyncStatusFeed;
+import lavs.ui.SessionStatusFeed;
 import lavs.ui.TopBarState;
 import mainframe.client.FakeConnection;
 import mainframe.client.MessageRequest;
@@ -60,7 +60,9 @@ class US11AcceptanceTests {
         assertEquals(ServiceResult.Outcome.WAITING, saved.getOutcome());
         assertEquals("Saved locally. Waiting to upload.", ResultText.forChange(saved, "Email added."));
         assertEquals(1, sync.getChanges().size(), "kept on the laptop");
-        assertEquals("1 waiting to upload", new TopBarState(new SyncStatusFeed(sync)).getStatusDetail());
+        SessionStatusFeed topBarFeed = new SessionStatusFeed();
+        topBarFeed.attach(sync);
+        assertEquals("1 waiting to upload", new TopBarState(topBarFeed).getStatusDetail());
     }
 
     @Test
