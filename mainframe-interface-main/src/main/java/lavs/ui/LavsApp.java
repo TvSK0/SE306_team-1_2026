@@ -38,7 +38,6 @@ import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-// TEMPORARY: swap this for the real package name once Scott's skeleton exists.
 // Starts the desktop app: builds the window (top bar + navigator) and shows the login screen.
 public class LavsApp extends Application {
     // every screen shares this one stylesheet (colour tokens, type, components)
