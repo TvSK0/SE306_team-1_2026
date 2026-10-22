@@ -224,6 +224,15 @@
 .lavs-nav-item.selected .lavs-nav-label { -fx-font-family: "Segoe UI Semibold"; -fx-text-fill: -lavs-primary; }
 .lavs-nav-count { -fx-font-size: 12px; -fx-text-fill: -lavs-text-muted; }
 
+/* ---- customer record header (Figma 03a) ---- */
+.lavs-record-header {
+    -fx-background-color: -lavs-surface;
+    -fx-border-color: transparent transparent -lavs-border transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 14 24 14 24;
+}
+.lavs-record-name { -fx-font-size: 22px; -fx-font-weight: bold; }
+
 /* ---- top bar ---- */
 .lavs-topbar { -fx-background-color: -lavs-topbar; -fx-padding: 12 24 12 24; }
 .lavs-topbar-brand { -fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white; }
