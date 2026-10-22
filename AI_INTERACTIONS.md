@@ -8,6 +8,28 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Aum, Claude Code (Opus 4.8) - fix SyncService.drain notify ordering
+
+**Prompt (summarised):** fix the intermittent `SyncServiceTests.onlineSaveIsSentStraightAway`
+failure (~1 in 4) caused by `drain()` completing a change's future before notifying listeners.
+
+**What it assisted with** on `fix/sync-drain-notify-order`:
+
+- `lavs.logic.SyncService.drain()` - assisted swapping the order so `notifyListeners()` runs
+  **before** `complete(...)` in the send loop, and before `answerWaitingAfterError(...)` in the
+  error path. Now a caller woken by its future's result (and any listener it then reads, e.g. the
+  pending count) sees the up-to-date state - the same order `runOnSyncThread` already used.
+  Completing first was a race the top bar and the test could lose.
+
+**Tests:** no new test. The existing `onlineSaveIsSentStraightAway` becomes deterministic; ran
+`SyncServiceTests` 12 times in a row with no failure to confirm the flake is gone.
+
+**Validation:** `mvn -B clean verify` passed - 731 tests, 95% branch coverage gate met.
+
+**Marking:** the reordered lines in `drain()` carry `// AI-assisted:` comments.
+
+---
+
 ## 2026-10-22 - Gabeliu, Codex - PR integration and sync status
 
 **Prompt (summarised):** finish Claude's outstanding work, fix and verify all
