@@ -34,6 +34,8 @@ public class SyncService implements AutoCloseable {
     private final Map<Long, CompletableFuture<SyncStep>> waiting = new ConcurrentHashMap<>();
     private final List<Runnable> listeners = new CopyOnWriteArrayList<>();
     private volatile RuntimeException lastError;
+    // AI-assisted: UI reads the last background result, never a network probe.
+    private volatile boolean connected;
 
     // How long close() waits for the sync thread before stopping it.
     static final long CLOSE_WAIT_SECONDS = 5;
@@ -58,7 +60,7 @@ public class SyncService implements AutoCloseable {
     /** Sends anything left from last time, then retries every interval while changes are waiting. */
     public void start(Duration retryInterval) {
         long millis = retryInterval.toMillis();
-        executor.execute(this::drain);
+        executor.execute(this::retryIfConnected);
         executor.scheduleWithFixedDelay(this::retryIfConnected, millis, millis, TimeUnit.MILLISECONDS);
     }
 
@@ -132,9 +134,9 @@ public class SyncService implements AutoCloseable {
         return processor.resolveNumber(number);
     }
 
-    /** Whether the gateway currently reports a live mainframe connection. */
+    /** Last background connection result; false until the first check finishes. */
     public boolean isConnected() {
-        return gateway.isConnected();
+        return connected;
     }
 
     /** Called on the sync thread whenever the queue changes. UI listeners must hop back to the UI thread. */
@@ -164,8 +166,24 @@ public class SyncService implements AutoCloseable {
     }
 
     void retryIfConnected() {
-        if (gateway.isConnected()) {
+        // AI-assisted: probe on the sync thread, including when the queue is empty.
+        // A failed probe must not cancel all future scheduled retries.
+        try {
+            updateConnected(gateway.isConnected());
+        } catch (RuntimeException e) {
+            lastError = e;
+            updateConnected(false);
+            return;
+        }
+        if (connected) {
             drain();
+        }
+    }
+
+    private void updateConnected(boolean value) {
+        if (connected != value) {
+            connected = value;
+            notifyListeners();
         }
     }
 
@@ -176,6 +194,11 @@ public class SyncService implements AutoCloseable {
                 Optional<SyncStep> step = processor.processNext();
                 if (step.isEmpty()) {
                     break;
+                }
+                if (step.get().getOutcome() == SyncStep.Outcome.WAITING) {
+                    updateConnected(false);
+                } else if (step.get().getOutcome() == SyncStep.Outcome.SENT) {
+                    updateConnected(true);
                 }
                 complete(step.get().getChange().getId(), step.get());
                 notifyListeners();

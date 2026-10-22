@@ -5,8 +5,8 @@ import lavs.logic.SyncService;
 
 // The real StatusFeed: delegates online/pending state and change notifications to SyncService.
 // Replaces FixedStatusFeed once the services are composed in LavsApp (see the TEMPORARY comment
-// there). The gateway's isConnected() is exposed through SyncService.isConnected() so this class
-// only imports from lavs.logic.
+// there). SyncService.isConnected() reads the last background check, so refreshing the
+// top bar never pings the mainframe on the JavaFX thread.
 public final class SyncStatusFeed implements StatusFeed {
     private final SyncService _sync;
 

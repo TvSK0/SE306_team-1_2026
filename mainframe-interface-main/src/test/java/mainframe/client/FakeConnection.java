@@ -1,19 +1,23 @@
 package mainframe.client;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 // A test Connection that replies based on what is asked. Unlike StubConnection,
 // it can return different responses for different requests, simulate rejections
-// and network failures, and records every request it receives.
+// and network failures, and records every request it receives. It can be used
+// from background threads, e.g. by a screen running its calls through
+// BackgroundTasks.
 public class FakeConnection implements Connection {
-    private final List<Rule> _rules = new ArrayList<>();
-    private final List<MessageRequest> _sentRequests = new ArrayList<>();
-    private boolean _isConnected = true;
-    private Status _loginStatus = new Status(1);
+    private final List<Rule> _rules = new CopyOnWriteArrayList<>();
+    private final List<MessageRequest> _sentRequests = new CopyOnWriteArrayList<>();
+    private volatile boolean _isConnected = true;
+    private volatile Status _loginStatus = new Status(1);
+    private volatile Duration _delay = Duration.ZERO;
 
     // replies with the response for any request of this type
     public void whenRequested(String requestType, MessageResponse response) {
@@ -41,9 +45,24 @@ public class FakeConnection implements Connection {
         _loginStatus = status;
     }
 
+    // AI-assisted: makes every send() wait this long before it answers, like a slow
+    // network, so a screen can be checked for its loading state and for not freezing.
+    // Zero, the default, answers straight away.
+    public void setDelay(Duration delay) {
+        if (delay.isNegative()) {
+            throw new IllegalArgumentException("delay cannot be negative: " + delay);
+        }
+        _delay = delay;
+    }
+
     @Override
     public MessageResponse send(MessageRequest request) {
         _sentRequests.add(request);
+        // AI-assisted: a request interrupted while it waits never gets an answer, the
+        // same as a dropped connection; the interrupt is kept for the caller to see.
+        if (!waitForDelay()) {
+            return networkDown();
+        }
         // AI-assisted: the one behaviour this card adds - previously
         // setIsConnected(false) only changed what isConnected() reported;
         // send() ignored it and kept returning scripted responses.
@@ -110,6 +129,20 @@ public class FakeConnection implements Connection {
     // the response HttpConnection returns when the server cannot be reached
     public static MessageResponse networkDown() {
         return StatusMessage.NETWORK_FAILURE_UNAVAILABLE.generateMessageResponse(1);
+    }
+
+    // false when interrupted while waiting
+    private boolean waitForDelay() {
+        if (_delay.isZero()) {
+            return true;
+        }
+        try {
+            Thread.sleep(_delay.toMillis());
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     private static String describe(MessageRequest request) {

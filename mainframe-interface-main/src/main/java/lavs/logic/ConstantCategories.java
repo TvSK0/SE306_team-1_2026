@@ -1,4 +1,3 @@
-// TEMPORARY: swap this package for Scott's logic package once his skeleton is on main.
 package lavs.logic;
 
 // The category names the mainframe uses for its constants. Screens pass these to
