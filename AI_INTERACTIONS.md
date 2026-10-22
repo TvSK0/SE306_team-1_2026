@@ -8,6 +8,35 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Taran, Claude Code (Sonnet 5.5)
+
+**Prompt (summarised):** build US1, log in and log out: a service over the
+mainframe login, the login screen from Figma 01 with its error states, and
+replace the temporary login in `LavsApp`. A requirement ID list (US1-R1 to
+R6) was the spec, with one test per ID.
+
+**What it produced** on `feature/us1-login`:
+
+- `AuthService`, `AuthResult` and `LoginForm`: log in and out over the
+  `Connection`; outcomes success, network failure, rejected (with the
+  mainframe's message) and invalid (a blank field, nothing sent); the
+  username is trimmed and the password sent as typed.
+- `LoginFlow` and `LoginAttempt`: logs in, then refreshes the dropdown
+  values; values saved from last run are enough to carry on with.
+- `LoginScreenState` (no JavaFX, unit tested): inline field errors for an
+   incomplete form, and a banner for a rejection, a network failure or missing
+  failure or missing dropdown values, and when to move on.
+- `LoginScreen` (thin JavaFX) and three styles in `lavs.css`: the centred
+  card, run through `BackgroundTasks` with a "Logging in..." button.
+- In `LavsApp`: the login screen replaces `temporaryLogin` and `signIn`,
+  and Log out calls `AuthService.logout()`.
+- Unit tests for every service and decision, with the requirement ID above
+  each test.
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
 ## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5) - US9 submit button
 
 **Prompt (summarised):** do my US9 and US8 parts with high quality: the
