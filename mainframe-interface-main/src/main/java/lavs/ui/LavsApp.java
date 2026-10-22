@@ -14,6 +14,7 @@ import lavs.logic.AuthService;
 import lavs.logic.ConstantsService;
 import lavs.logic.CustomerContactService;
 import lavs.logic.CustomerCountsService;
+import lavs.logic.CustomerDocumentService;
 import lavs.logic.CustomerLoansService;
 import lavs.logic.CustomerRecordService;
 import lavs.logic.CustomerRelationshipService;
@@ -107,6 +108,11 @@ public class LavsApp extends Application {
         SectionRegistry<Node> recordSections = new SectionRegistry<>(CustomerRecordScreen::placeholder);
         recordSections.register(Section.RELATIONSHIPS, context ->
                 relationshipsSection(relationshipService, constantsService, tasks, context.customerNumber()));
+        // TEMPORARY: uses Connection directly (a save while offline fails) until Aum's SyncService is
+        // connected here, when document saves should go through SyncService.queue
+        CustomerDocumentService documentService = new CustomerDocumentService(connection);
+        recordSections.register(Section.DOCUMENTS, context ->
+                new CustomerDocumentsSection(context, documentService, constantsService, tasks));
         CustomerLoansService customerLoansService = new CustomerLoansService(connection);
         recordSections.register(Section.LOANS, context -> new CustomerLoansSection(context, customerLoansService,
                 loanService, tasks, request -> navigator.goTo(Screen.LOAN, request)));

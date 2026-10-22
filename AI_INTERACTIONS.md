@@ -10,6 +10,33 @@ Add an entry per session/PR, newest first.
 
 ## 2026-10-22 - Taran, Claude Code (Sonnet 5.5)
 
+**Prompt (summarised):** build the optional customer documents component
+(Figma 11): list a customer's document details, add, update and delete them,
+with an inline form and the rejection banner. A requirement ID list (DOC-R1
+to R6) was the spec, with one test per ID.
+
+**What it produced** on `feature/customer-documents`:
+
+- `CustomerDocumentService`, `DocumentInput` and `DocumentRow`: list the
+  documents (type, file name, file type, size), add, delete, and update as
+  add-then-delete so a refused update loses nothing. Only the details are
+  sent; the file is never uploaded.
+- `DocumentsText` and `DocumentFormState` (no JavaFX, unit tested): the Figma
+  wording, the field checks, the rejection banner with the field it names
+  highlighted, and when the add or edit form is open.
+- `CustomerDocumentsSection` (thin JavaFX): the table, the inline add or edit
+  card, and delete through the confirm dialog; registered as the Documents
+  section in `LavsApp`.
+- Unit tests for every service and decision, with the requirement ID above
+  each test. Also checked once by building the section under the JavaFX
+  toolkit with a scripted connection (not committed).
+
+**Marking:** each new file carries an `// AI-assisted` comment.
+
+---
+
+## 2026-10-22 - Taran, Claude Code (Sonnet 5.5)
+
 **Prompt (summarised):** build the Loans tab of the customer record (Figma
 03a and 08): the customer's loans with their role on each, Open loan, and
 "+ New loan" with the blocked-loan banner. A requirement ID list (LT-R1 to

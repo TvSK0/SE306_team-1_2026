@@ -4,7 +4,8 @@ package lavs.logic;
 
 import lavs.validation.ValidationResult;
 
-// The same shape as AuthResult, CustomerSearchResult and CustomerRecordResult, for any value:
+// The same shape as AuthResult, CustomerSearchResult and CustomerRecordResult, for any value
+// that is read or saved:
 // INVALID when the input was blank and nothing was sent, or one of the three outcomes every
 // service result has. It carries no UI text (the screen picks the copy).
 // TEMPORARY: swap this for Scott's gateway result type once it exists.
