@@ -8,6 +8,39 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Aum, Claude Code (Opus 4.8) - route EmployerService through SyncService
+
+**Prompt (summarised):** start "step B" of US11 — route one service's writes through the
+offline queue instead of calling the mainframe directly. Picked `EmployerService` (US5) because
+it isn't wired into any screen yet, so the change is self-contained.
+
+**What it assisted with** on `feature/us5-employers-queue`:
+
+- `lavs.logic.EmployerService` - assisted rewriting add/update/delete to build the message fields
+  and call `SyncService.queue(...)` instead of sending `AddEmployer`/`UpdateEmployer`/
+  `DeleteEmployer` over the `Connection`. The field keys and string forms match those messages'
+  `send` exactly, so `MainframeGateway` replays each queued change unchanged. Writes now work
+  offline. Blocks on the queue future (safe: the service runs on a `BackgroundTasks` thread).
+- `lavs.logic.EmployerResult` - assisted reshaping it from a mainframe `Status` wrapper to the
+  queue outcomes **SAVED / WAITING / REJECTED** plus field errors. This is the template for the
+  other services moving onto `SyncService`; it differs from `ServiceResult` because on the queue
+  being offline is WAITING, not a failure.
+- `lavs.logic.EmployerServiceTests` - fully wrote the tests (21): validation stops a bad call
+  before it is queued; a good call is SAVED and replays the exact fields for add/update/delete; an
+  offline call is WAITING and stays queued; a refused call is REJECTED with the message; a local
+  save failure is reported. Drive a real `SyncService` over the in-memory queue and fake gateway.
+
+**Not done (flagged for the PR):** an employer added offline has no mainframe `id` until it
+uploads, so it cannot be updated or deleted before then; and `SyncStep` returns the assigned
+number only for customer/loan creates, so a future employer UI must re-list after an add.
+
+**Validation:** `mvn -B clean verify` passed - 734 tests, 95% branch coverage gate met
+(`EmployerService` 21/21 branches). The other services still call the gateway directly.
+
+**Marking:** the changed service, result and tests carry `// AI-assisted:` comments.
+
+---
+
 ## 2026-10-22 - Aum, Claude Code (Opus 4.8) - wire SyncService into LavsApp
 
 **Prompt (summarised):** now that the mainframe gateway exists, wire the offline
