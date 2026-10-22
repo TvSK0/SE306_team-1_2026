@@ -8,6 +8,31 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - mainframe gateway
+
+**Prompt (summarised):** the team agreed I take over Scott's cards; build the
+mainframe gateway.
+
+**What it produced** on `feature/mainframe-gateway`:
+
+- `lavs.data.GatewayResult`: sorts every `Status` into SUCCESS,
+  NETWORK_FAILURE (an unreadable reply counts too, so it's retried) or
+  REJECTED.
+- `lavs.data.MainframeGateway`: wraps the `Connection`; `send(Message)`,
+  `login`, `logout` and `isConnected` never throw. It is also the real
+  `UploadGateway` for Aum's `SyncService`: sends a queued change as its
+  message, returns the number a `customer.create`/`loan.create` was given,
+  and checks for an existing customer (same names and date of birth) before
+  a new one is uploaded.
+- Tests for both with `FakeConnection` (every branch covered).
+- Updated the notes in `SendResult`, `UploadGateway` and
+  `DuplicateCheckResult` that were waiting for the gateway.
+
+**Marking:** both classes and their tests carry an `// AI-assisted`
+comment. Agreed by the team as a handover of Scott's cards.
+
+---
+
 ## 2026-10-19 - Aum, Claude (Sonnet 4.6) - US5 employer service (partial)
 
 **Prompt (summarised):** assist with parts of the US5 logic layer (employers tab —

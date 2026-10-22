@@ -3,7 +3,7 @@ import java.util.List;
 
 // AI-assisted.
 
-// This is likely temporary, may move into Scott's gateway result types once his part's on main.
+// MainframeGateway.findExistingCustomers returns one.
 // Result of searching the mainframe for an existing customer before uploading a new one
 public final class DuplicateCheckResult {
 

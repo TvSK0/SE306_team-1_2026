@@ -1,7 +1,8 @@
 package lavs.data;
 
 // AI-assisted.
-// Likely temporary, may swap for Scott's gateway result type once the gateway is on main.
+// Kept next to the gateway's GatewayResult because it also carries the number the mainframe
+// gave a new record; MainframeGateway.send(PendingChange) returns one.
 
 // What had happened when one queued change was sent (the three outcomes SUCCESS, NETWORK_FAILURE, REJECTED)
 public final class SendResult {
