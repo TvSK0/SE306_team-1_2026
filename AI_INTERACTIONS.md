@@ -29,6 +29,38 @@ passed 5 runs in a row. `./mvnw -Pmetrics validate` shows no `SyncProcessor` met
 
 ---
 
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - Windows wrapper and CI fix
+
+**Prompt (summarised):** complete the remaining work. While checking main's CI
+it found that the CI logs showed "Failed to extract Maven distribution" but the
+job still passed.
+
+**What it produced** on `fix/mvnw-fresh-download`:
+
+- `mvnw.cmd`: variables are set outside `IF` blocks (cmd expanded `%ZIP_PATH%`
+  to empty before the block ran) and failures jump to one `:fail` label that
+  exits with 1. Tested with an empty wrapper cache, a missing properties file
+  and a failing Maven goal.
+- CI: a step that fails unless the test and coverage reports exist.
+
+**Marking:** both files carry an `AI-assisted` note.
+
+---
+
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - Quality Report draft
+
+**Prompt (summarised):** draft the Quality Report from what we have so far.
+
+**What it produced** on `docs/quality-report`: `docs/quality-report.md`, with the
+test results, coverage per package, the acceptance criteria mapped to their
+tests, and the metrics baseline. The parts that need the final `main`
+(final metrics, clean-clone redo, walkthrough, responsiveness) are marked TODO.
+
+**Marking:** the numbers come from the build and CK output; the team edits
+the wording.
+
+---
+
 ## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - metrics tooling and baseline
 
 **Prompt (summarised):** complete the remaining work, including the metrics
