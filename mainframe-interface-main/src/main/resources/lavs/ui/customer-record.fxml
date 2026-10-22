@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Hyperlink?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<!-- AI-assisted: TEMPORARY customer record until Taran's (mockups 3 and 3a) exists: a header
+     with the customer's name, number and status, then a tab per slice. Each tab is its own
+     FXML file, so they move into the real record as they are. CustomerRecordController
+     fills it. -->
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="lavs.ui.CustomerRecordController"
+      stylesheets="@loan.css" styleClass="loan" spacing="12">
+    <padding><Insets top="20" right="24" bottom="20" left="24"/></padding>
+
+    <HBox spacing="16" alignment="CENTER_LEFT">
+        <Hyperlink fx:id="_backLink" styleClass="back-link" text="← Back" onAction="#onBack"/>
+        <Label fx:id="_titleLabel" styleClass="title" text="New customer"/>
+        <Label fx:id="_statusLabel" styleClass="status"/>
+    </HBox>
+    <Label fx:id="_loadMessage" styleClass="message,problem" wrapText="true" maxWidth="Infinity"
+           minHeight="-Infinity" managed="false" visible="false"/>
+
+    <TabPane fx:id="_tabs" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
+        <Tab fx:id="_detailsTab" text="Details">
+            <fx:include fx:id="_details" source="customer-details.fxml"/>
+        </Tab>
+        <Tab fx:id="_relationshipsTab" text="Relationships">
+            <fx:include fx:id="_relationships" source="customer-relationships.fxml"/>
+        </Tab>
+    </TabPane>
+</VBox>
