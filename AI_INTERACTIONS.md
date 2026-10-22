@@ -27,10 +27,6 @@ generated numbers.
 
 ---
 
-## 2026-10-23 - Gabeliu, Claude Code (Opus 5.5) - handoff fixes on #47
-
----
-
 ## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - acceptance tests
 
 **Prompt (summarised):** write the Phase 4 acceptance tests from the
