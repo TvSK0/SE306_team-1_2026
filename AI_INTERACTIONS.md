@@ -8,6 +8,33 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - US3 add and edit customer
+
+**Prompt (summarised):** the team agreed I take over Scott's cards; build US3.
+
+**What it produced** on `feature/us3-customer-details` (built on the gateway
+branch):
+
+- `CustomerService` (create, update and load through the gateway) and
+  `CustomerInput`. A customer needs a first name, family name and a date of
+  birth that is a real date and not in the future; title and nationality are
+  optional.
+- `ServiceResult<T>`: one result type for services built on the gateway, so
+  new services don't each need their own.
+- The Details tab (`customer-details.fxml`, `CustomerDetailsController`) and
+  a TEMPORARY tabbed customer record (`customer-record.fxml`,
+  `CustomerRecordController`, `CustomerScreens`) with Details and Yu's
+  Relationships, until Taran's record exists. It replaces the untabbed
+  stand-in in `LavsApp`, and the temporary search gets "New customer".
+- `ResultText` and `CustomerText` (no JavaFX, unit tested) for the wording.
+- Checked the real screens locally under JavaFX with a `FakeConnection` and
+  looked at rendered screenshots (not committed: CI has no display).
+
+**Marking:** every new class and the tests carry an `// AI-assisted`
+comment. Agreed by the team as a handover of Scott's cards.
+
+---
+
 ## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - mainframe gateway
 
 **Prompt (summarised):** the team agreed I take over Scott's cards; build the

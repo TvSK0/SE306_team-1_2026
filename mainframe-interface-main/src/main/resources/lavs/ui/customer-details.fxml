@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<!-- AI-assisted: US3, the Details tab of a customer record (mockup 3): add a new customer or
+     edit an existing one. Included by the customer record, which has the header and the
+     stylesheet; CustomerDetailsController fills it. Each field has an error label under it. -->
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="lavs.ui.CustomerDetailsController"
+      stylesheets="@loan.css" styleClass="loan" spacing="16">
+    <padding><Insets top="20" right="0" bottom="0" left="0"/></padding>
+
+    <Label fx:id="_messageLabel" styleClass="message" wrapText="true" maxWidth="Infinity"
+           minHeight="-Infinity" managed="false" visible="false"/>
+
+    <VBox styleClass="card" spacing="12" maxWidth="760">
+        <Label styleClass="section" text="Customer details"/>
+        <GridPane hgap="24" vgap="2">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="50"/>
+                <ColumnConstraints percentWidth="50"/>
+            </columnConstraints>
+
+            <Label text="Title" styleClass="field-label" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+            <TextField fx:id="_title" promptText="e.g. Ms" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+            <Label fx:id="_titleError" styleClass="error-text" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+
+            <Label text="First name *" styleClass="field-label" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+            <TextField fx:id="_firstName" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+            <Label fx:id="_firstNameError" styleClass="error-text" GridPane.rowIndex="5" GridPane.columnIndex="0"/>
+
+            <Label text="Family name *" styleClass="field-label" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+            <TextField fx:id="_familyName" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+            <Label fx:id="_familyNameError" styleClass="error-text" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+
+            <Label text="Date of birth *" styleClass="field-label" GridPane.rowIndex="6" GridPane.columnIndex="0"/>
+            <TextField fx:id="_dateOfBirth" promptText="yyyy-mm-dd" GridPane.rowIndex="7" GridPane.columnIndex="0"/>
+            <Label fx:id="_dateOfBirthError" styleClass="error-text" GridPane.rowIndex="8" GridPane.columnIndex="0"/>
+
+            <Label text="Nationality" styleClass="field-label" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+            <TextField fx:id="_nationality" promptText="e.g. New Zealand" GridPane.rowIndex="7" GridPane.columnIndex="1"/>
+            <Label fx:id="_nationalityError" styleClass="error-text" GridPane.rowIndex="8" GridPane.columnIndex="1"/>
+        </GridPane>
+
+        <HBox spacing="8" alignment="CENTER_RIGHT">
+            <Button fx:id="_cancelButton" text="Undo changes" onAction="#onCancel"/>
+            <Button fx:id="_saveButton" text="Create customer" styleClass="primary" defaultButton="true"
+                    onAction="#onSave"/>
+        </HBox>
+    </VBox>
+</VBox>
