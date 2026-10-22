@@ -196,6 +196,69 @@
                 </plugins>
             </build>
         </profile>
+        <!-- AI-assisted: `./mvnw -Pmetrics validate` writes coupling (CBO), complexity
+             (WMC per class, cyclomatic complexity per method) and cohesion (LCOM) for our own code
+             to target/metrics/class.csv and method.csv, using CK. Not part of the normal build. -->
+        <profile>
+            <id>metrics</id>
+            <build>
+                <plugins>
+                    <!-- CK only writes into a folder that already exists -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>metrics-folder</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <target>
+                                        <mkdir dir="${project.build.directory}/metrics"/>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>metrics</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <configuration>
+                                    <mainClass>com.github.mauricioaniche.ck.Runner</mainClass>
+                                    <includeProjectDependencies>false</includeProjectDependencies>
+                                    <includePluginDependencies>true</includePluginDependencies>
+                                    <arguments>
+                                        <argument>${project.basedir}/src/main/java/lavs</argument>
+                                        <argument>false</argument>
+                                        <argument>0</argument>
+                                        <argument>false</argument>
+                                        <argument>${project.build.directory}/metrics/</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.github.mauricioaniche</groupId>
+                                <artifactId>ck</artifactId>
+                                <version>0.7.0</version>
+                            </dependency>
+                        </dependencies>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 
 </project>
