@@ -1,6 +1,7 @@
 // AI-assisted: a coloured message box with a title and a body (error, warning or info).
 package lavs.ui;
 
+import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
@@ -9,6 +10,7 @@ import javafx.scene.layout.VBox;
 public class Banner extends VBox {
     private final Label _title = new Label();
     private final Label _body = new Label();
+    private final Hyperlink _link = new Hyperlink();
 
     public Banner() {
         super(4);
@@ -16,7 +18,9 @@ public class Banner extends VBox {
         _title.setWrapText(true);
         _body.getStyleClass().add("lavs-banner-body");
         _body.setWrapText(true);
-        getChildren().addAll(_title, _body);
+        _link.getStyleClass().add("lavs-banner-link");
+        getChildren().addAll(_title, _body, _link);
+        hideLink();
         hide();
     }
 
@@ -26,11 +30,26 @@ public class Banner extends VBox {
     }
 
     public void show(BannerContent content) {
+        hideLink();
         _title.setText(content.title());
         _body.setText(content.body());
         getStyleClass().setAll("lavs-banner", content.variant().getStyleClass());
         setVisible(true);
         setManaged(true);
+    }
+
+    // The banner with a link under its body, e.g. "Go to Addresses →" (Figma 08).
+    public void showWithLink(BannerContent content, String linkText, Runnable onClick) {
+        show(content);
+        _link.setText(linkText);
+        _link.setOnAction(event -> onClick.run());
+        _link.setVisible(true);
+        _link.setManaged(true);
+    }
+
+    private void hideLink() {
+        _link.setVisible(false);
+        _link.setManaged(false);
     }
 
     public void hide() {

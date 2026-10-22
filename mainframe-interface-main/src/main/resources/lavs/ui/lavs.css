@@ -167,6 +167,7 @@
 }
 .lavs-banner-title { -fx-font-size: 14px; -fx-font-family: "Segoe UI Semibold"; }
 .lavs-banner-body  { -fx-font-size: 13px; -fx-text-fill: -lavs-text; }
+.lavs-banner-link { -fx-font-size: 13px; -fx-padding: 4 0 0 0; }
 
 .lavs-banner-error   { -fx-background-color: -lavs-danger-soft;  -fx-border-color: -lavs-danger; }
 .lavs-banner-warning { -fx-background-color: -lavs-warning-soft; -fx-border-color: -lavs-warning; }
@@ -265,6 +266,9 @@
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 18, 0, 0, 6);
 }
 .lavs-popover-title { -fx-font-size: 15px; -fx-font-family: "Segoe UI Semibold"; }
+
+/* the customer record header (Figma 03a) */
+.lavs-record-name { -fx-font-size: 22px; -fx-font-weight: bold; }
 
 .lavs-card {
     -fx-background-color: -lavs-surface;

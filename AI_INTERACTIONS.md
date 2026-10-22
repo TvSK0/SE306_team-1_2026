@@ -8,24 +8,33 @@ Add an entry per session/PR, newest first.
 
 ---
 
-## 2026-10-23 - Aum, Claude Code - SyncProcessor.send refactor and three more sync integration tests
+## 2026-10-22 - Taran, Claude Code (Opus 5.5)
 
-**Prompt (summarised):** bring `SyncProcessor.send` under the complexity target from the metrics
-baseline, and add the integration tests still missing from the dropout/restart/reconnect task.
+**Prompt (summarised):** my Figma-matched search, record, Loans and Documents
+branches (#55, #56) predated the gateway and #47, so they were closed. Port
+their Figma details onto Gabriel's classes on main instead, keeping the
+gateway and the upload queue.
 
-**What it assisted with:**
+**What it produced** on `feature/figma-port`:
 
-- `SyncProcessor.send` (complexity 12) split into `send` (3), `sendByType` (4), `accepted` (4) and
-  `rejected` (2). Same behaviour; the existing `SyncProcessorTests` cover every path.
-- `SyncIntegrationTests` (real SQLite file, real queue and gateway, `FakeConnection` offline):
-  - a loan created offline gets its real number in the co-borrower change queued after it;
-  - a possible duplicate confirmed as new: the matches are kept on disk while paused, and the
-    customer is then created without searching again;
-  - a rejected new customer keeps the change that uses it held across a restart, it is never
-    sent, and dismissing the customer clears it too.
+- Plain, unit-tested classes for the rules: `CustomerSearchText`,
+  `CustomerHeaderState`, `LoanRowFormatter`, `NewLoanCheck`, `DocumentsText`
+  and `DocumentFormState`; `TableCells` for tag and link columns.
+- Customer search: Figma 02 heading, field label and "+ Add New Customer",
+  the count line and empty text, Customer no. / Name / Date of birth / Status
+  tag columns with a row link, skeleton rows, and the offline banner with
+  Search disabled.
+- Customer record: the 03a header (name, status tag, number and date of
+  birth), the top bar title, and a banner when the customer can't be loaded.
+- Loans tab: a Role column (`CustomerLoansService.roles`, looked up after the
+  list shows), money and date formats, status tags, and the Figma 08 banner
+  with a link to the Addresses or Phone numbers tab.
+- Documents: the Figma 11 heading and subtitle, the Add/Edit card under the
+  table, and the rejection banner with the named field highlighted.
+- Unit tests for every rule, with the requirement ID above each test.
 
-**Validation:** `./mvnw clean verify` passes (839 tests, coverage gate met); the integration tests
-passed 5 runs in a row. `./mvnw -Pmetrics validate` shows no `SyncProcessor` method over 4.
+**Marking:** each new file carries an `// AI-assisted` comment; the changed
+lines in Gabriel's classes are described in their header comments.
 
 ---
 

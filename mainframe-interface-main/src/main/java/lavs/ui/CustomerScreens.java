@@ -8,15 +8,23 @@ import java.io.UncheckedIOException;
 // Back goes to whichever screen opened the record.
 public class CustomerScreens {
     private final CustomerScreenServices _services;
+    // topBar::setTitle, so the record can name the customer in the top bar
+    private final java.util.function.Consumer<String> _setTopBarTitle;
 
     public CustomerScreens(CustomerScreenServices services) {
+        this(services, title -> { });
+    }
+
+    public CustomerScreens(CustomerScreenServices services, java.util.function.Consumer<String> setTopBarTitle) {
         _services = services;
+        _setTopBarTitle = setTopBarTitle;
     }
 
     public void register(Navigator navigator) {
         navigator.register(Screen.CUSTOMER_RECORD, parameter -> {
             try {
-                return CustomerRecordController.open(_services, customerNumber(parameter), navigator::back);
+                return CustomerRecordController.open(_services, customerNumber(parameter), navigator::back,
+                        _setTopBarTitle);
             } catch (IOException e) {
                 // a missing or broken FXML file: the Navigator reports it and stays where it is
                 throw new UncheckedIOException(e);
