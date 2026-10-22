@@ -8,6 +8,28 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-19 - Aum, Claude (Sonnet 4.6) - US5 employer service (partial)
+
+**Prompt (summarised):** assist with parts of the US5 logic layer (employers tab —
+add, update, delete employer records for a customer) and implement the tests.
+
+**What it assisted with** on `feature/us5-employers`:
+
+- `lavs.logic.EmployerResult` - assisted implementing this result type (same
+  shape as `LoanBorrowerResult`; wraps a `ValidationResult` plus a mainframe `Status`).
+- `lavs.logic.EmployerService` - assisted implementing parts of the service:
+  add, update, delete employer records via `customer.addEmployer` /
+  `customer.updateEmployer` / `customer.deleteEmployer`. Validates customerNumber,
+  name, type (Primary or Secondary) and optional salary (currency format).
+- `lavs.logic.EmployerServiceTests` - implemented the tests: 18 tests, 100%
+  branch coverage on `EmployerService` and `EmployerResult`, following the
+  `LoanBorrowerServiceTests` pattern (`@ExtendWith(MockitoExtension.class)`,
+  `argThat`, `successResponse`, `rejectedResponse`).
+
+**Marking:** all three files carry `// AI-assisted` comments.
+
+---
+
 ## 2026-10-21 - Gabeliu, Claude Code (Opus 5.5) - US9 submit button
 
 **Prompt (summarised):** do my US9 and US8 parts with high quality: the
