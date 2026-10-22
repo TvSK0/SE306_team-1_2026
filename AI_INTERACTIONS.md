@@ -8,6 +8,20 @@ Add an entry per session/PR, newest first.
 
 ---
 
+## 2026-10-23 - Gabeliu, Claude Code (Opus 5.5) - acceptance tests
+
+**Prompt (summarised):** write the Phase 4 acceptance tests from the
+proposal's GIVEN/WHEN/THEN criteria for US6, US9 and US11.
+
+**What it produced** in `src/test/java/lavs/acceptance`: one test per criterion,
+named with the criterion's text. US6 and US9 run the real services with a
+`FakeConnection`; US11 runs the app's own queue wiring (`SyncSessions`) on a
+real SQLite file in a temp folder, going offline, restarting and reconnecting.
+
+**Marking:** each test class carries an `// AI-assisted` comment.
+
+---
+
 ## 2026-10-23 - Gabeliu, Claude Code (Opus 5.5) - US9 every co-borrower
 
 **Prompt (summarised):** complete the remaining work; US9's acceptance criteria
