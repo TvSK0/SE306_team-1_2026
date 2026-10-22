@@ -3,6 +3,7 @@ package lavs.ui;
 
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.fxml.FXML;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -12,6 +13,7 @@ import lavs.logic.LoanSummary;
 import lavs.logic.RepaymentRow;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.function.Function;
 
 // US7: the Repayments tab of a loan (loan-repayments.fxml). Shows the summary and the
@@ -36,7 +38,13 @@ public class LoanRepaymentsController {
     @FXML private TableColumn<RepaymentRow, String> _interestColumn;
     @FXML private TableColumn<RepaymentRow, String> _remainingColumn;
 
+    @FXML private Button _refreshButton;
+
     private LoanRepaymentsService _repaymentsService;
+    private BackgroundTasks _tasks;
+    private LoadingView _loading;
+    // the load still running, if any
+    private BackgroundTasks.Handle _running;
     private String _loanNumber;
 
     // called by FXMLLoader once the @FXML fields are filled in
@@ -48,25 +56,47 @@ public class LoanRepaymentsController {
         showColumn(_principalColumn, row -> RepaymentsText.money(row.getPrincipalAmount()));
         showColumn(_interestColumn, row -> RepaymentsText.money(row.getInterestAmount()));
         showColumn(_remainingColumn, row -> RepaymentsText.money(row.getAmountRemaining()));
+        // while a load runs Refresh reads "Loading..." and cannot be pressed again
+        _loading = new LoadingView(LoadingState.forRead(_refreshButton.getText(), "Loading..."), _refreshButton);
     }
 
-    public void show(LoanRepaymentsService repaymentsService) {
+    public void show(LoanRepaymentsService repaymentsService, BackgroundTasks tasks) {
         _repaymentsService = repaymentsService;
+        _tasks = tasks;
     }
 
-    // Fetches the summary and schedule for the loan and shows them. On failure the
-    // previous values are cleared, so nothing out of date is left on screen.
-    // TEMPORARY: swap this for running on Taran's background-task helper once it exists;
-    // until then the window waits while the pages load.
+    // Fetches the summary and schedule for the loan in the background and shows them.
+    // On failure the previous values are cleared, so nothing out of date is left on screen.
+    // A newer load (e.g. after another save) replaces one still running, whose result is dropped.
     public void load(String loanNumber) {
         _loanNumber = loanNumber;
-        LoanRepaymentsResult result;
-        try {
-            result = _repaymentsService.load(loanNumber);
-        } catch (IOException e) {
-            showFailure("Couldn't reach the mainframe. Check your connection and click Refresh.");
-            return;
+        if (_running != null) {
+            _running.cancel();
         }
+        _running = _tasks.run(
+                () -> {
+                    try {
+                        return _repaymentsService.load(loanNumber);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                },
+                _loading::start,
+                result -> {
+                    _loading.finish();
+                    showResult(result);
+                },
+                failure -> {
+                    _loading.finish();
+                    if (failure instanceof UncheckedIOException) {
+                        showFailure("Couldn't reach the mainframe. Check your connection and click Refresh.");
+                    } else {
+                        showFailure("The repayments could not be loaded: " + failure.getMessage());
+                    }
+                });
+    }
+
+    private void showResult(LoanRepaymentsResult result) {
         if (!result.isSuccessful()) {
             showFailure(RepaymentsText.forFailure(result.getMainframeStatus()));
             return;

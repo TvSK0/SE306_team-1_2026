@@ -2,6 +2,7 @@
 package lavs.ui;
 
 import javafx.fxml.FXML;
+import javafx.scene.control.Button;
 import javafx.scene.control.Control;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -13,6 +14,7 @@ import lavs.model.Loan;
 import lavs.validation.FieldError;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -53,6 +55,10 @@ public class LoanDetailsController {
     private final Map<String, Control> _fields = new HashMap<>();
     private final Map<String, Label> _errorLabels = new HashMap<>();
 
+    @FXML private Button _saveButton;
+
+    private BackgroundTasks _tasks;
+    private LoadingView _saving;
     private LoanService _loanService;
     private ConstantsService _constantsService;
     private String _customerNumber;
@@ -72,6 +78,7 @@ public class LoanDetailsController {
         addField(LoanDetailsInput.PAYMENT_FREQUENCY, _paymentFrequency, _paymentFrequencyError);
         addField(LoanDetailsInput.START_DATE, _startDate, _startDateError);
         addField(LoanDetailsInput.RENEWAL_DATE, _renewalDate, _renewalDateError);
+        _saving = new LoadingView(LoadingState.forSave(_saveButton.getText(), "Saving..."), _saveButton);
 
         // the estimate follows the payment fields as the MMM types
         _paymentAmount.textProperty().addListener((property, oldValue, newValue) -> showEstimate());
@@ -79,8 +86,9 @@ public class LoanDetailsController {
     }
 
     // Pass existingLoan to edit it, or null to start a new loan.
-    public void show(LoanService loanService, ConstantsService constantsService,
+    public void show(LoanService loanService, ConstantsService constantsService, BackgroundTasks tasks,
                      String customerNumber, Loan existingLoan, Consumer<Loan> onSaved) {
+        _tasks = tasks;
         _loanService = loanService;
         _constantsService = constantsService;
         _customerNumber = customerNumber;
@@ -90,23 +98,44 @@ public class LoanDetailsController {
         fillFormFromSavedLoan();
     }
 
+    // The save runs in the background so the window stays responsive; the button reads
+    // "Saving..." and cannot be pressed again until the mainframe has answered.
     @FXML
     private void onSave() {
         LoanDetailsInput input = readForm();
+        // read on the UI thread: the loan number must be the one shown when Save was clicked
+        String loanNumber = _savedLoan == null ? null : _savedLoan.getLoanNumber();
         clearErrors();
+        _tasks.run(
+                () -> save(loanNumber, input),
+                _saving::start,
+                result -> {
+                    _saving.finish();
+                    showResult(result);
+                },
+                failure -> {
+                    _saving.finish();
+                    if (failure instanceof UncheckedIOException) {
+                        showMessage("Couldn't reach the mainframe. Check your connection and try again.", true);
+                    } else {
+                        showMessage("The loan could not be saved: " + failure.getMessage(), true);
+                    }
+                });
+    }
 
-        LoanSaveResult result;
+    // runs in the background; a new loan has no number yet
+    private LoanSaveResult save(String loanNumber, LoanDetailsInput input) {
         try {
-            if (_savedLoan == null) {
-                result = _loanService.createLoan(_customerNumber, input);
-            } else {
-                result = _loanService.updateLoan(_customerNumber, _savedLoan.getLoanNumber(), input);
+            if (loanNumber == null) {
+                return _loanService.createLoan(_customerNumber, input);
             }
+            return _loanService.updateLoan(_customerNumber, loanNumber, input);
         } catch (IOException e) {
-            showMessage("Couldn't reach the mainframe. Check your connection and try again.", true);
-            return;
+            throw new UncheckedIOException(e);
         }
+    }
 
+    private void showResult(LoanSaveResult result) {
         // highlight each bad field; everything the MMM typed stays in the form
         for (FieldError error : result.getValidationErrors().getErrors()) {
             showFieldError(error);

@@ -5,8 +5,8 @@ import lavs.model.Loan;
 import lavs.validation.ValidationResult;
 import mainframe.client.Status;
 
-// The outcome of saving a loan: field errors caught before the mainframe was contacted,
-// or the Status it returned, plus the saved loan when it worked.
+// The outcome of saving or loading a loan: field errors caught before the mainframe was contacted,
+// or the Status it returned, plus the loan when it worked.
 // TEMPORARY: swap this for Scott's gateway result type once it exists.
 public final class LoanSaveResult {
     private final ValidationResult _validationErrors;

@@ -8,6 +8,8 @@ public class LoanCoborrower {
     private Long id;
     private String loanNumber;
     private String coborrowerNumber;
+    // AI-assisted: only filled in when read back with loanCoborrower.List, so the Borrowers tab can show it
+    private String coborrowerName;
     private String type;
 
     public LoanCoborrower() {
@@ -46,6 +48,14 @@ public class LoanCoborrower {
 
     public void setCoborrowerNumber(String coborrowerNumber) {
         this.coborrowerNumber = coborrowerNumber;
+    }
+
+    public String getCoborrowerName() {
+        return coborrowerName;
+    }
+
+    public void setCoborrowerName(String coborrowerName) {
+        this.coborrowerName = coborrowerName;
     }
 
     public String getType() {
