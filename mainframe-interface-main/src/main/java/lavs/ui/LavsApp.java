@@ -12,6 +12,7 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 import lavs.data.CategoryConstantsLoader;
 import lavs.data.MainframeGateway;
+import lavs.data.SequencedConnection;
 import lavs.logic.AddressService;
 import lavs.logic.CustomerSearchService;
 import lavs.logic.CustomerLoansService;
@@ -58,7 +59,9 @@ public class LavsApp extends Application {
 
     @Override
     public void start(Stage stage) {
-        Connection connection = new HttpConnection(SERVER_URL);
+        // every service shares this one Connection, so it sends one request at a time and
+        // recovers when the shared admin user's transaction number goes stale
+        Connection connection = new SequencedConnection(new HttpConnection(SERVER_URL));
         MainframeGateway gateway = new MainframeGateway(connection);
         ConstantsService constantsService = new ConstantsService(new CategoryConstantsLoader(gateway),
                 new LazyConstantsCache(LOCAL_DATABASE));
