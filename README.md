@@ -14,3 +14,5 @@ mvnw.cmd javafx:run       # Windows: start the app
 ```
 
 AI use is logged in [`AI_INTERACTIONS.md`](AI_INTERACTIONS.md).
+
+Test results, coverage, acceptance tests and code metrics are in the [Quality Report](docs/quality-report.md) (draft).
