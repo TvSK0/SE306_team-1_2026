@@ -1,4 +1,3 @@
-// TEMPORARY: swap this package for Scott's ui package once his skeleton is on main.
 package lavs.ui;
 
 import lavs.logic.RelationshipInput;
