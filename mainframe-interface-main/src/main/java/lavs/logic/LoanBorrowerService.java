@@ -13,9 +13,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-// TEMPORARY: lives in lavs.logic until Scott's logic package skeleton is on
-// main (see the same note on ConstantsService); move/adapt this once it is.
-//
 // US8: co-borrowers and guarantors on a loan. The Borrowers tab of the loan
 // screen (LoanBorrowersController) calls these.
 public final class LoanBorrowerService {
