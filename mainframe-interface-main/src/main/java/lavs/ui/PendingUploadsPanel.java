@@ -6,16 +6,14 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Popup;
-import lavs.logic.DuplicateCandidates;
-import lavs.logic.SyncService;
 import lavs.logic.PendingUploadsState;
-import lavs.model.PendingChange;
-import java.util.List;
+import lavs.logic.SyncService;
 import java.util.concurrent.CompletableFuture;
 
-// AI-assisted: reads SQLite in the background and exposes the duplicate/rejection decisions.
+// AI-assisted: reads SQLite in the background and shows the duplicate/rejection choices. Which
+// buttons a row gets, and what they do, is decided in PendingUploadsState (logic, unit tested).
 public final class PendingUploadsPanel {
-    private final SyncService sync;
+    private final PendingUploadsState state;
     private final BackgroundTasks tasks;
     private final Navigator navigator;
     private final Popup popup = new Popup();
@@ -25,7 +23,7 @@ public final class PendingUploadsPanel {
     private boolean changing;
 
     public PendingUploadsPanel(SyncService sync, BackgroundTasks tasks, Navigator navigator) {
-        this.sync = sync;
+        this.state = new PendingUploadsState(sync);
         this.tasks = tasks;
         this.navigator = navigator;
         popup.setAutoHide(true);
@@ -54,24 +52,22 @@ public final class PendingUploadsPanel {
     public void refresh() {
         if (loading != null) loading.cancel();
         message.setText("Loading pending changes...");
-        loading = tasks.run(sync::getChanges, changes -> {
+        loading = tasks.run(state::getRows, changes -> {
             rows.getChildren().clear();
-            for (PendingChange change : changes) rows.getChildren().add(row(change));
+            for (PendingUploadsState.Row change : changes) rows.getChildren().add(row(change));
             message.setText(changes.isEmpty() ? "All changes uploaded" : "Changes are kept on this laptop until accepted.");
         }, error -> message.setText(ResultText.forError(error)));
     }
 
-    private Node row(PendingChange change) {
-        Label title = new Label(PendingUploadsState.descriptionFor(change));
+    private Node row(PendingUploadsState.Row change) {
+        Label title = new Label(change.getDescription());
         title.getStyleClass().add("lavs-section-title");
-        Label state = new Label(PendingUploadsState.statusTextFor(change));
-        Label detail = new Label(change.getStatusMessage());
+        Label status = new Label(change.getStatusText());
+        Label detail = new Label(change.getReason());
         detail.setWrapText(true);
-        VBox box = new VBox(6, title, state, detail);
+        VBox box = new VBox(6, title, status, detail);
         box.setPadding(new Insets(8));
-        TextArea saved = new TextArea(change.getFields().entrySet().stream()
-                .map(entry -> entry.getKey() + ": " + java.util.Objects.toString(entry.getValue(), ""))
-                .collect(java.util.stream.Collectors.joining("\n")));
+        TextArea saved = new TextArea(change.getSavedDetails());
         saved.setEditable(false);
         saved.setWrapText(true);
         saved.setPrefRowCount(5);
@@ -79,28 +75,28 @@ public final class PendingUploadsPanel {
         values.setExpanded(false);
         box.getChildren().add(values);
         if (change.getCustomerNumber() != null) {
-            Button customer = new Button("Open customer " + change.getCustomerNumber());
+            Button customer = new Button("Open " + change.getCustomerLabel());
             customer.setOnAction(event -> { hide(); navigator.goTo(Screen.CUSTOMER_RECORD, change.getCustomerNumber()); });
             box.getChildren().add(customer);
         }
-        List<String> candidates = DuplicateCandidates.forChange(change);
-        if (!candidates.isEmpty()) {
+        if (change.canResolveDuplicate()) {
             ComboBox<String> choice = new ComboBox<>();
-            choice.getItems().setAll(candidates);
+            choice.getItems().setAll(change.getDuplicateMatches());
             choice.setPromptText("Choose the existing customer");
             Button use = new Button("Use existing customer");
             use.disableProperty().bind(choice.valueProperty().isNull());
-            use.setOnAction(event -> action(() -> sync.resolveDuplicate(change.getId(), choice.getValue())));
+            use.setOnAction(event -> action(() -> state.useExistingCustomer(change, choice.getValue())));
             Button create = new Button("This is a new customer");
-            create.setOnAction(event -> action(() -> sync.resolveDuplicate(change.getId(), null)));
+            create.setOnAction(event -> action(() -> state.confirmNewCustomer(change)));
             box.getChildren().addAll(choice, new HBox(8, use, create));
         }
-        if (change.getStatus() == PendingChange.Status.REJECTED) {
+        if (change.canDismiss()) {
             Button dismiss = new Button("Dismiss rejection");
             dismiss.setOnAction(event -> ConfirmDialog.ask(popup.getOwnerWindow(),
-                    new ConfirmContent("Dismiss this rejection?", "The rejected change will be removed from this laptop. "
+                    new ConfirmContent("Dismiss this rejection?", "The rejected change, and any change rejected because "
+                            + "of it, will be removed from this laptop. "
                             + "Copy or correct its details before dismissing it.", "Dismiss"),
-                    () -> action(() -> sync.dismissRejected(change.getId()))));
+                    () -> action(() -> state.dismiss(change))));
             box.getChildren().add(dismiss);
         }
         return box;

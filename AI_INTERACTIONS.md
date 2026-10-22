@@ -29,6 +29,40 @@ generated numbers.
 
 ## 2026-10-23 - Gabeliu, Claude Code (Opus 5.5) - handoff fixes on #47
 
+---
+
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - acceptance tests
+
+**Prompt (summarised):** write the Phase 4 acceptance tests from the
+proposal's GIVEN/WHEN/THEN criteria for US6, US9 and US11.
+
+**What it produced** in `src/test/java/lavs/acceptance`: one test per criterion,
+named with the criterion's text. US6 and US9 run the real services with a
+`FakeConnection`; US11 runs the app's own queue wiring (`SyncSessions`) on a
+real SQLite file in a temp folder, going offline, restarting and reconnecting.
+
+**Marking:** each test class carries an `// AI-assisted` comment.
+
+---
+
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - US9 every co-borrower
+
+**Prompt (summarised):** complete the remaining work; US9's acceptance criteria
+say every borrower needs contact details and the MMM is told who to update.
+
+**What it changed:** `LoanStatusService` now checks every co-borrower on the
+loan (mailing address and a phone number or email), naming each one who is
+missing something, e.g. "co-borrower Mere Brown (C-2) needs a mailing
+address". Guarantors aren't checked, as they aren't borrowers. The borrower
+list is read once and reused for the guarantor rule. Tests updated and added
+in `LoanStatusServiceTests`, `LoanSubmissionTests` and `QueuedWorkflowTests`.
+
+**Marking:** the new methods and tests carry an `// AI-assisted` comment.
+
+---
+
+## 2026-10-22 - Gabeliu, Claude Code (Opus 5.5) - handoff fixes on #47
+
 **Prompt (summarised):** fix the problems listed in the team handoff that are
 still there on #47's branch.
 
@@ -48,6 +82,38 @@ still there on #47's branch.
 
 **Marking:** the new Navigator code carries an `// AI-assisted` comment; the
 rest are comment, package and wording changes.
+
+---
+
+## 2026-10-22 - Aum, Claude Code - restore the US11 pieces lost when #48 was merged into #47
+
+**Prompt (summarised):** #47 and #48 both routed saves through the upload queue, and the merge
+kept #47's version. Bring back the parts of #48 that main lost, on top of the merged code.
+
+**What it assisted with:**
+
+- `PendingChange.duplicateMatches` plus a `duplicateMatches` column in `LocalDatabase` (added
+  to older database files when they open) and `SqlitePendingChangeStore` (add, update and the
+  batch `commit`). `SyncProcessor` stores the matches on the paused create and clears them once
+  the MMM decides. `DuplicateCandidates.forChange` now reads that field instead of parsing the
+  "Possible existing customer: ..." message text.
+- `SyncService.dismissRejected`: dismissing a rejected new customer or loan also removes the
+  changes that were rejected because of it.
+- Put the row decisions back in `PendingUploadsState` (now in `logic`, moved there by #49 too) (`canDismiss`, `canResolveDuplicate`, `getDuplicateMatches`,
+  `getCustomerLabel`, `getSavedDetails`, and the dismiss / use existing / new customer
+  actions, which go through #47's `SyncService.resolveDuplicate`). `PendingUploadsPanel` now
+  only builds the controls from those rows.
+- Deleted `SyncStatusFeed` and its tests: nothing used it after #47 added `SessionStatusFeed`.
+- Tests: duplicate matches in `PendingChangeTests`, `SqlitePendingChangeStoreTests` (round trip,
+  batch commit, opening an older file), `SyncProcessorTests` (stored and cleared),
+  `SyncServiceTests` (dismiss also clears dependants) and `PendingUploadsStateTests` (row
+  decisions, actions, every message-type description).
+
+**Validation:** `./mvnw clean verify` passes: 822 tests, coverage gate met.
+
+**Limits:** a new customer already paused as a possible duplicate in a local database made before
+this change has no stored matches, so its row offers no choice; clear that test database. Not
+yet tried by hand in the running app.
 
 ---
 

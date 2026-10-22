@@ -56,6 +56,12 @@ public class SyncProcessor {
             if (search.getOutcome() == DuplicateCheckResult.Outcome.FOUND) {
                 String message = DuplicateCandidates.message(search.getMatchingNumbers());
                 setStatusOfPending(change.getCreatesNumber(), PendingChange.Status.PAUSED, message);
+                // AI-assisted: keep the matches on the create itself, so the pending uploads panel can
+                // offer each one without reading them back out of the message (US11)
+                change.setStatus(PendingChange.Status.PAUSED);
+                change.setStatusMessage(message);
+                change.setDuplicateMatches(search.getMatchingNumbers());
+                queue.update(change);
                 return Optional.of(new SyncStep(change, SyncStep.Outcome.PAUSED, message));
             }
         }
@@ -129,6 +135,8 @@ public class SyncProcessor {
             if (change.references(temporaryNumber) && change.getStatus() == PendingChange.Status.PAUSED) {
                 if (isCreateOf(change, temporaryNumber)) {
                     change.setSkipDuplicateCheck(true);
+                    // AI-assisted: the MMM has decided, so the matches are no longer offered (US11)
+                    change.setDuplicateMatches(java.util.List.of());
                 }
                 resumeIfPaused(change);
                 queue.update(change);

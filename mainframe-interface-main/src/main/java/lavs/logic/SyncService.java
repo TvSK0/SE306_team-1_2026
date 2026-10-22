@@ -97,15 +97,28 @@ public class SyncService implements AutoCloseable {
         return result;
     }
 
-    /** Removes a rejected change once the MMM has seen it. */
+    /**
+     * Removes a rejected change once the MMM has seen it. AI-assisted: a rejected new customer or
+     * loan takes with it the changes rejected because they used it, since those can never be sent.
+     */
     public CompletableFuture<Void> dismissRejected(long id) {
         return runOnSyncThread(() -> {
             for (PendingChange change : queue.all()) {
                 if (change.getId() == id && change.getStatus() == PendingChange.Status.REJECTED) {
                     queue.delete(id);
+                    dismissRejectedUsing(change.getCreatesNumber());
                 }
             }
         });
+    }
+
+    // AI-assisted: the rejected changes that refer to number; none when number is null (US11)
+    private void dismissRejectedUsing(String number) {
+        for (PendingChange change : queue.all()) {
+            if (change.getStatus() == PendingChange.Status.REJECTED && change.references(number)) {
+                queue.delete(change.getId());
+            }
+        }
     }
 
     /** Duplicate found: the MMM picked the existing customer. */

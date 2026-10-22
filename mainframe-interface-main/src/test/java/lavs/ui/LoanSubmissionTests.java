@@ -136,6 +136,7 @@ class LoanSubmissionTests {
         connection.whenRequested("customerAddress.list", FakeConnection.success(mailingAddress));
         givenRows("customerPhoneNumber.list", 1);
         givenRows("customerEmployer.list", 1);
+        givenRows("loanCoborrower.list", 0);
     }
 
     private void givenRows(String requestType, int rows) {
