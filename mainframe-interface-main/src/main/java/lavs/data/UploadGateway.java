@@ -3,7 +3,7 @@ package lavs.data;
 import lavs.model.PendingChange;
 
 // AI-assisted.
-// Likely temporary, may swap for Scott's gateway result type once the gateway is on main.
+// MainframeGateway is the real one; tests use FakeUploadGateway.
 
 // What the sync threads needs from the mainframe. Tests pass thru a fake
 public interface UploadGateway {
