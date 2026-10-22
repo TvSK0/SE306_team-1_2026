@@ -12,10 +12,11 @@ The project specification is available [on Canvas](https://canvas.auckland.ac.nz
 
 Update this readme file to contain the names of each team member and your GitHub login.
 
-* *Replace this text: Team Member Name 1 - GitHub Login*
-* *Replace this text: Team Member Name 2 - GitHub Login*
-* *Replace this text: Team Member Name 3 - GitHub Login*
-* *Replace this text: Team Member Name 4 - GitHub Login*
+* Taranveer Singh - TvSK0
+* [Gabriel full name] - Gabeliu
+* [Aum full name] - aumiieee
+* Yu Tokuda - silucksi
+* [Scott full name] - [Scott's login]
 
 You must also update this file to contain either the instructions for running your code or a link to the instructions.
 
@@ -24,6 +25,17 @@ You must also update this file to contain either the instructions for running yo
 This repository initially contains the code for the mainframe interface and the unit tests. The following code is supplied:
 * [mainframe](src/main/java/mainframe/client/): the interfaces for sending requests to and receiving responses from the mainframe. You will need to use the [Connection](src/main/java/mainframe/client/Connection.java) interface in your code. We have provided an implementation that connects to a web server in [HttpConnection](src/main/java/mainframe/client/HttpConnection.java).
 * [tests](src/test/java/mainframe/client/): the unit tests. Most of these connect to the web server, but there is an [example unit test](src/test/java/mainframe/client/SimulateListCustomers.java) for connecting to a stub.
+
+## Team decisions
+
+<!-- AI-assisted: drafted from the code and the task delegation document; checked by Taran. -->
+The five decisions we settled before coding, from our task delegation document.
+
+1. **How a save reaches the mainframe.** Every save is queued first in the local SQLite store, then sent straight away if the mainframe is reachable (`SyncService.queue`). If it is not reachable the change stays queued and is retried on a timer. One background thread sends changes in order, so the screen never waits on the network. A change the mainframe rejects is marked rejected, shown with the mainframe's message and never retried. Some screens still send directly to the mainframe through TEMPORARY services until SyncService is connected to the app; those move onto the queue when it is.
+2. **Layer names.** We use the System Model's three layer names: `ui` is the User Interface, `logic` the Business Logic and `data` the Database. Two supporting packages sit beside them: `model` (plain records) and `validation` (`ValidationResult` / `FieldError`). `ui` never imports `mainframe.client` or JDBC, `logic` never imports JavaFX or JDBC, and only `logic` calls `data`.
+3. **UI framework and build tool.** JavaFX for the interface and Maven (with the Maven Wrapper) for the build, with JUnit 5 for tests and a JaCoCo gate of 95% branch coverage.
+4. **The guarantor rule.** A main borrower with no employer needs a guarantor on the loan before it can move from New to Pending. It is checked when a loan is submitted for verification (`LoanStatusService`), not when a loan is started, because a new loan has no guarantors yet. Starting a loan only needs a mailing address and a phone number or an email (`EligibilityChecker`).
+5. **A duplicate found at upload.** Before a new customer is sent, the upload looks for an existing customer. If one is found the upload pauses (`PAUSED`) and the MMM chooses either the existing customer or "this is a new customer", after which the upload carries on (`SyncService`, `SyncProcessor`). The MMM's buttons for this are in the pending-uploads panel (US11).
 
 <!-- AI-assisted: build/test/run instructions, verified on a fresh clone (Windows 10+, no Maven pre-installed). -->
 ## Build, test and run
