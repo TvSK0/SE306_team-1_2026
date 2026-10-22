@@ -1,4 +1,3 @@
-// TEMPORARY: swap this package for Scott's ui package once his skeleton is on main.
 package lavs.ui;
 
 import javafx.fxml.FXML;
@@ -17,9 +16,9 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 
 // A loan (loan-screen.fxml): the header with the loan number, status and the US9 "Submit for
-// verification" button, and the tabs. Details is US6 (LoanDetailsController) and Repayments
-// is US7 (LoanRepaymentsController). Other slices can add their tabs (Borrowers, Notes,
-// Documents) to loan-screen.fxml.
+// verification" button, and the tabs. Details is US6 (LoanDetailsController), Borrowers is US8
+// (LoanBorrowersController) and Repayments is US7 (LoanRepaymentsController). Other slices can
+// add their tabs (Notes, Documents) to loan-screen.fxml.
 public class LoanScreenController {
     private static final String PROBLEM = "problem";
 
@@ -29,10 +28,12 @@ public class LoanScreenController {
     @FXML private Button _submitButton;
     @FXML private Label _submitMessage;
     @FXML private TabPane _tabs;
+    @FXML private Tab _borrowersTab;
     @FXML private Tab _repaymentsTab;
 
     // filled in by FXMLLoader from the fx:include elements
     @FXML private LoanDetailsController _detailsController;
+    @FXML private LoanBorrowersController _borrowersController;
     @FXML private LoanRepaymentsController _repaymentsController;
 
     private LoanScreenServices _services;
@@ -42,6 +43,8 @@ public class LoanScreenController {
     private Loan _loan;
     // true when the Repayments tab shows the loan as it was last saved
     private boolean _repaymentsAreCurrent;
+    // true once the Borrowers tab has read the list; after that it keeps itself up to date
+    private boolean _borrowersLoaded;
     private LoadingView _submitting;
 
     // Loads the screen for a customer. Pass existingLoan to edit it, or null to start a
@@ -60,10 +63,15 @@ public class LoanScreenController {
     // called by FXMLLoader once the @FXML fields are filled in
     @FXML
     private void initialize() {
-        // the schedule is fetched the first time the tab is opened, not before
+        // the schedule and the borrowers are fetched the first time their tab is opened, not before
         _repaymentsTab.setOnSelectionChanged(event -> {
             if (_repaymentsTab.isSelected()) {
                 showCurrentRepayments();
+            }
+        });
+        _borrowersTab.setOnSelectionChanged(event -> {
+            if (_borrowersTab.isSelected()) {
+                showBorrowers();
             }
         });
         // a status change is never cancelled half way, like a save
@@ -77,6 +85,7 @@ public class LoanScreenController {
         String name = customer.getFullName();
         _backLink.setText("← Back to " + (name.isEmpty() ? customer.getNumber() : name));
         _repaymentsController.show(services.repayments(), services.tasks());
+        _borrowersController.show(services.borrowers(), services.tasks());
         _detailsController.show(services.loans(), services.constants(), services.tasks(),
                 customer.getNumber(), existingLoan, this::onLoanSaved);
         showHeader();
@@ -137,6 +146,15 @@ public class LoanScreenController {
         }
     }
 
+    // US8: AI-assisted
+    private void showBorrowers() {
+        if (_loan == null || _borrowersLoaded) {
+            return;
+        }
+        _borrowersController.load(_loan.getLoanNumber());
+        _borrowersLoaded = true;
+    }
+
     private void showCurrentRepayments() {
         if (_loan == null || _repaymentsAreCurrent) {
             return;
@@ -153,8 +171,9 @@ public class LoanScreenController {
             _titleLabel.setText("Loan " + _loan.getLoanNumber());
             _statusLabel.setText("Status: " + _loan.getStatus());
         }
-        // a loan has no schedule until the mainframe has it
+        // a loan has no schedule, and nobody can join it, until the mainframe has it
         _repaymentsTab.setDisable(_loan == null);
+        _borrowersTab.setDisable(_loan == null);
         showSubmitButton();
     }
 

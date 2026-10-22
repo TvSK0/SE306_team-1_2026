@@ -4,7 +4,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class FakeConnectionTests {
     @Test
@@ -172,5 +176,87 @@ public class FakeConnectionTests {
                 () -> Assertions.assertEquals(1, sent.size()),
                 () -> Assertions.assertEquals("constantCategory.list", sent.get(0).getRequestType())
         );
+    }
+
+    // AI-assisted: a slow connection still answers, just later
+    @Test
+    void answersOnlyAfterTheDelay() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("constantCategory.list", FakeConnection.list("LoanRateType"));
+        connection.setDelay(Duration.ofMillis(200));
+
+        // Act
+        long started = System.nanoTime();
+        Status status = new mainframe.client.messages.constantCategory.List(1, 20).send(connection);
+        Duration took = Duration.ofNanos(System.nanoTime() - started);
+
+        // Assert
+        Assertions.assertAll(
+                () -> Assertions.assertTrue(status.getWasSuccessful()),
+                () -> Assertions.assertTrue(took.compareTo(Duration.ofMillis(200)) >= 0, "took " + took)
+        );
+    }
+
+    // AI-assisted: going offline takes as long as any other answer on a slow network
+    @Test
+    void waitsBeforeReportingANetworkFailureToo() throws IOException {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.setIsConnected(false);
+        connection.setDelay(Duration.ofMillis(200));
+
+        // Act
+        long started = System.nanoTime();
+        Status status = new mainframe.client.messages.constantCategory.List(1, 20).send(connection);
+        Duration took = Duration.ofNanos(System.nanoTime() - started);
+
+        // Assert
+        Assertions.assertAll(
+                () -> Assertions.assertEquals(StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode(), status.getErrorCode()),
+                () -> Assertions.assertTrue(took.compareTo(Duration.ofMillis(200)) >= 0, "took " + took)
+        );
+    }
+
+    // AI-assisted: e.g. the Cancel button stopping a slow search
+    @Test
+    void anInterruptedWaitGetsNoAnswerAndKeepsTheInterrupt() throws Exception {
+        // Arrange
+        FakeConnection connection = new FakeConnection();
+        connection.whenRequested("constantCategory.list", FakeConnection.list("LoanRateType"));
+        connection.setDelay(Duration.ofSeconds(30));
+        AtomicReference<Status> status = new AtomicReference<>();
+        AtomicBoolean stillInterrupted = new AtomicBoolean();
+        Thread caller = new Thread(() -> {
+            try {
+                status.set(new mainframe.client.messages.constantCategory.List(1, 20).send(connection));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            stillInterrupted.set(Thread.currentThread().isInterrupted());
+        });
+
+        // Act
+        caller.start();
+        while (connection.getSentRequests().isEmpty()) {
+            Thread.onSpinWait();
+        }
+        caller.interrupt();
+        caller.join(Duration.ofSeconds(5).toMillis());
+
+        // Assert
+        Assertions.assertAll(
+                () -> Assertions.assertFalse(caller.isAlive(), "send() should stop waiting once interrupted"),
+                () -> Assertions.assertEquals(StatusMessage.NETWORK_FAILURE_UNAVAILABLE.getCode(), status.get().getErrorCode()),
+                () -> Assertions.assertTrue(stillInterrupted.get())
+        );
+    }
+
+    // AI-assisted
+    @Test
+    void rejectsANegativeDelay() {
+        FakeConnection connection = new FakeConnection();
+
+        Assertions.assertThrows(IllegalArgumentException.class, () -> connection.setDelay(Duration.ofMillis(-1)));
     }
 }
