@@ -13,10 +13,10 @@ import javafx.stage.Stage;
 import lavs.data.CategoryConstantsLoader;
 import lavs.data.CategoryConstantStore;
 import lavs.data.ConstantsCache;
-import lavs.data.ConstantsLoadResult;
 import lavs.data.LocalDatabase;
 import lavs.data.LocalStoreException;
 import lavs.data.MainframeGateway;
+import lavs.logic.AuthService;
 import lavs.logic.ConstantsService;
 import lavs.logic.CustomerRelationshipService;
 import lavs.logic.CustomerService;
@@ -24,10 +24,10 @@ import lavs.logic.LoanRepaymentsService;
 import lavs.logic.LoanSaveResult;
 import lavs.logic.LoanService;
 import lavs.logic.LoanStatusService;
+import lavs.logic.LoginFlow;
 import lavs.model.Customer;
 import mainframe.client.Connection;
 import mainframe.client.HttpConnection;
-import mainframe.client.Status;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -73,16 +73,23 @@ public class LavsApp extends Application {
         TopBar topBar = new TopBar(new FixedStatusFeed(true, 0), Platform::runLater);
         MainWindow window = new MainWindow(navigator, topBar);
 
+        // one AuthService and one LoginFlow, sharing the Connection and the constants
+        AuthService authService = new AuthService(connection);
+        LoginFlow loginFlow = new LoginFlow(authService, constantsService);
+
         // Log out: forget the user and go back to a fresh login screen (no Back to the old screens)
         topBar.setOnLogOut(() -> {
-            connection.Logout();
+            authService.logout();
             topBar.setUserName(null);
             navigator.resetTo(Screen.LOGIN, null);
         });
 
         // Teammates register their screens here: navigator.register(Screen.X, parameter -> view).
         // Screens nobody has registered yet show a "Not built yet" placeholder.
-        navigator.register(Screen.LOGIN, parameter -> temporaryLogin(navigator, topBar, connection, constantsService, tasks));
+        navigator.register(Screen.LOGIN, parameter -> new LoginScreen(loginFlow, tasks, user -> {
+            topBar.setUserName(user);
+            navigator.resetTo(Screen.CUSTOMER_SEARCH, null);
+        }).create());
         LoanService loanService = new LoanService(connection);
         navigator.register(Screen.CUSTOMER_SEARCH, parameter -> temporaryCustomerSearch(navigator, loanService, tasks));
         new LoanScreens(new LoanScreenServices(loanService, new LoanRepaymentsService(connection),
@@ -92,6 +99,10 @@ public class LavsApp extends Application {
         new CustomerScreens(new CustomerScreenServices(new CustomerService(gateway, ORGANISATION),
                 new CustomerRelationshipService(connection), constantsService, tasks))
                 .register(navigator);
+        // developer only: with LAVS_DEMO=true (or -Dlavs.demo=true) start on the component gallery
+        if (DemoScreen.isEnabled()) {
+            navigator.register(Screen.LOGIN, parameter -> DemoScreen.create());
+        }
         navigator.start();
 
         stage.setTitle("LAVS");
@@ -99,57 +110,6 @@ public class LavsApp extends Application {
         scene.getStylesheets().add(LavsApp.class.getResource(STYLESHEET).toExternalForm());
         stage.setScene(scene);
         stage.show();
-    }
-
-    // TEMPORARY: swap this for the real login screen (US1, feature/us1-login). Until then this
-    // button signs in to the class server as admin, loads the dropdown values and goes to
-    // customer search.
-    private static Node temporaryLogin(Navigator navigator, TopBar topBar, Connection connection,
-                                       ConstantsService constantsService, BackgroundTasks tasks) {
-        Label label = new Label("Login screen: built in US1");
-        label.getStyleClass().add("lavs-page-title");
-        Label error = new Label();
-        Button continueButton = new Button("Continue (temporary)");
-        continueButton.getStyleClass().add("lavs-button-primary");
-        LoadingView loading = new LoadingView(LoadingState.forSave("Continue (temporary)", "Signing in..."), continueButton);
-        continueButton.setOnAction(event -> tasks.run(
-                () -> signIn(connection, constantsService),
-                loading::start,
-                message -> {
-                    loading.finish();
-                    if (message == null) {
-                        topBar.setUserName("admin");
-                        navigator.resetTo(Screen.CUSTOMER_SEARCH, null);
-                    } else {
-                        error.setText(message);
-                    }
-                },
-                failure -> {
-                    loading.finish();
-                    error.setText("Could not sign in: " + failure.getMessage());
-                }));
-        VBox box = new VBox(16, label, continueButton, error);
-        box.setAlignment(Pos.CENTER);
-        return box;
-    }
-
-    // Runs in the background. Returns null when signed in with the dropdown values loaded,
-    // otherwise the message to show.
-    private static String signIn(Connection connection, ConstantsService constantsService) {
-        try {
-            Status status = connection.Login("admin", "admin");
-            if (!status.getWasSuccessful()) {
-                return "Could not sign in: " + status.getErrorMessage();
-            }
-        } catch (IOException e) {
-            return "Could not reach the server: " + e.getMessage();
-        }
-        ConstantsLoadResult constants = constantsService.refresh();
-        // the values saved last run are good enough to carry on with
-        if (constants.getOutcome() != ConstantsLoadResult.Outcome.SUCCESS && !constantsService.isLoaded()) {
-            return "Could not load the dropdown values: " + constants.getMessage();
-        }
-        return null;
     }
 
     // TEMPORARY: swap this for the LocalDatabase Aum's SyncService uses once the services are
